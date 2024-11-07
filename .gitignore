@@ -22,7 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+.VSCodeCounter/*
 
 # Binaries for programs and plugins
 *.exe
