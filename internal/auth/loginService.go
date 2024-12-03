@@ -22,7 +22,7 @@ func NewLoginService(userRepo user.UserRepository) *LoginService{
 func (s *LoginService) Login(ctx context.Context, username, password string) (*user.User, error) {
     user, err := s.userRepo.FindByUsername(ctx, username)
     if err != nil {
-        return nil, errors.New("Invalid Username or Password")
+        return nil, errors.New("invalid username or password")
     }
 
 	if user == nil {

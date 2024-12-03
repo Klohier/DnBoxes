@@ -48,7 +48,7 @@ func (repo *PgUserRepository) FindByID(ctx context.Context, id int) (*User, erro
 	query := `SELECT username FROM users WHERE user_id = $1`
 	err := repo.db.QueryRow(ctx, query, id).Scan(&user.Username)
 	if err !=nil {
-		return nil, fmt.Errorf("Failed to Find User %d : %w", id, err)
+		return nil, fmt.Errorf("failed to find user %d : %w", id, err)
 	}
 	return &user, nil
 }
@@ -68,8 +68,8 @@ func (repo *PgUserRepository) Create(ctx context.Context, username string, passw
 
 func (repo *PgUserRepository) FindByUsername(ctx context.Context, username string) (*User, error){
 	var user User
-	query := `SELECT username, password FROM users WHERE username = $1`
-	err := repo.db.QueryRow(ctx, query, username).Scan(&user.Username, &user.Password)
+	query := `SELECT username, password, user_id FROM users WHERE username = $1`
+	err := repo.db.QueryRow(ctx, query, username).Scan(&user.Username, &user.Password, &user.UserID)
 
 	if err != nil {
 	if err == pgx.ErrNoRows {
@@ -78,7 +78,7 @@ func (repo *PgUserRepository) FindByUsername(ctx context.Context, username strin
 
 	
 		// log.Printf("Error checking username uniqueness: %v", err)
-		return nil, errors.New("Failed to Check Username Uniqueness")
+		return nil, errors.New("failed to check username uniqueness")
 	}
 
 	return &user, nil

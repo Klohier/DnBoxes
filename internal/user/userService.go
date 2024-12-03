@@ -20,7 +20,7 @@ func NewUserService(userRepo UserRepository) *UserService{
 
 func (s *UserService) CreateUser(ctx context.Context, username string, password string) (*User, error){
 	if username == "" || password == "" {
-		return nil, errors.New("Username or Password cannot be empty")
+		return nil, errors.New("username or password cannot be empty")
 	}
 
 	taken, err := s.userRepo.UserExists(ctx, username)
@@ -28,7 +28,7 @@ func (s *UserService) CreateUser(ctx context.Context, username string, password 
         return nil, err
     }
     if taken {
-        return nil, errors.New("Username is Taken")
+        return nil, errors.New("username is taken")
     }
 
 	// Hashes Password From User
