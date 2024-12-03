@@ -1,0 +1,1009 @@
+openapi: "3.0.0"
+info:
+  description: API for Dots and Boxes Server
+  title: DnBoxes
+  version: v1
+servers:
+  - url: 127.0.0.1:8484
+    description: DnB backend server
+paths:
+  /api/v1/users/{userId}:
+    get:
+      summary: Get a user by ID
+      parameters:
+      - in: path
+        name: userId
+        schema:
+          type: string
+        required: true
+        description: UUID of the user to get
+      tags:
+      - User
+        
+      responses:
+        '200':
+          description: A User Object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The user UUID
+                  username:
+                    type: string
+                    description: The username
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: User Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "User cannot be found"
+        '401':
+          description: User Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+                    
+  /api/v1/users:
+    post:
+      summary: Create a new User
+      tags:
+      - User
+      requestBody:
+        description: Values for making a new User
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "Jenkins"
+                  description: Unique username for the user.
+             
+                password:
+                  type: string
+                  format: password
+                  example: "e59a0d250a4449"
+                  description: Password for the user.
+      responses:
+        '201':
+          description: User Created Successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: The user UUID
+                  username:
+                    type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+    get:
+      summary: Get all users
+      tags:
+      - User
+      responses:
+        '200':
+          description: All Users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                          format: uuid
+                        username:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Users Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Users cannot be found"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+                      
+  /api/v1/games:
+    post:
+      summary: Creates a new Game Lobby
+      tags:
+      - Game
+      requestBody:
+        description: Values for creating a game
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - players
+              - board_size
+              properties:
+                players:
+                    type: array
+                    items:
+                      type: string
+                      description: The Players in the game
+                    example: 
+                    - "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                board_size:
+                  type: integer
+                  example: 5
+                
+              
+      responses:
+        '201':
+          description: Created Game Lobby
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+    get:
+      summary: Get All Games
+      tags:
+      - Game
+      responses:
+        '200':
+          description: All Games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        gameId:
+                          type: integer
+                        players:
+                          type: array
+                          items:
+                            type: string
+                            description: The Players in the game
+                            example: 
+                            - "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Games Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Games cannot be found"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+                        
+  /api/v1/games/{gameId}:
+    get:
+      summary: Get a game by ID
+      tags:
+      - Game
+      parameters:
+      - in: path
+        name: gameId
+        schema:
+          type: integer
+        required: true
+        description: ID of game to get
+      responses:
+        '200':
+          description: A Game Object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id:
+                    type: integer
+                    description: The id of the game
+                  players:
+                    type: array
+                    items:
+                      type: string
+                      description: The Players in the game
+                    example: 
+                    - "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    - "e59a617b-50dc-492d-9eee-2c0e150a4449"
+                  boxes:
+                    type: array
+                    description: The current state of the boxes and their edges.
+                    items:
+                      type: object
+                      properties:
+                        boxId:
+                          type: integer
+                          description: Box being being selected in game board
+                        row:
+                          type: integer
+                          description: row of the box
+                          example: 0
+                        col:
+                          type: integer
+                          description: col of the box.
+                          example: 0
+                        top_edge:
+                          type: boolean
+                          description: Whether the top edge of the box has been drawn.
+                        
+                        right_edge:
+                          type: boolean
+                          description: Whether the right edge of the box has been drawn.
+                        
+                        bottom_edge:
+                          type: boolean
+                          description: Whether the bottom edge of the box has been drawn.
+                        
+                        left_edge:
+                          type: boolean
+                          description: Whether the left edge of the box has been drawn.
+                       
+                        completed_by:
+                          type: string
+                          format: uuid
+                          description: Player Id of who completed square
+                          
+                  currentTurn:
+                    type: string
+                    format: uuid
+                    description: The player ID of the current player whose turn it is.
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Game cannot be found"
+                    
+                    
+  /api/v1/games/{gameId}/players:
+    post:
+      summary: Joins a game by Id
+      tags:
+      - Game
+      parameters:
+      - in: path
+        name: gameId
+        schema:
+          type: integer
+        required: true
+        description: ID of game to get
+      requestBody:
+        description: Value for joining a game
+        required: true
+        content:
+          applicaiton/json:
+            schema:
+              type: object
+              required:
+              - userId
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Successful Join
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id:
+                    type: integer
+                    description: The id of the game
+                  players:
+                    type: array
+                    items:
+                      type: string
+                      description: The Players in the game
+                    example: 
+                    - "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    - "e59a617b-50dc-492d-9eee-2c0e150a4449"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "User cannot be found"
+        '401':
+          description:  Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"            
+                
+  /api/v1/games/{gameId}/end:
+    post:
+      summary: End a Game
+      tags:
+      - Game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: The ID of the game to end
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                winnerId:
+                  type: string
+                  format: uuid
+                
+      responses:
+        '200':
+          description: Game ended successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  winnerId:
+                    type: string
+                    format: uuid          
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Game cannot be found"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+                    
+  /api/v1/games/{gameId}/start:
+    post:
+      summary: Start a Game
+      tags:
+      - Game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: The ID of the game to start
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Game started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Game Started"          
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Game cannot be found"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+                    
+  /api/v1/games/{gameId}/moves:
+    post:
+      summary: Make a move on the board
+      tags:
+      - Game
+      parameters:
+      - in: path
+        name: gameId
+        schema:
+          type: integer
+        required: true
+        description: ID of game to get
+      requestBody:
+        description: Values for making a move
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - playerId
+                - row
+                - col
+                - position
+              properties:
+                playerId:
+                  type: string
+                  format: uuid
+                  description: UUID of the user who makes move.
+             
+                row:
+                  type: integer
+                  description: Which row the box is.
+                col:
+                  type: integer
+                  description: Which col the box is.
+                position:
+                  type: string
+                  description: Which edge the move is selecting
+                  example: "top_edge"
+      responses:
+        '200':
+          description: Successful Move
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id:
+                    type: integer
+                    description: The id of the game
+                  players:
+                    type: array
+                    items:
+                      type: string
+                      description: The Players in the game
+                    example: 
+                    - "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    - "e59a617b-50dc-492d-9eee-2c0e150a4449"
+                  boxes:
+                    type: array
+                    description: The current state of the boxes and their edges.
+                    items:
+                      type: object
+                      properties:
+                        boxId:
+                          type: integer
+                          description: Box being being selected in game board
+                        row:
+                          type: integer
+                          description: row of the box
+                          example: 0
+                        col:
+                          type: integer
+                          description: col of the box.
+                          example: 0
+                        top_edge:
+                          type: boolean
+                          description: Whether the top edge of the box has been drawn.
+                        
+                        right_edge:
+                          type: boolean
+                          description: Whether the right edge of the box has been drawn.
+                        
+                        bottom_edge:
+                          type: boolean
+                          description: Whether the bottom edge of the box has been drawn.
+                        
+                        left_edge:
+                          type: boolean
+                          description: Whether the left edge of the box has been drawn.
+                       
+                        completed_by:
+                          type: string
+                          format: uuid
+                          description: Player Id of who completed square
+                          
+                  currentTurn:
+                    type: string
+                    format: uuid
+                    description: The player ID of the current player whose turn it is.
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Game cannot be found"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+                    
+  /api/v1/games/{gameId}/chat:
+    post:
+      summary: Send a message to chat in selected game
+      tags:
+      - Chat
+      parameters:
+      - in: path
+        name: gameId
+        schema:
+          type: integer
+        required: true
+        description: Id of game to get
+      requestBody:
+        description: Message to send
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - message
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: UUID of user who makes chat
+                message:
+                  type: string
+                  description: text of message
+                  example: "Hello World"
+                
+      responses:
+        '200':
+          description: Sent Message
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message_id
+                  - user_id
+                  - message
+                  - timestamp
+                properties:
+                  message_id:
+                    type: integer
+                    description: message id
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: UUID of user who makes chat
+                  message:
+                    type: string
+                    description: text of message
+                    example: "Hello World"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: timestamp of message
+    get:
+      summary: Get All chats in selected game
+      tags:
+      - Chat
+      parameters:
+      - in: path
+        name: gameId
+        schema:
+          type: integer
+        required: true
+        description: Id of game to get
+      responses:
+        '200':
+          description: All Messages in Chat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - messages
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        messageId:
+                          type: integer
+                          
+                        userId:
+                          type: string
+                          format: uuid
+                        username:
+                          type: string
+
+                        message:
+                          type: string
+                          example: "Hello World"
+                        timestamp:
+                          type: string
+                          format: date-time
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Game cannot be found"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"                  
+                        
+  /api/v1/chat:
+    post:
+      summary: Send a message to chat in lobby
+      tags:
+      - Chat
+      requestBody:
+        description: Message to send
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - message
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: UUID of user who makes chat
+                message:
+                  type: string
+                  description: text of message
+                  example: "Hello World"
+                
+      responses:
+        '200':
+          description: Sent Message
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message_id
+                  - user_id
+                  - message
+                  - timestamp
+                properties:
+                  message_id:
+                    type: integer
+                    description: message id
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: UUID of user who makes chat
+                  message:
+                    type: string
+                    description: text of message
+                    example: "Hello World"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: timestamp of message
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+    get:
+      summary: Get All chats in lobby
+      tags:
+      - Chat
+      responses:
+        '200':
+          description: All Messages in Chat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - messages
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        messageId:
+                          type: integer
+                          
+                        userId:
+                          type: string
+                          format: uuid
+                        username:
+                          type: string
+
+                        message:
+                          type: string
+                          example: "Hello World"
+                        timestamp:
+                          type: string
+                          format: date-time
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "The Request was Invalid"
+        '401':
+          description: Not Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: "Failed to be Authenticated"
+  /api/v1/login:
+    post:
+      description: 'Login to system'
+      parameters: []
+      responses:
+        '200':
+          description: OK
