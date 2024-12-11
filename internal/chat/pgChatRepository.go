@@ -35,9 +35,56 @@ fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, gameID=%v\n", userID, m
 }
 
 
-func (repo *PgChatRepository) GetAllMessage(ctx context.Context, gameID *int) ([]Message, error){
-	return nil, nil
+func (repo *PgChatRepository) GetAllMessage(ctx context.Context) ([]Message, error){
+	var messages []Message
+	
+
+
+	query := `SELECT message, timestamp FROM chats WHERE game_id IS NULL`
+
+
+	rows, err := repo.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var message Message
+		if err := rows.Scan(&message.Message, &message.TimeStamp); err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return messages, nil
 }
 
+func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID *int) ([]Message, error){
+	var messages []Message
+	
+   
+	query := `SELECT message, timestamp FROM chats WHERE game_id = $1`
 
+	
+	rows, err := repo.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var message Message
+		if err := rows.Scan(&message.Message, &message.TimeStamp); err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return messages, nil
+}
 
