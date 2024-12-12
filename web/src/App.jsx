@@ -1,27 +1,60 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./App.css";
-import AuthForm from "./AuthForm";
-// import Button from "react-bootstrap/Button";
-// import Form from "react-bootstrap/Form";
-
-// function App() {
-//   const [count, setCount] = useState(0);
-
-//   return (
-//     <>
-//       <div>
-//         <h1>Hello Worlds</h1>
-//       </div>
-//     </>
-//   );
-// }
-
-// export default App;
+// import ChatBox from "./components/ChatBox"; // Path to the SvgGrid component
+import Grid from "./components/SvgGrid";
+// import { NavLink } from "react-router";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { UserProvider } from "./UserContext"; // Import the UserProvider
+import { WebSocketProvider } from "./WebSocketContext";
+import Game from "./pages/Game";
+// import ProtectedRoute from "./ProtectedRoutes";
+import Home from "./pages/Home";
+import Register from "./pages/Registration";
+import Login from "./pages/Login";
 
 function App() {
-  return <AuthForm></AuthForm>;
+  return (
+    <div>
+      <BrowserRouter>
+        <UserProvider>
+          <Routes>
+            <Route path="/" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/Home"
+              element={
+                // <ProtectedRoute>
+                <WebSocketProvider>
+                  <Home />
+                </WebSocketProvider>
+                // </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/Grid"
+              element={
+                // <ProtectedRoute>
+                <WebSocketProvider>
+                  <Grid />
+                </WebSocketProvider>
+                // </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/game/:gameID"
+              element={
+                // <ProtectedRoute>
+                <WebSocketProvider>
+                  <Game />
+                </WebSocketProvider>
+                // </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </UserProvider>
+      </BrowserRouter>
+    </div>
+  );
 }
 
 export default App;

@@ -11,4 +11,8 @@ type GameRepository interface {
 	GetGrids(ctx context.Context, gameId int) ([]Box, error)
 	UpdateGrid(ctx context.Context, gameId int, row int, col int, edge string) ([]Box, error)
 	IsEdgeSelected(ctx context.Context, gameId int, row int, col int, edge string) (bool, error)
+	SetBoxCompleted(ctx context.Context, gameId int, row int, col int, playerId int) error
+	GetBoxByRowCol(ctx context.Context, gameId int, row int, col int) (*Box, error)
+	UpdateTurn(ctx context.Context, gameId int, userID int) error
+	SetWinner(ctx context.Context, gameId int, winnerId int) error
 }

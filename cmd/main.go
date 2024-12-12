@@ -4,8 +4,10 @@ import (
 	"context"
 	"dango/internal/auth"
 	"dango/internal/chat"
+	"dango/internal/websocket"
 	"fmt"
 
+	"dango/internal/game"
 	"dango/internal/user"
 
 	"dango/web"
@@ -94,8 +96,9 @@ func main() {
 	//SETUP CORS
 
 	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-        AllowOrigins: []string{"*"},
+        AllowOrigins: []string{"http://localhost:5173"},
         AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowCredentials: true,
     }))
 
 	// CREATE Services and Handlers     (Must be a way to do this better?)
@@ -107,6 +110,27 @@ func main() {
 	chatRepo := chat.NewPgChatRepository(db)
 	chatService := chat.NewChatService(chatRepo)
 	chatHandler := chat.NewChatHandler(chatService)
+	gameRepo := game.NewPgGameRepository(db)
+	gameService := game.NewGameService(gameRepo)
+	gameHandler := game.NewGameHandler(gameService)
+
+	manager := websocket.NewManager(gameService, userService, chatService)
+
+	// messageRouter := websocket.NewMessageRouter()
+
+	// Register handlers for different message types.
+	// messageRouter.RegisterHandler("chat", chatService.HandleChatMessage)
+	// messageRouter.RegisterHandler("invite", gameService.HandleGameInvite)
+	// messageRouter.RegisterHandler("move", gameService.HandleGameMove)
+	
+	// Create the WebSocketHandler with the router.
+	// websocketHandler := websocket.NewWebSocketHandler(messageRouter)
+	
+	// Register WebSocket endpoint.
+	
+
+	
+
 
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")
@@ -114,28 +138,28 @@ func main() {
 
 
 
-
+api.GET("/ws", manager.ServeWs)
 	//Users
-	api.GET("/users/:userId" , nil)
+	api.GET("/users/:userId" , userHandler.FindByID)
 	api.POST("/users", userHandler.CreateUser)
 	api.GET("/users", userHandler.GetAllUsers)
 
 	api.POST("/login", loginHandler.Login)
 
 	//Game
-	api.POST("/games", nil)
+	api.POST("/games", gameHandler.CreateGame)
 	api.GET("/games", nil)
-	api.GET("/games/:gameId", nil)
-	
-	
+	api.GET("/games/:gameId/grid", gameHandler.GetGrids)
+	api.POST("/games/:gameId/move", gameHandler.MakeMove)
+
 	//Chat
-	api.POST("/chat", nil)
-	api.GET("/chat", chatHandler.ServeWs)
-	api.GET("/games/:gameId/chat", nil)
+	api.GET("/chat", chatHandler.GetAllMessage)
+	// api.GET("/chathistory", chatHandler.GetChatHistory)
+	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
 	api.POST("/games/:gameId/chat", nil)
 
 	
 	
-	app.Start(fmt.Sprintf(":%s", port))
+	app.Start(fmt.Sprintf("0.0.0.0:%s", port))
 	logger.Info("Server Started")
 }

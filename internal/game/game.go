@@ -5,7 +5,7 @@ package game
 
 type Game struct {
 
-	GameId int
+	GameId *int
 	Player1 int
 	Player2 int
 	BoardSize int
@@ -17,12 +17,13 @@ type Game struct {
 type Box struct {
 	BoxId int
 	GameId int
-	TopEdge bool
-	LeftEdge bool
-	RightEdge bool
-	BottomEdge bool
+	TopEdge bool `json:"top_edge"`
+	LeftEdge bool `json:"left_edge"`
+	RightEdge bool `json:"right_edge"`
+	BottomEdge bool `json:"bottom_edge"`
 	Row int
 	Col int
-	Completed *bool
-	Completed_by *int
+	Completed *bool `json:"completed"`
+	Completed_by *int`json:"completed_by"` 
+	
 }

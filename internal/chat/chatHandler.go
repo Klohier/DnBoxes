@@ -1,24 +1,18 @@
 package chat
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"log"
+
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
+	"strconv"
 
-	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
 
-
-type ChatHandler struct {
-    chatService *ChatService
-	logger *slog.Logger
-}
-//  
+//
 func NewChatHandler(chatService *ChatService) *ChatHandler{
 	return &ChatHandler{
 	chatService: chatService,	
@@ -27,63 +21,38 @@ func NewChatHandler(chatService *ChatService) *ChatHandler{
 
 
 
-   var clients = make(map[*websocket.Conn]struct{})
-
-
-
-// Upgrades Handle into a WebSocket Handle and Starts goroutine for handling clients
-func (h *ChatHandler) ServeWs(c echo.Context) error {
-
-	var upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
-   }
-
-	ctx := context.Background()
-    conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
-    if err != nil {
-        fmt.Println("Upgrade error:", err)
-        return err
-    }
-
-	go h.handleClient(ctx, conn)
-    // defer conn.Close()
-
-	return err
-
-}
-
-
-func (h *ChatHandler) handleClient(ctx context.Context,c *websocket.Conn){
-	defer func() {
-		delete(clients, c)
-		log.Println("Closing websocket")
-		c.Close()
-	}()
-	clients[c] = struct{}{}
-
-	// Infinite loop that sends message to all clients
-	//Binds incoming Message into Message Struct and sets timestamp
-	for {
-		var msg Message
-		err := c.ReadJSON(&msg)
-		if err != nil {
-			log.Printf("Error reading Message: %v", err)
-			return
-		}
-		msg.TimeStamp = time.Now().UTC()
-		err = h.chatService.SendMessage(ctx, msg)
-		if err != nil {
-            log.Printf("Error sending message: %v", err)
-            return
-        }
-		broadcast(msg)
+// GetAllMessagesHandler handles the request to get all messages
+func (h *ChatHandler) GetAllMessage(c echo.Context) error {
+	// Call GetAllMessage from ChatService
+	messages, err := h.chatService.GetAllMessage(c.Request().Context())
+	if err != nil {
+		// If there's an error, return a server error response
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to get messages: %v", err),
+		})
 	}
 
+	// Return the list of messages in the response
+	return c.JSON(http.StatusOK, messages)
 }
 
-// Sends Message to Clients
-func broadcast(msg Message) {
-    for conn := range clients {
-        conn.WriteJSON(msg)
-    }
+func (h *ChatHandler) GetAllGameMessage(c echo.Context) error {
+
+	gameId, err := strconv.Atoi(c.Param("gameId"))
+	if err != nil {
+		// Handle the error (e.g., return a bad request response)
+		return c.JSON(http.StatusBadRequest, errors.New("invalid game id"))
+}
+
+	// Call GetAllMessage from ChatService
+	messages, err := h.chatService.GetAllGameMessage(c.Request().Context(), gameId)
+	if err != nil {
+		// If there's an error, return a server error response
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to get messages: %v", err),
+		})
+	}
+
+	// Return the list of messages in the response
+	return c.JSON(http.StatusOK, messages)
 }

@@ -10,4 +10,5 @@ type UserRepository interface {
 	Create(ctx context.Context, username string, password string) (*User, error)
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	UserExists(ctx context.Context, username string) (bool, error)
+	UpdateGameID(ctx context.Context, userID int, gameID *int) (*User, error)
 }

@@ -40,7 +40,14 @@ func (repo *PgChatRepository) GetAllMessage(ctx context.Context) ([]Message, err
 	
 
 
-	query := `SELECT message, timestamp FROM chats WHERE game_id IS NULL`
+	query := `
+		SELECT c.message, c.timestamp, u.username, u.user_id
+		FROM chats c
+		LEFT JOIN users u ON c.user_id = u.user_id
+		WHERE c.game_id IS NULL
+		AND c.timestamp >= NOW() - INTERVAL '5 minutes'
+		ORDER BY c.timestamp ASC
+	`
 
 
 	rows, err := repo.db.Query(ctx, query)
@@ -51,7 +58,7 @@ func (repo *PgChatRepository) GetAllMessage(ctx context.Context) ([]Message, err
 
 	for rows.Next() {
 		var message Message
-		if err := rows.Scan(&message.Message, &message.TimeStamp); err != nil {
+		if err := rows.Scan(&message.Message, &message.TimeStamp, &message.Username, &message.UserID); err != nil {
 			return nil, err
 		}
 		messages = append(messages, message)
@@ -62,14 +69,19 @@ func (repo *PgChatRepository) GetAllMessage(ctx context.Context) ([]Message, err
 	return messages, nil
 }
 
-func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID *int) ([]Message, error){
+func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID int) ([]Message, error){
 	var messages []Message
 	
    
-	query := `SELECT message, timestamp FROM chats WHERE game_id = $1`
-
-	
-	rows, err := repo.db.Query(ctx, query)
+	query := `
+		SELECT c.message, c.timestamp, u.username, u.user_id
+		FROM chats c
+		LEFT JOIN users u ON c.user_id = u.user_id
+		WHERE c.game_id = $1
+		AND c.timestamp >= NOW() - INTERVAL '5 minutes'
+		ORDER BY c.timestamp ASC
+	`
+	rows, err := repo.db.Query(ctx, query, gameID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +89,7 @@ func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID *int) (
 
 	for rows.Next() {
 		var message Message
-		if err := rows.Scan(&message.Message, &message.TimeStamp); err != nil {
+		if err := rows.Scan(&message.Message, &message.TimeStamp, &message.Username, &message.UserID); err != nil {
 			return nil, err
 		}
 		messages = append(messages, message)

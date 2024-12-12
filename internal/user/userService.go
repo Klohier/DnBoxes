@@ -18,6 +18,18 @@ func NewUserService(userRepo UserRepository) *UserService{
 	}
 }
 
+
+func (s *UserService) FindByID(ctx context.Context, userId int) (*User, error) {
+	user, err := s.userRepo.FindByID(ctx, userId)
+	if err != nil {
+        return nil, err
+    }
+
+	return user, nil
+
+}
+
+
 func (s *UserService) CreateUser(ctx context.Context, username string, password string) (*User, error){
 	if username == "" || password == "" {
 		return nil, errors.New("username or password cannot be empty")
@@ -43,5 +55,14 @@ func (s *UserService) CreateUser(ctx context.Context, username string, password 
         return nil, errors.New("Failed to Create User" + err.Error())
     }
 	return newUser, nil
+}
+
+func (s *UserService) UpdateGameID(ctx context.Context, userId int , gameId *int) (*User, error){
+	user, err := s.userRepo.UpdateGameID(ctx, userId, gameId)
+	if err != nil {
+        return nil, err
+    }
+
+	return user, nil
 }
 

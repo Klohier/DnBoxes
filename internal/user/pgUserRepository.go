@@ -22,7 +22,7 @@ func NewPgUserRepository(db *pgxpool.Pool) *PgUserRepository{
 func (repo *PgUserRepository) FindAll( ctx context.Context) ([]User, error){
 	var users []User
 
-	query := `SELECT user_id, username FROM users`
+	query := `SELECT user_id, username, game_id FROM users`
 	rows, err := repo.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (repo *PgUserRepository) FindAll( ctx context.Context) ([]User, error){
 
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.UserID, &user.Username); err != nil {
+		if err := rows.Scan(&user.UserID, &user.Username, &user.GameID); err != nil {
 			return nil, err
 	}
 	users = append(users, user)
@@ -45,8 +45,8 @@ func (repo *PgUserRepository) FindAll( ctx context.Context) ([]User, error){
 	
 func (repo *PgUserRepository) FindByID(ctx context.Context, id int) (*User, error){
 	var user User
-	query := `SELECT username FROM users WHERE user_id = $1`
-	err := repo.db.QueryRow(ctx, query, id).Scan(&user.Username)
+	query := `SELECT user_id, username, game_id FROM users WHERE user_id = $1`
+	err := repo.db.QueryRow(ctx, query, id).Scan(&user.UserID,&user.Username, &user.GameID)
 	if err !=nil {
 		return nil, fmt.Errorf("failed to find user %d : %w", id, err)
 	}
@@ -68,8 +68,8 @@ func (repo *PgUserRepository) Create(ctx context.Context, username string, passw
 
 func (repo *PgUserRepository) FindByUsername(ctx context.Context, username string) (*User, error){
 	var user User
-	query := `SELECT username, password, user_id FROM users WHERE username = $1`
-	err := repo.db.QueryRow(ctx, query, username).Scan(&user.Username, &user.Password, &user.UserID)
+	query := `SELECT username, password, user_id, game_id FROM users WHERE username = $1`
+	err := repo.db.QueryRow(ctx, query, username).Scan(&user.Username, &user.Password, &user.UserID, &user.GameID)
 
 	if err != nil {
 	if err == pgx.ErrNoRows {
@@ -92,4 +92,20 @@ func (repo *PgUserRepository) UserExists(ctx context.Context, username string) (
         return false, err
     }
     return user != nil, nil
+}
+
+func (repo *PgUserRepository) UpdateGameID(ctx context.Context, userID int, gameID *int) (*User, error) {
+    query := `UPDATE users SET game_id = $1 WHERE user_id = $2`
+    _, err := repo.db.Exec(ctx, query,gameID, userID)
+    if err != nil {
+        return nil, errors.New("failed to update user")
+    }
+
+	user, err := repo.FindByID(ctx, userID)
+	if err != nil {
+        return nil, errors.New("failed to get updated user after updating gameID: " + err.Error())
+    }
+
+	return user, nil
+
 }

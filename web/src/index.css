@@ -46,7 +46,7 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #3060f0;
   cursor: pointer;
   transition: border-color 0.25s;
 }
@@ -56,6 +56,19 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+input {
+  color: #f9f9f9;
+  background-color: #213547;
+}
+line.inactive {
+  stroke: lightgray; /* Light gray for inactive edges */
+}
+
+/* Active line color (clicked state) */
+line.active {
+  stroke: black; /* Black for active edges */
 }
 
 @media (prefers-color-scheme: light) {

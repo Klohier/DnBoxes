@@ -1,9 +1,11 @@
 package user
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -16,6 +18,7 @@ type UserHandler struct {
 type UserResponse struct {
 	UserID int `json:"userID"`
     Username string `json:"username" validate:"required"`
+	GameID *int `json:"gameID"`
 }
 
 
@@ -23,6 +26,7 @@ func NewUserResponse(user *User) *UserResponse {
 	return &UserResponse{
 		UserID: user.UserID,
 		Username: user.Username,
+		GameID: user.GameID,
 	}
 }
 
@@ -60,6 +64,26 @@ func(h *UserHandler) CreateUser(c echo.Context) error {
 	userResponse := NewUserResponse(user)
 	
 	return c.JSON(http.StatusCreated, userResponse)
+}
+
+func (h *UserHandler) FindByID(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	id, err := strconv.Atoi(c.Param("userId"))
+	if err != nil {
+		// Handle the error (e.g., return a bad request response)
+		return c.JSON(http.StatusBadRequest, errors.New("invalid User ID"))
+}
+
+	user, err := h.userService.FindByID(ctx, id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: " + err.Error())
+	}
+
+	UserResponse := NewUserResponse(user)
+
+	return c.JSON(http.StatusOK, UserResponse)
+
 }
 
 

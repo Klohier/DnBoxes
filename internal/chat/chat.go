@@ -2,9 +2,11 @@ package chat
 
 import (
 	// "dango/internal/user"
+	"log/slog"
 	"time"
 )
 
+//Message
 type Message struct {
 	UserID int `json:"userID"`
 	Username string `json:"username"`
@@ -13,3 +15,8 @@ type Message struct {
 	TimeStamp time.Time
 }
 
+
+type ChatHandler struct {
+    chatService *ChatService
+	logger *slog.Logger
+}
