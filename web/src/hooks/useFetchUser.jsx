@@ -1,0 +1,39 @@
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { useAuth } from "../AuthContext";
+
+const useFetchUser = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { isAuthenticated, token } = useAuth();
+
+  useEffect(() => {
+    console.log("useEffect triggered:", { isAuthenticated, token });
+    if (isAuthenticated && token) {
+      const decodedToken = atob(token);
+      const tokenParts = decodedToken.split("|");
+
+      const userId = String(tokenParts[0]);
+
+      console.log("Fetching user with ID:", userId);
+      axios
+        .get(`http://localhost:8484/api/v1/users/${userId}`)
+        .then((response) => {
+          setUser(response.data);
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching user data:", error);
+          setLoading(false);
+          setError(error);
+        });
+    } else {
+      setLoading(false);
+      setUser(null);
+    }
+  }, [isAuthenticated, token]);
+  return { user, loading, error };
+};
+
+export default useFetchUser;
