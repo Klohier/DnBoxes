@@ -1,15 +1,20 @@
-// import { Navigate } from "react-router-dom";
-// import { useUser } from "./UserContext";
+import { Navigate } from "react-router-dom";
+import { useUser } from "./UserContext";
 
 // // eslint-disable-next-line react/prop-types
-// // const ProtectedRoute = ({ children }) => {
-// //   const { user } = useUser();
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useUser();
 
-// // //   if (!user) {
-// // //     return <Navigate to="/" />;
-// // //   }
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
-// // //   return children;
-// // // };
+  if (!user) {
+    console.log("Not Authorized");
+    return <Navigate to="/" />;
+  }
 
-// // export default ProtectedRoute;
+  return children;
+};
+
+export default ProtectedRoute;
