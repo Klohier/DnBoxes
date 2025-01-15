@@ -1,55 +1,49 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import Cookies from "js-cookie";
-import { useUser } from "../UserContext"; // Import the useUser hook
-
+import { useAuth } from "../AuthContext";
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { loginUser } = useUser(); // Get the loginUser function from context
+  const { login, token } = useAuth();
 
   useEffect(() => {
-    const token = Cookies.get("DnB-Session"); // Retrieve session token from cookies
     if (token) {
       // If a session token exists, redirect to home page
       navigate("/home");
     }
-  }, [navigate]);
+  }, [navigate, token]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
+    setError("");
 
     try {
-      // Create form data in x-www-form-urlencoded format
       const formData = new URLSearchParams();
       formData.append("username", username);
       formData.append("password", password);
 
-      // Make a POST request to your API
-      const response = await axios.post(
-        "http://localhost:8484/api/v1/login",
-        formData,
-        {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded", // Specify the correct content type
-          },
-          withCredentials: true, // Include cookies if needed
-        }
-      );
+      await login(formData);
+      //   const response = await axios.post(
+      //     "http://localhost:8484/api/v1/login",
+      //     formData,
+      //     {
+      //       headers: {
+      //         "Content-Type": "application/x-www-form-urlencoded",
+      //       },
+      //       withCredentials: true,
+      //     }
+      //   );
 
-      if (response.status === 200) {
-        // Redirect to the home page
-        loginUser(response.data);
-        navigate("/home");
-      } else {
-        setError("Invalid username or password");
-      }
+      //   if (response.status === 200) {
+      //     loginUser(response.data);
+      //     navigate("/home");
+      //   } else {
+      //     setError("Invalid username or password");
+      //   }
     } catch (err) {
-      console.error("Login error:", err);
+      console.log("Login error:", err);
       setError("Failed to log in. Please try again.");
     }
   };
@@ -81,8 +75,8 @@ const Login = () => {
         </div>
         {error && <div style={{ color: "red" }}>{error}</div>}
         <button type="submit">Login</button>
-        <button onClick={handleRegister}>Register</button>
       </form>
+      <button onClick={handleRegister}>Sign Up</button>
     </div>
   );
 };
