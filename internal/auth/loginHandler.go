@@ -53,13 +53,7 @@ user, err := h.loginService.Login(ctx, username, password)
 	
 	cookie.Value = sessionToken
 	c.SetCookie(cookie)
-	// TODO Assin a generated token to user and send back to client
-
-	// session, err := c.Cookie("DnB-Session")
-	// if err != nil || session.Value == "" || session.Value != sessionToken  {
-	// 	return echo.NewHTTPError(http.StatusUnauthorized, "Could Not Login User: " + err.Error())	
-		
-	// }
+	
 	h.logger.Info(sessionToken)
 	// csrf := c.Request().Header.Get("X-CSRF-TOKEN")
 	// if csrf != user.CSRF || "" {

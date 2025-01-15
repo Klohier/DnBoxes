@@ -2,42 +2,37 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Cookies from "js-cookie";
-import { useUser } from "../UserContext"; // Import the useUser hook
+import { useUser } from "../UserContext";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { loginUser } = useUser(); // Get the loginUser function from context
-
-  useEffect(() => {
-    const token = Cookies.get("DnB-Session"); // Retrieve session token from cookies
-    if (token) {
-      // If a session token exists, redirect to home page
-      navigate("/home");
-    }
-  }, [navigate]);
+  const { loginUser } = useUser();
+  // useEffect(() => {
+  //   const token = Cookies.get("DnB-Session");
+  //   if (token) {
+  //     navigate("/home");
+  //   }
+  // }, [navigate]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
-
+    setError("");
     try {
-      // Create form data in x-www-form-urlencoded format
       const formData = new URLSearchParams();
       formData.append("username", username);
       formData.append("password", password);
 
-      // Make a POST request to your API
       const response = await axios.post(
-        "http://localhost:8484/api/v1/users", // Adjust this URL to your registration endpoint
+        "http://localhost:8484/api/v1/users",
         formData,
         {
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded", // Specify the correct content type
+            "Content-Type": "application/x-www-form-urlencoded",
           },
-          withCredentials: true, // Include cookies if needed
+          withCredentials: true,
         }
       );
 
