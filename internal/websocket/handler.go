@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	// "context"
 	"dango/internal/chat"
 	"dango/internal/game"
 	"dango/internal/user"
@@ -10,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,10 +19,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Upgrader configures the WebSocket connection.
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		// Allow all origins (consider restricting in production)
 		return true
 	},
 }
@@ -56,7 +54,7 @@ func NewManager(GameService *game.GameService, UserService *user.UserService, Ch
 //setupEventHandlers is where we add different Events
 func (m *Manager) setupEventHandlers() {
 	m.handlers[EventSendMessage] = SendMessageHandler
-	// m.handlers[EventSendBoxUpdate] = SendBoxHandler
+
 	m.handlers[EventGetGrids] = GetGridsHandler
 	m.handlers[EventGetPlayers] = GetPlayersHandler
 	m.handlers[EventSendInvite] = SendInviteHandler
@@ -82,18 +80,17 @@ func (m *Manager) routeEvent(event Event, c *Connection) error {
 
 // ServeWs handles WebSocket connections.
 func (m *Manager) ServeWs(c echo.Context) error {
-	// Upgrade the HTTP connection to a WebSocket.
 
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
-		log.Printf("Error upgrading to WebSocket: %v", err)
+		slog.Error("Error upgrading to WebSocket: ", err.Error())
 		return err
 	}
 
 	//grabs user data from session
 	cookie, err := c.Cookie("DnB-Session")
 	if err != nil {
-		log.Printf("Error getting session from cookie: %v", err)
+		slog.Error("Error getting session from cookie: " + err.Error())
 		return echo.NewHTTPError(http.StatusUnauthorized, "Session not found in cookie")
 	}
 	decodedToken, err := base64.StdEncoding.DecodeString(cookie.Value)
@@ -109,19 +106,18 @@ func (m *Manager) ServeWs(c echo.Context) error {
 
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		log.Printf("Error converting userID to int: %v", err)
+		slog.Error("Error converting userID to int: " + err.Error())
 		return err
 	}
 
-	// ctx := context.Background()
 	//grabs full user data from datanase
 	user, err := m.userService.FindByID(c.Request().Context(), userID)
 	if err != nil {
-		log.Printf("Error querying database for user: %v", err)
+		slog.Error("Error querying database for user: " + err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching user info")
 	}
 
-	log.Println("WebSocket connection established")
+	slog.Info("WebSocket connection established")
 	
 
 	// creates new connection with user info
@@ -169,7 +165,6 @@ func (m *Manager) addConnection(connection *Connection){
 
 	m.connections[connection] = true
 	BroadcastPlayerList(m)
-	// Gather the updated list of players
 	
 }
 
@@ -202,7 +197,7 @@ func BroadcastPlayerList(manager *Manager) error {
 
     // Collect the list of players who are not in a game
     for client := range manager.connections {
-        if client.gameID == nil { // Only include players not in a game
+        if client.gameID == nil { 
             players = append(players, Player{
                 UserID:   client.userID,
                 Username: client.username,
@@ -210,19 +205,17 @@ func BroadcastPlayerList(manager *Manager) error {
         }
     }
 
-    // Marshal the player list into the response payload
     responsePayload, err := json.Marshal(players)
     if err != nil {
         return fmt.Errorf("failed to marshal players response: %v", err)
     }
 
-    // Prepare the "new_players" event
+
     newPlayersEvent := Event{
-        Type:    EventNewPlayers, // "new_players" event type
+        Type:    EventNewPlayers, 
         Payload: responsePayload,
     }
 
-    // Broadcast the "new_players" event to all clients
     for client := range manager.connections {
         client.egress <- newPlayersEvent
     }

@@ -71,7 +71,6 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 
 	id, err := strconv.Atoi(c.Param("userId"))
 	if err != nil {
-		// Handle the error (e.g., return a bad request response)
 		return c.JSON(http.StatusBadRequest, errors.New("invalid User ID"))
 }
 

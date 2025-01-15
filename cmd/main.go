@@ -116,17 +116,6 @@ func main() {
 
 	manager := websocket.NewManager(gameService, userService, chatService)
 
-	// messageRouter := websocket.NewMessageRouter()
-
-	// Register handlers for different message types.
-	// messageRouter.RegisterHandler("chat", chatService.HandleChatMessage)
-	// messageRouter.RegisterHandler("invite", gameService.HandleGameInvite)
-	// messageRouter.RegisterHandler("move", gameService.HandleGameMove)
-	
-	// Create the WebSocketHandler with the router.
-	// websocketHandler := websocket.NewWebSocketHandler(messageRouter)
-	
-	// Register WebSocket endpoint.
 	
 
 	
@@ -154,7 +143,6 @@ api.GET("/ws", manager.ServeWs)
 
 	//Chat
 	api.GET("/chat", chatHandler.GetAllMessage)
-	// api.GET("/chathistory", chatHandler.GetChatHistory)
 	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
 	api.POST("/games/:gameId/chat", nil)
 

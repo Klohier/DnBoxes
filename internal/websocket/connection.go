@@ -16,10 +16,6 @@ var (
 )
 
 
-
-
-
-
 type ConnectionList map[*Connection]bool
 
 
@@ -101,7 +97,6 @@ func (c *Connection) writeMessage() {
 	ticker := time.NewTicker(pingInterval)
 	defer func() {
 		ticker.Stop()
-		// Graceful close if this triggers a closing
 		c.manager.removeConnection(c)
 	}()
 
@@ -111,9 +106,7 @@ func (c *Connection) writeMessage() {
 			// Ok will be false Incase the egress channel is closed
 			if !ok {
 				log.Println("Egress channel closed")
-				// Manager has closed this connection channel, so communicate that to frontend
 				if err := c.ws.WriteMessage(websocket.CloseMessage, nil); err != nil {
-					// Log that the connection is closed and the reason
 					log.Println("connection closed: ", err)
 				}
 				// Return to close the goroutine
@@ -122,7 +115,7 @@ func (c *Connection) writeMessage() {
 			data, err := json.Marshal(message)
 			if err != nil {
 				log.Println(err)
-				return // closes the connection, should we really
+				return 
 			}
 
 			

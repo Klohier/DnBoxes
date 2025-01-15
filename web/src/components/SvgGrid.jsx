@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { useUser } from "../UserContext"; // Import the useUser hook
-import { useWebSocket } from "../WebSocketContext"; // Import the WebSocketContext hook
-import { useNavigate } from "react-router-dom"; // Import useNavigate for navigation
+import { useUser } from "../UserContext";
+import { useWebSocket } from "../WebSocketContext";
+import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 
 // eslint-disable-next-line react/prop-types
 const Grid = ({ gameID }) => {
   const [boxes, setBoxes] = useState([]);
-  const boxSize = 50; // Size of each box in the grid
-  const ws = useWebSocket(); // Use WebSocket context
+  const boxSize = 50;
+  const ws = useWebSocket();
   const { user } = useUser();
-  const navigate = useNavigate(); // For navigation
-  const [showModal, setShowModal] = useState(false); // State for modal visibility
+  const navigate = useNavigate();
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (!ws) return;
@@ -100,7 +100,9 @@ const Grid = ({ gameID }) => {
   };
 
   const handleGoHome = () => {
-    navigate("/Home"); // Navigate back to the home page using useNavigate
+    setShowModal(false);
+    console.log("Navigating to /home");
+    navigate("/home"); // Navigate back to the home page using useNavigate
   };
 
   const handleQuitGame = () => {
@@ -117,18 +119,14 @@ const Grid = ({ gameID }) => {
         })
       );
     }
-
+    console.log("Navigating to /home");
     navigate("/home");
   };
 
   return (
     <div>
       <Toaster position="top-right" richColors />
-      <svg
-        width={boxSize * 6}
-        height={boxSize * 6}
-        style={{ border: "1px solid black" }}
-      >
+      <svg width={boxSize * 6} height={boxSize * 6}>
         {boxes.map((box) => {
           const {
             BoxId,
@@ -153,9 +151,9 @@ const Grid = ({ gameID }) => {
                     y={y}
                     width={boxSize}
                     height={boxSize}
-                    fill="transparent" // Keep the box transparent
+                    fill="transparent"
                   />
-                  {/* Text showing who completed the box */}
+
                   <text
                     x={x + boxSize / 2}
                     y={y + boxSize / 2}
@@ -185,7 +183,7 @@ const Grid = ({ gameID }) => {
                     Col,
                     "top_edge"
                   )
-                } // Replace 1 with the actual playerId
+                }
                 style={{ cursor: "pointer" }}
               />
               {/* Left Edge */}
@@ -204,7 +202,7 @@ const Grid = ({ gameID }) => {
                     Col,
                     "left_edge"
                   )
-                } // Replace 1 with the actual playerId
+                }
                 style={{ cursor: "pointer" }}
               />
               {/* Right Edge */}
@@ -223,7 +221,7 @@ const Grid = ({ gameID }) => {
                     Col,
                     "right_edge"
                   )
-                } // Replace 1 with the actual playerId
+                }
                 style={{ cursor: "pointer" }}
               />
               {/* Bottom Edge */}
@@ -242,7 +240,7 @@ const Grid = ({ gameID }) => {
                     Col,
                     "bottom_edge"
                   )
-                } // Replace 1 with the actual playerId
+                }
                 style={{ cursor: "pointer" }}
               />
             </g>

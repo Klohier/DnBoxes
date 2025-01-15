@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
-import { useWebSocket } from "../WebSocketContext"; // Import the WebSocketContext hook
-import { useUser } from "../UserContext"; // Import the useUser hook
-import { useNavigate } from "react-router-dom"; // Import useNavigate for redirection
+import { useWebSocket } from "../WebSocketContext";
+import { useUser } from "../UserContext";
+import { useNavigate } from "react-router-dom";
 
 const PlayerList = () => {
   const [players, setPlayers] = useState([]);
-  const [selectedPlayer, setSelectedPlayer] = useState(null); // State to track the selected player
-  const [boardSize, setBoardSize] = useState(5); // State for the board size
-  const [incomingInvite, setIncomingInvite] = useState(null); // State for incoming invites
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [boardSize, setBoardSize] = useState(5);
+  const [incomingInvite, setIncomingInvite] = useState(null);
   const { user } = useUser();
-  const ws = useWebSocket(); // Get the WebSocket connection from context
-  const navigate = useNavigate(); // Hook for navigation
+  const ws = useWebSocket();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!ws) return; // Make sure WebSocket is available before sending a message
+    if (!ws) return;
 
     ws.onopen = () => {
       console.log("WebSocket connected");
@@ -27,24 +27,21 @@ const PlayerList = () => {
       return;
     }
 
-    // Listen for messages from the server
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      const message = JSON.parse(event.data);
 
-      if (data.type === "new_players") {
-        // Update the player list based on the incoming data
-        setPlayers(data.payload); // Assuming the server sends the full list of players
+      if (message.type === "new_players") {
+        setPlayers(message.payload);
       }
 
-      if (data.type === "receive_invite") {
-        setIncomingInvite(data.payload); // Show the invite modal
+      if (message.type === "receive_invite") {
+        setIncomingInvite(message.payload);
       }
 
-      if (data.type === "game_created") {
-        // Redirect to the game page with the game ID
-        const { gameID } = data.payload;
+      if (message.type === "game_created") {
+        const { gameID } = message.payload;
         console.log(`Redirecting to game page with ID: ${gameID}`);
-        navigate(`/game/${gameID}`); // Assuming your game page route is /game/:gameID
+        navigate(`/game/${gameID}`);
       }
     };
 
@@ -56,23 +53,21 @@ const PlayerList = () => {
       console.error("WebSocket error:", err);
     };
 
-    // Cleanup WebSocket listener on component unmount
     return () => {
       ws.removeEventListener("message", ws.onmessage);
     };
-  }, [navigate, user, ws]); // Only run effect if WebSocket is available
+  }, [navigate, user, ws]);
 
   const handlePlayerClick = (player) => {
-    // Set the selected player and show the modal
     setSelectedPlayer(player);
   };
 
   const handleCloseModal = () => {
-    setSelectedPlayer(null); // Close the modal by resetting selectedPlayer
+    setSelectedPlayer(null);
   };
 
   const handleBoardSizeChange = (e) => {
-    setBoardSize(parseInt(e.target.value)); // Update the board size from the input
+    setBoardSize(parseInt(e.target.value));
   };
 
   const handleSendGameInvite = () => {

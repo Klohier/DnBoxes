@@ -62,7 +62,7 @@ func (repo *PgGameRepository) Create(ctx context.Context, p1 int, p2 int, boardS
 		 return nil, errors.New("Failed to begin transaction: " + err.Error())
 	 }
  
-	 // Ensure that the transaction gets rolled back if there's an error
+	 //Rollsback if failure
 	 defer func() {
 		 if err != nil {
 			 tx.Rollback(ctx)
@@ -71,7 +71,6 @@ func (repo *PgGameRepository) Create(ctx context.Context, p1 int, p2 int, boardS
  
 	 var game Game
  
-	 // Insert the game
 	 query := `INSERT INTO games (player1_id, player2_id, board_size, current_turn) 
 			   VALUES ($1, $2, $3, $4) 
 			   RETURNING game_id, player1_id, player2_id, board_size, current_turn`
@@ -83,7 +82,6 @@ func (repo *PgGameRepository) Create(ctx context.Context, p1 int, p2 int, boardS
 	 // Create the boxes associated with the game
 	 for i := 0; i < boardSize; i++ {
 		 for j := 0; j < boardSize; j++ {
-			 // Insert each box associated with the game
 			 boxQuery := `INSERT INTO grids (game_id, row, col, completed_by) 
 						  VALUES ($1, $2, $3, NULL)`
 			 _, err = tx.Exec(ctx, boxQuery, game.GameId, i, j)
@@ -99,7 +97,6 @@ func (repo *PgGameRepository) Create(ctx context.Context, p1 int, p2 int, boardS
 		 return nil, errors.New("Failed to commit transaction: " + err.Error())
 	 }
  
-	 // Return the created game object
 	 return &game, nil
 }
 
@@ -136,7 +133,7 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
  	
 	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
     if err != nil {
-        return nil, fmt.Errorf("failed to begin transaction: %w", err)
+        return nil, errors.New("failed to begin transaction: " + err.Error())
     }
 
 	game, err := repo.FindByID(ctx, gameId)
@@ -158,9 +155,9 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
         return nil, fmt.Errorf("failed to update edge for box at row %d, col %d: %w", row, col, err)
     }
 
+	//Update Adjacent Edges
 	switch edge {
     case "top_edge":
-        // Update the bottom edge of the box above, if it exists
         if row > 0 {
             _, err = repo.db.Exec(ctx, `UPDATE grids SET bottom_edge = TRUE WHERE game_id = $1 AND row = $2 AND col = $3`, gameId, row-1, col)
             if err != nil {
@@ -169,7 +166,6 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
         }
 
     case "right_edge":
-        // Update the left edge of the box to the right, if it exists
         if col < game.BoardSize-1 { 
             _, err = repo.db.Exec(ctx, `UPDATE grids SET left_edge = TRUE WHERE game_id = $1 AND row = $2 AND col = $3`, gameId, row, col+1)
             if err != nil {
@@ -178,7 +174,6 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
         }
 
     case "left_edge":
-        // Update the right edge of the box to the left, if it exists
         if col > 0 {
             _, err = repo.db.Exec(ctx, `UPDATE grids SET right_edge = TRUE WHERE game_id = $1 AND row = $2 AND col = $3`, gameId, row, col-1)
             if err != nil {
@@ -187,7 +182,6 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
         }
 
     case "bottom_edge":
-        // Update the top edge of the box below, if it exists
         if row < game.BoardSize-1 { 
             _, err = repo.db.Exec(ctx, `UPDATE grids SET top_edge = TRUE WHERE game_id = $1 AND row = $2 AND col = $3`, gameId, row+1, col)
             if err != nil {
@@ -199,11 +193,11 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
     // Retrieve the updated grid
     boxes, err := repo.GetGrids(ctx, gameId)
     if err != nil {
-        return nil, fmt.Errorf("failed to get updated grids after updating edge: %w", err)
+        return nil, errors.New("failed to get updated grids after updating edge: " + err.Error())
     }
 
 	if err := tx.Commit(ctx); err != nil {
-        return nil, fmt.Errorf("failed to commit transaction: %w", err)
+        return nil, errors.New("failed to commit transaction: " + err.Error())
     }
 
     return boxes, nil
@@ -229,7 +223,6 @@ func (repo *PgGameRepository) GetBoxByRowCol(ctx context.Context, gameId int, ro
     `
     
     var box Box
-    // Execute the query with pgx and scan the result
     err := repo.db.QueryRow(ctx, query, gameId, row, col).Scan(
         &box.BoxId,
         &box.Row,
@@ -245,7 +238,7 @@ func (repo *PgGameRepository) GetBoxByRowCol(ctx context.Context, gameId int, ro
         if err == pgx.ErrNoRows {
             return nil, fmt.Errorf("box not found for gameId: %d, row: %d, col: %d", gameId, row, col)
         }
-        return nil, fmt.Errorf("failed to get box by row and col: %w", err)
+        return nil, errors.New("failed to get box by row and col: " + err.Error())
     }
 	// log.Println(box.LeftEdge)
 
@@ -270,7 +263,7 @@ func (repo *PgGameRepository) IsEdgeSelected(ctx context.Context, gameId int, ro
     return result, nil
 }
 
-func (repo *PgGameRepository) SetWinner(ctx context.Context, gameId int, winnerId int) error {
+func (repo *PgGameRepository) SetWinner(ctx context.Context, gameId int, winnerId *int) error {
 	query := "UPDATE games SET winner_id = $1 WHERE game_id = $2"
     _, err := repo.db.Exec(ctx, query, winnerId, gameId)
     return err

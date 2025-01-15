@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useUser } from "../UserContext"; // Import the useUser hook
-import { useWebSocket } from "../WebSocketContext"; // Import the WebSocket context hook
+import { useUser } from "../UserContext";
+import { useWebSocket } from "../WebSocketContext";
 import axios from "axios";
 
 // eslint-disable-next-line react/prop-types
@@ -8,7 +8,7 @@ const Chatbox = ({ gameID }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const { user } = useUser();
-  const ws = useWebSocket(); // Get the WebSocket instance from the context
+  const ws = useWebSocket();
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -22,7 +22,6 @@ const Chatbox = ({ gameID }) => {
         const response = await axios.get(endpoint);
 
         console.log(response);
-        // Set the fetched messages to the state
         if (response.data) {
           setMessages(response.data);
         }
@@ -31,8 +30,8 @@ const Chatbox = ({ gameID }) => {
       }
     };
 
-    fetchMessages(); // Fetch messages when the component mounts
-  }, [gameID]); // Re-fetch when the gameID changes
+    fetchMessages();
+  }, [gameID]);
 
   useEffect(() => {
     if (!ws) {
@@ -67,7 +66,7 @@ const Chatbox = ({ gameID }) => {
       ws.removeEventListener("message", handleMessage);
       console.log("WebSocket message listener removed");
     };
-  }, [ws]); // Re-run when WebSocket instance changes
+  }, [gameID, ws]); // Re-run when WebSocket instance changes
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
@@ -75,7 +74,7 @@ const Chatbox = ({ gameID }) => {
     const message = {
       type: "send_message",
       payload: {
-        userID: parseInt(user.userID), // Example data
+        userID: parseInt(user.userID),
         username: user.username,
         gameID: parseInt(gameID),
         message: newMessage,
@@ -85,12 +84,12 @@ const Chatbox = ({ gameID }) => {
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       console.log("Sending message:", message);
-      ws.send(JSON.stringify(message)); // Send the message via WebSocket
+      ws.send(JSON.stringify(message));
     } else {
       console.log("WebSocket is not open. ReadyState:", ws.readyState);
     }
 
-    setNewMessage(""); // Clear the input after sending the message
+    setNewMessage("");
   };
 
   return (
