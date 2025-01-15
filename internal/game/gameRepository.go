@@ -14,5 +14,5 @@ type GameRepository interface {
 	SetBoxCompleted(ctx context.Context, gameId int, row int, col int, playerId int) error
 	GetBoxByRowCol(ctx context.Context, gameId int, row int, col int) (*Box, error)
 	UpdateTurn(ctx context.Context, gameId int, userID int) error
-	SetWinner(ctx context.Context, gameId int, winnerId int) error
+	SetWinner(ctx context.Context, gameId int, winnerId *int) error
 }
