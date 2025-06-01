@@ -153,7 +153,14 @@ func (m *Manager) ServeWs(c echo.Context) error {
 
 //cleanupConnection closes websocket connection and removes from manager
 func (m *Manager) cleanupConnection(connection *Connection) {
-    log.Println("Closing WebSocket connection")
+    //log.Println("Closing WebSocket connection")
+	if connection.gameID != nil {
+	log.Printf("Closing WebSocket connection: UserID=%d, Username=%s, GameID=%d\n",
+		connection.userID, connection.username, *connection.gameID)
+} else {
+	log.Printf("Closing WebSocket connection: UserID=%d, Username=%s, GameID=nil\n",
+		connection.userID, connection.username)
+}
     connection.ws.Close()
     m.removeConnection(connection)
 }
