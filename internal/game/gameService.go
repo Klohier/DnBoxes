@@ -60,28 +60,6 @@ func (s *GameService) CreateGame(ctx context.Context, p1 int, p2 int, boardSize 
 
 }
 
-// func (s *GameService) GetGrids(ctx context.Context, gameId int) ([]Box, error){
-
-// 	boxes, err := s.gameRepo.GetGrids(ctx, gameId)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return boxes, nil
-
-// }
-
-// func (s *GameService) GetCurrentTurn(ctx context.Context, gameID int) (int, error) {
-//     game, err := s.gameRepo.FindByID(ctx, gameID) 
-//     if err != nil {
-//         return 0, fmt.Errorf("failed to fetch game with ID %d: %v", gameID, err)
-//     }
-//     return game.CurrentTurn, nil
-// }
-
-
-
 func (s *GameService) MakeMove(ctx context.Context,gameId int, playerId int, row int , col int, edge string) (GameState, error){
 
 	//Checks if edge is a valid option

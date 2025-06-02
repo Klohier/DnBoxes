@@ -16,7 +16,7 @@ type GameHandler struct {
 
 type GameResponse struct {
 	UserID int `json:"userID"`
-    // Username string `json:"username" validate:"required"`
+
 }
 
 type GameRequest struct {
@@ -71,36 +71,6 @@ func (h *GameHandler) GetGameState(c echo.Context) error {
     return c.JSON(http.StatusOK, gameState)
 }
 
-
-// func (h *GameHandler) GetGrids(c echo.Context) error {
-
-
-// gameId := c.Param("gameId")
-
-// ctx := c.Request().Context()
-
-
-// // Validate gameId
-// if gameId == "" {
-// 	return c.JSON(http.StatusBadRequest,  "error: gameId is required")
-// }
-
-// gameIDInt, err := strconv.Atoi(gameId)
-// 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, "error: invalid gameId")
-// 	}
-
-// boxes, err := h.gameService.GetGrids(ctx, gameIDInt)
-// if err != nil {
-// 	slog.Error("Error retrieving grids:", err.Error())
-// 	return c.JSON(http.StatusInternalServerError, "error could not retrieve grids")
-// }
-
-// // Return the grids as a JSON response
-// return c.JSON(http.StatusOK, boxes)
-
-// }
-
 func (h *GameHandler) MakeMove(c echo.Context) error {
 	var req struct {
 		PlayerId int    `json:"playerId"`
@@ -139,6 +109,5 @@ func (h *GameHandler) MakeMove(c echo.Context) error {
 	
 }
 
-	// Return a success response
 	return c.JSON(http.StatusOK, response)
 }

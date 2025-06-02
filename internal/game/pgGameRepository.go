@@ -240,7 +240,6 @@ func (repo *PgGameRepository) GetBoxByRowCol(ctx context.Context, gameId int, ro
         }
         return nil, errors.New("failed to get box by row and col: " + err.Error())
     }
-	// log.Println(box.LeftEdge)
 
     return &box, nil
 }
