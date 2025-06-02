@@ -9,7 +9,7 @@ export const useAuth = () => useContext(AuthContext);
 
 // eslint-disable-next-line react/prop-types
 export const AuthProvider = ({ children }) => {
-  const [authLoading, setAuthLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState(Cookies.get("DnB-Session") || null);
@@ -18,9 +18,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       setIsAuthenticated(true);
-      setAuthLoading(false);
+      setLoading(false);
     } else {
-      setAuthLoading(false);
+      setLoading(false);
       setIsAuthenticated(false);
     }
   }, [token]);
@@ -39,14 +39,14 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (response.status === 200) {
-        setAuthLoading(false);
+        setLoading(false);
         setIsAuthenticated(true);
         setToken(Cookies.get("DnB-Session"));
         navigate("/home");
       }
     } catch (err) {
       setError(err);
-      setAuthLoading(false);
+      setLoading(false);
     }
   };
 
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ login, logout, authLoading, isAuthenticated, error, token }}
+      value={{ login, logout, loading, isAuthenticated, error, token }}
     >
       {children}
     </AuthContext.Provider>

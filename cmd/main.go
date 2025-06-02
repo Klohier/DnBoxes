@@ -138,7 +138,7 @@ api.GET("/ws", manager.ServeWs)
 	//Game
 	api.POST("/games", gameHandler.CreateGame)
 	api.GET("/games", nil)
-	api.GET("/games/:gameId/grid", gameHandler.GetGrids)
+	api.GET("/games/:gameId/state", gameHandler.GetGameState)
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
 
 	//Chat

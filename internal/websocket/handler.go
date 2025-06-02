@@ -53,13 +53,13 @@ func NewManager(GameService *game.GameService, UserService *user.UserService, Ch
 
 //setupEventHandlers is where we add different Events
 func (m *Manager) setupEventHandlers() {
-	m.handlers[EventSendMessage] = SendMessageHandler
+	m.handlers[EventMessage] = MessageHandler
 
-	m.handlers[EventGetGrids] = GetGridsHandler
-	m.handlers[EventGetPlayers] = GetPlayersHandler
-	m.handlers[EventSendInvite] = SendInviteHandler
+	m.handlers[EventGameState] = GameStateHandler
+	m.handlers[EventGetPlayers] = PlayerHandler
+	m.handlers[EventSendInvite] = InviteHandler
 	m.handlers[EventAcceptInvite] = AcceptInviteHandler
-	m.handlers[EventMakeMove] = MakeMoveHandler
+	m.handlers[EventMakeMove] = MoveHandler
 	m.handlers[EventQuitGame] = QuitGameHandler
 }
 

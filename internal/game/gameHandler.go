@@ -51,34 +51,55 @@ func(h *GameHandler) CreateGame(c echo.Context) error {
 	return c.JSON(http.StatusOK, game)
 }
 
-func (h *GameHandler) GetGrids(c echo.Context) error {
+func (h *GameHandler) GetGameState(c echo.Context) error {
+    gameId := c.Param("gameId")
+    if gameId == "" {
+        return c.JSON(http.StatusBadRequest, "error: gameId is required")
+    }
 
+    gameIDInt, err := strconv.Atoi(gameId)
+    if err != nil {
+        return c.JSON(http.StatusBadRequest, "error: invalid gameId")
+    }
 
-gameId := c.Param("gameId")
+    gameState, err := h.gameService.GetGameState(c.Request().Context(), gameIDInt)
+    if err != nil {
+        h.logger.Error("failed to get game state", "error", err)
+        return c.JSON(http.StatusInternalServerError, "error: failed to fetch game state")
+    }
 
-ctx := c.Request().Context()
-
-
-// Validate gameId
-if gameId == "" {
-	return c.JSON(http.StatusBadRequest,  "error: gameId is required")
+    return c.JSON(http.StatusOK, gameState)
 }
 
-gameIDInt, err := strconv.Atoi(gameId)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, "error: invalid gameId")
-	}
 
-boxes, err := h.gameService.GetGrids(ctx, gameIDInt)
-if err != nil {
-	slog.Error("Error retrieving grids:", err.Error())
-	return c.JSON(http.StatusInternalServerError, "error could not retrieve grids")
-}
+// func (h *GameHandler) GetGrids(c echo.Context) error {
 
-// Return the grids as a JSON response
-return c.JSON(http.StatusOK, boxes)
 
-}
+// gameId := c.Param("gameId")
+
+// ctx := c.Request().Context()
+
+
+// // Validate gameId
+// if gameId == "" {
+// 	return c.JSON(http.StatusBadRequest,  "error: gameId is required")
+// }
+
+// gameIDInt, err := strconv.Atoi(gameId)
+// 	if err != nil {
+// 		return c.JSON(http.StatusBadRequest, "error: invalid gameId")
+// 	}
+
+// boxes, err := h.gameService.GetGrids(ctx, gameIDInt)
+// if err != nil {
+// 	slog.Error("Error retrieving grids:", err.Error())
+// 	return c.JSON(http.StatusInternalServerError, "error could not retrieve grids")
+// }
+
+// // Return the grids as a JSON response
+// return c.JSON(http.StatusOK, boxes)
+
+// }
 
 func (h *GameHandler) MakeMove(c echo.Context) error {
 	var req struct {
@@ -103,13 +124,21 @@ func (h *GameHandler) MakeMove(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "error: Invalid request body")
 	}
 
-
+	type MakeMoveResponse struct {
+		GameState    *GameState `json:"gameState"`
+		
+	}
 	// Call the service to make the move
-	grid, err := h.gameService.MakeMove(c.Request().Context(), gameId, req.PlayerId, req.Row, req.Col, req.Edge)
+	gameState, err := h.gameService.MakeMove(c.Request().Context(), gameId, req.PlayerId, req.Row, req.Col, req.Edge)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, "error: Failed to make move: " + err.Error())
 	}
 
+	response := MakeMoveResponse{
+	GameState:  &gameState,
+	
+}
+
 	// Return a success response
-	return c.JSON(http.StatusOK, grid)
+	return c.JSON(http.StatusOK, response)
 }

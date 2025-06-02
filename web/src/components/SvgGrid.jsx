@@ -8,6 +8,7 @@ import { Toaster, toast } from "sonner";
 const Grid = ({ gameID }) => {
   const [boxes, setBoxes] = useState([]);
   const boxSize = 50;
+  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState(null);
   const ws = useWebSocket();
   const { user } = useUser();
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const Grid = ({ gameID }) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({
-            type: "get_grids",
+            type: "game:state",
             payload: {
               gameID: parseInt(gameID),
             },
@@ -41,8 +42,10 @@ const Grid = ({ gameID }) => {
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
-      if (message.type === "new_grids") {
-        setBoxes(message.payload);
+      if (message.type === "game:state") {
+        console.log("Received game:state message", message);
+        setBoxes(message.payload.grids);
+        setCurrentTurnPlayerId(message.payload.game.CurrentTurn);
       }
 
       if (message.type === "your_turn") {
@@ -58,7 +61,7 @@ const Grid = ({ gameID }) => {
         );
       }
 
-      if (message.type === "quit_game") {
+      if (message.type === "game:quit") {
         console.log("User Quit Game");
 
         setShowModal(true);
@@ -74,7 +77,7 @@ const Grid = ({ gameID }) => {
     };
 
     return () => {
-      ws.removeEventListener("message", ws.onmessage);
+      ws.onmessage = null;
     };
   }, [gameID, ws]);
 
@@ -92,7 +95,7 @@ const Grid = ({ gameID }) => {
 
       ws.send(
         JSON.stringify({
-          type: "make_move",
+          type: "game:move",
           payload,
         })
       );
@@ -114,7 +117,7 @@ const Grid = ({ gameID }) => {
 
       ws.send(
         JSON.stringify({
-          type: "quit_game",
+          type: "game:quit",
           payload,
         })
       );
@@ -126,6 +129,14 @@ const Grid = ({ gameID }) => {
   return (
     <div>
       <Toaster position="top-right" richColors />
+
+      {/* Show current turn */}
+      {currentTurnPlayerId !== null && (
+        <div style={{ marginBottom: "10px", fontSize: "18px" }}>
+          Current Turn: Player {currentTurnPlayerId}
+        </div>
+      )}
+
       <svg width={boxSize * 6} height={boxSize * 6}>
         {boxes.map((box) => {
           const {

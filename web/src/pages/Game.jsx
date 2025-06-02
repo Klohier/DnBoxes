@@ -15,7 +15,7 @@ const Game = () => {
 
     ws.onopen = () => {
       console.log("WebSocket connected");
-      ws.send(JSON.stringify({ type: "get_players" }));
+      ws.send(JSON.stringify({ type: "player:get" }));
     };
 
     ws.onclose = () => {

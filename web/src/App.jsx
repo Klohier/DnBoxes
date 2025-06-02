@@ -24,32 +24,32 @@ function App() {
               <Route
                 path="/home"
                 element={
-                  // <ProtectedRoute>
-                  <WebSocketProvider>
-                    <Home />
-                  </WebSocketProvider>
-                  // </ProtectedRoute>
+                  <ProtectedRoute>
+                    <WebSocketProvider>
+                      <Home />
+                    </WebSocketProvider>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/Grid"
                 element={
-                  // <ProtectedRoute>
-                  <WebSocketProvider>
-                    <Grid />
-                  </WebSocketProvider>
-                  // </ProtectedRoute>
+                  <ProtectedRoute>
+                    <WebSocketProvider>
+                      <Grid />
+                    </WebSocketProvider>
+                  </ProtectedRoute>
                 }
               />
 
               <Route
                 path="/game/:gameID"
                 element={
-                  // <ProtectedRoute>
-                  <WebSocketProvider>
-                    <Game />
-                  </WebSocketProvider>
-                  // </ProtectedRoute>
+                  <ProtectedRoute>
+                    <WebSocketProvider>
+                      <Game />
+                    </WebSocketProvider>
+                  </ProtectedRoute>
                 }
               />
             </Routes>

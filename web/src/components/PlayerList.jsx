@@ -17,7 +17,7 @@ const PlayerList = () => {
 
     ws.onopen = () => {
       console.log("WebSocket connected");
-      ws.send(JSON.stringify({ type: "get_players" }));
+      ws.send(JSON.stringify({ type: "player:get" }));
     };
 
     console.log(user);
@@ -30,15 +30,15 @@ const PlayerList = () => {
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
 
-      if (message.type === "new_players") {
+      if (message.type === "player:get") {
         setPlayers(message.payload);
       }
 
-      if (message.type === "receive_invite") {
+      if (message.type === "invite:new") {
         setIncomingInvite(message.payload);
       }
 
-      if (message.type === "game_created") {
+      if (message.type === "game:new") {
         const { gameID } = message.payload;
         console.log(`Redirecting to game page with ID: ${gameID}`);
         navigate(`/game/${gameID}`);
@@ -75,7 +75,7 @@ const PlayerList = () => {
       // Send a game invite to the selected player
       ws.send(
         JSON.stringify({
-          type: "send_invite",
+          type: "invite:new",
           payload: {
             senderID: user.userID,
             senderName: user.username, // The ID of the user sending the invite
@@ -95,10 +95,10 @@ const PlayerList = () => {
     if (incomingInvite) {
       ws.send(
         JSON.stringify({
-          type: "accept_invite",
+          type: "invite:accept",
           payload: {
             playerID: user.userID,
-            senderID: incomingInvite.inviterID,
+            senderID: incomingInvite.senderID,
             board_size: incomingInvite.board_size,
           },
         })
@@ -112,7 +112,7 @@ const PlayerList = () => {
     if (incomingInvite) {
       ws.send(
         JSON.stringify({
-          type: "decline_invite",
+          type: "invite:decline",
           payload: {
             inviterID: incomingInvite.inviterID,
           },

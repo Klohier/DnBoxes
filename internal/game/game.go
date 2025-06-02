@@ -27,3 +27,8 @@ type Box struct {
 	Completed_by *int`json:"completed_by"` 
 	
 }
+
+type GameState struct {
+    Game  *Game  `json:"game"`
+    Grids []Box  `json:"grids"`
+}

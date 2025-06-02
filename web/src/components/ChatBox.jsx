@@ -52,7 +52,7 @@ const Chatbox = ({ gameID }) => {
         setMessages((prev) => [...prev, message.payload]);
       }
 
-      if (message.type === "new_message") {
+      if (message.type === "chat:new") {
         setMessages((prev) => [...prev, message.payload]);
       }
     };
@@ -72,7 +72,7 @@ const Chatbox = ({ gameID }) => {
     if (newMessage.trim() === "") return;
 
     const message = {
-      type: "send_message",
+      type: "chat:new",
       payload: {
         userID: parseInt(user.userID),
         username: user.username,

@@ -26,26 +26,20 @@ type Event struct {
 type EventHandler func(event Event, c *Connection) error
 	
 const (
-	EventSendMessage = "send_message"
-	EventNewMessage = "new_message"
-	EventSendInvite = "send_invite"
-	EventRecieveInvite = "receive_invite"
-	//
-	EventAcceptInvite = "accept_invite"
-	EventDeclineInvite = "decline_invite"
-	EventQuitGame = "quit_game"
-	EventGameCreated = "game_created"
-	EventGetGrids =  "get_grids"
-	EventNewGrids = "new_grids"
-	EventMakeMove = "make_move"
-	//
-	
-	//
-	EventGetPlayers = "get_players"
-	EventNewPlayers = "new_players"
+	EventMessage = "chat:new"
+	EventSendInvite = "invite:new"
+	EventAcceptInvite = "invite:accept"
+	EventDeclineInvite = "invite:decline"
+	EventQuitGame = "game:quit"
+	EventGameCreated = "game:new"
+	EventGameState = "game:state"
+	// EventGetGrid =  "game:get"
+	// EventNewGrid = "game:update"
+	EventMakeMove = "game:move"
+	EventGetPlayers = "player:get"
+	EventNewPlayers = "player:new"
 )
-
-type NewMessageStruct struct {
+type Message struct {
 	UserID    int        `json:"userID"`
 	Username  string     `json:"username"`
 	GameID    *int       `json:"gameID"`
@@ -64,7 +58,7 @@ type GetGridsPayload struct {
 }
 
 
-type SendInviteEvent struct {
+type InviteEvent struct {
 	SenderID   int    `json:"senderID"`   // The ID of the player sending the invite
 	SenderName string `json:"senderName"` // The username of the player sending the invite
 	ReceiverID int    `json:"receiverID"` // The ID of the player receiving the invite
@@ -73,13 +67,13 @@ type SendInviteEvent struct {
 	Timestamp  time.Time `json:"timestamp"`  
 }
 
-type ReceiveInviteEvent struct {
-	PlayerID   int    `json:"playerID"`   // ID of the player receiving the invite
-	InviterID  int    `json:"inviterID"`  // ID of the player sending the invite
-	Username   string `json:"username"`   // Username of the player sending the invite
-	BoardSize   int       `json:"board_size"`
-	Timestamp  time.Time `json:"timestamp"`  // Timestamp of when the invite was sent
-}
+// type ReceiveInviteEvent struct {
+// 	PlayerID   int    `json:"playerID"`   // ID of the player receiving the invite
+// 	InviterID  int    `json:"inviterID"`  // ID of the player sending the invite
+// 	Username   string `json:"username"`   // Username of the player sending the invite
+// 	BoardSize   int       `json:"board_size"`
+// 	Timestamp  time.Time `json:"timestamp"`  // Timestamp of when the invite was sent
+// }
 
 type AcceptInviteEvent struct {
 	PlayerID  int    `json:"playerID"`  // The ID of the player accepting the invite
@@ -93,20 +87,23 @@ type DeclineInviteEvent struct {
 }
 
 
-type SendMessageEvent struct {
+// type SendMessageEvent struct {
+// 	UserID   int    `json:"userID"`   
+//     Username string `json:"username"`   
+//     GameID   *int   `json:"gameID"`    
+//     Message  string `json:"message"`    
+//     Timestamp time.Time `json:"timestamp"` 
+// }
+
+
+
+// NewMessageEvent is returned when responding to send_message
+type MessageEvent struct {
 	UserID   int    `json:"userID"`   
     Username string `json:"username"`   
     GameID   *int   `json:"gameID"`    
     Message  string `json:"message"`    
     Timestamp time.Time `json:"timestamp"` 
-}
-
-
-
-// NewMessageEvent is returned when responding to send_message
-type NewMessageEvent struct {
-	SendMessageEvent
-	Sent time.Time `json:"sent"`
 }
 
 type GameCreatedPayload struct {
@@ -146,7 +143,7 @@ type Player struct {
 
 
 // GetPlayersHandler will send a list of all currently connected players
-func GetPlayersHandler(event Event, c *Connection) error {
+func PlayerHandler(event Event, c *Connection) error {
 	var players []Player
 
 	
@@ -166,7 +163,7 @@ func GetPlayersHandler(event Event, c *Connection) error {
 	if err != nil {
 		return errors.New("failed to marshal players response: " + err.Error())
 	}
-	slog.Info("Sending player list:", players)
+	slog.Info("Sending player list:", slog.Any("players", players))
 
 	responseEvent := Event{
 		Type:    EventGetPlayers,
@@ -182,24 +179,24 @@ func GetPlayersHandler(event Event, c *Connection) error {
 }
 
 // SendMessageHandler will send out a message to all other participants in the chat
-func SendMessageHandler(event Event, c *Connection) error {
-	var chatevent SendMessageEvent
+func MessageHandler(event Event, c *Connection) error {
+	var chatevent MessageEvent
 	if err := json.Unmarshal(event.Payload, &chatevent); err != nil {
 		return fmt.Errorf("bad payload in request: %v", err)
 	}
 
 	// Prepare an Outgoing Message to others
-	var broadMessage NewMessageEvent
+	var Message MessageEvent
 	
 
-	broadMessage.Sent = time.Now().UTC() 
-    broadMessage.Message = chatevent.Message
-    broadMessage.Username = chatevent.Username
-    broadMessage.UserID = chatevent.UserID
-    broadMessage.GameID = chatevent.GameID
-    broadMessage.Timestamp = chatevent.Timestamp
+	Message.Timestamp = time.Now().UTC() 
+    Message.Message = chatevent.Message
+    Message.Username = chatevent.Username
+    Message.UserID = chatevent.UserID
+    Message.GameID = chatevent.GameID
+    Message.Timestamp = chatevent.Timestamp
 
-	data, err := json.Marshal(broadMessage)
+	data, err := json.Marshal(Message)
 	if err != nil {
 		return errors.New("failed to marshal broadcast message: " + err.Error())
 	}
@@ -207,7 +204,7 @@ func SendMessageHandler(event Event, c *Connection) error {
 	var outgoingEvent Event
 	
 	outgoingEvent.Payload = data
-	outgoingEvent.Type = EventNewMessage
+	outgoingEvent.Type = EventMessage
 
 
 	// Broadcast to all other clients based on gameID l
@@ -246,41 +243,73 @@ func SendMessageHandler(event Event, c *Connection) error {
 
 }
 
-// GetGridsHandler will send a list of grids
-func GetGridsHandler(event Event, c *Connection) error {
 
+func GameStateHandler(event Event, c *Connection) error {
+    var payload struct {
+        GameID int `json:"gameID"`
+    }
+    if err := json.Unmarshal(event.Payload, &payload); err != nil {
+        return fmt.Errorf("invalid payload for game_state: %v", err)
+    }
 
-	var payload GetGridsPayload
-	if err := json.Unmarshal(event.Payload, &payload); err != nil {
-		return fmt.Errorf("invalid payload for get_grids: %v", err)
-	}
+    ctx := context.Background()
 
+    // Assume this method returns a struct with all relevant game info (grids, players, scores, etc)
+    gameState, err := c.manager.gameService.GetGameState(ctx, payload.GameID)
+    if err != nil {
+        return fmt.Errorf("failed to get game state for gameID %d: %v", payload.GameID, err)
+    }
 
-	ctx := context.Background()
-	grids, err := c.manager.gameService.GetGrids(ctx, payload.GameID)
-	if err != nil {
-		return fmt.Errorf("failed to get grids for game ID %d: %v", payload.GameID, err)
-	}
+    responsePayload, err := json.Marshal(gameState)
+    if err != nil {
+        return fmt.Errorf("failed to marshal game state response: %v", err)
+    }
 
-	responsePayload, err := json.Marshal(grids)
-	if err != nil {
-		return fmt.Errorf("failed to marshal grids response: %v", err)
-	}
+    responseEvent := Event{
+        Type:    EventGameState,
+        Payload: responsePayload,
+    }
 
-	responseEvent := Event{
-		Type:    EventNewGrids,
-		Payload: responsePayload,
-	}
-
-	//TODO Send to clients with same gameid
-	c.egress <- responseEvent
-
-	return nil
+    c.egress <- responseEvent
+    return nil
 }
 
+
+// GetGridsHandler will send a list of grids
+// func GridHandler(event Event, c *Connection) error {
+
+
+// 	var payload GetGridsPayload
+// 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+// 		return fmt.Errorf("invalid payload for get_grids: %v", err)
+// 	}
+
+
+// 	ctx := context.Background()
+// 	grids, err := c.manager.gameService.GetGrids(ctx, payload.GameID)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get grids for game ID %d: %v", payload.GameID, err)
+// 	}
+
+// 	responsePayload, err := json.Marshal(grids)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to marshal grids response: %v", err)
+// 	}
+
+// 	responseEvent := Event{
+// 		Type:    EventNewGrid,
+// 		Payload: responsePayload,
+// 	}
+
+// 	//TODO Send to clients with same gameid
+// 	c.egress <- responseEvent
+
+// 	return nil
+// }
+
 // SendInviteHandler will handle sending a game invite
-func SendInviteHandler(event Event, c *Connection) error {
-	var inviteEvent SendInviteEvent
+func InviteHandler(event Event, c *Connection) error {
+	var inviteEvent InviteEvent
 	if err := json.Unmarshal(event.Payload, &inviteEvent); err != nil {
 		return errors.New("bad payload in send_invite request: " + err.Error())
 	}
@@ -292,23 +321,23 @@ func SendInviteHandler(event Event, c *Connection) error {
 
 	//OutGoing Message
 
-	var receiveEvent ReceiveInviteEvent
+	// var receiveEvent ReceiveInviteEvent
 
-	receiveEvent.InviterID = inviteEvent.SenderID
-	receiveEvent.PlayerID = inviteEvent.ReceiverID
-	receiveEvent.Username = inviteEvent.SenderName
-	receiveEvent.BoardSize = inviteEvent.BoardSize
-	receiveEvent.Timestamp = inviteEvent.Timestamp
+	// receiveEvent.InviterID = inviteEvent.SenderID
+	// receiveEvent.PlayerID = inviteEvent.ReceiverID
+	// receiveEvent.Username = inviteEvent.SenderName
+	// receiveEvent.BoardSize = inviteEvent.BoardSize
+	// receiveEvent.Timestamp = inviteEvent.Timestamp
 
 	var outgoingEvent Event
 	inviteEvent.Timestamp = time.Now().UTC()
-	receiveEventData, err := json.Marshal(receiveEvent)
+	outgoingPayload, err := json.Marshal(inviteEvent)
 	if err != nil {
-		return errors.New("failed to marshal send_invite event:" + err.Error())
+		return errors.New("failed to marshal invite event:" + err.Error())
 	}
 
-	outgoingEvent.Payload = receiveEventData
-	outgoingEvent.Type = EventRecieveInvite
+	outgoingEvent.Payload = outgoingPayload
+	outgoingEvent.Type = EventSendInvite
 
 	// Find the receiver's connection
 	client :=findConnectionByUserID(c.manager, inviteEvent.ReceiverID)
@@ -391,7 +420,7 @@ func AcceptInviteHandler(event Event, c *Connection) error {
     return nil
 }
 
-func MakeMoveHandler(event Event, c *Connection) error {
+func MoveHandler(event Event, c *Connection) error {
 		type MakeMovePayload struct {
 			GameID   int    `json:"gameID"`
 			PlayerID int    `json:"playerID"`
@@ -410,7 +439,7 @@ func MakeMoveHandler(event Event, c *Connection) error {
 		}
 	
 		ctx := context.Background()
-		grids, err := c.manager.gameService.MakeMove(ctx, payload.GameID, payload.PlayerID, payload.Row, payload.Col, payload.Edge)
+		gameState, err:= c.manager.gameService.MakeMove(ctx, payload.GameID, payload.PlayerID, payload.Row, payload.Col, payload.Edge)
 		if err != nil {
 
 			invalidMoveEvent := Event{
@@ -423,15 +452,27 @@ func MakeMoveHandler(event Event, c *Connection) error {
 			return fmt.Errorf("failed to make moves for game ID %d: %v", payload.GameID, err)
 		}
 	
+	// type MakeMoveResponse struct {
+	// 	GameState    *game.GameState `json:"gameState"`
+		
+	// }
+
+	// 	response := MakeMoveResponse{
+	// 	GameState: &gameState,
+	// }
+
+
+
 		// Marshal the response payload
-		responsePayload, err := json.Marshal(grids)
+		responsePayload, err := json.Marshal(gameState)
 		if err != nil {
 			return errors.New("failed to marshal grids response: " + err.Error())
 		}
+
 	
 		// Send the response to the client
 		responseEvent := Event{
-			Type:    EventNewGrids,
+			Type:    EventGameState,
 			Payload: responsePayload,
 		}
 	
@@ -441,15 +482,15 @@ func MakeMoveHandler(event Event, c *Connection) error {
 			}
 		}
 
-		for client := range c.manager.connections {
-			if client.gameID != nil && *client.gameID == payload.GameID && client.userID != payload.PlayerID {
-				yourTurnEvent := Event{
-					Type:    "your_turn",
+		// for client := range c.manager.connections {
+		// 	if client.gameID != nil && *client.gameID == payload.GameID && client.userID != payload.PlayerID {
+		// 		yourTurnEvent := Event{
+		// 			Type:    "your_turn",
 					
-				}
-				client.egress <- yourTurnEvent
-			}
-		}
+		// 		}
+		// 		client.egress <- yourTurnEvent
+		// 	}
+		// }
 	
 		return nil
 }

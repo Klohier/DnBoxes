@@ -6,6 +6,7 @@ const WebSocketContext = createContext(null);
 export const WebSocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
+  //TODO: Turn this into a custom hook
   useEffect(() => {
     // Create WebSocket connection
     const ws = new WebSocket("ws://localhost:8484/api/v1/ws");
