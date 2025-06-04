@@ -20,7 +20,7 @@ const Chatbox = ({ gameID }) => {
 
         const response = await axios.get(endpoint);
 
-        console.log(response);
+        // console.log(response);
         if (response.data) {
           setMessages(response.data);
         }

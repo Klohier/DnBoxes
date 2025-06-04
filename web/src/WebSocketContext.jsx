@@ -1,15 +1,26 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
-
+import { useAuth } from "./AuthContext";
 const WebSocketContext = createContext(null);
 
 // eslint-disable-next-line react/prop-types
 export const WebSocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
+  const { isAuthenticated, token } = useAuth();
   const subscribers = useRef([]);
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
     // Create WebSocket connection
+
+    if (!isAuthenticated || !token) {
+      // If not authenticated, close existing socket
+      if (socket) {
+        socket.close();
+        setSocket(null);
+      }
+      return;
+    }
+
     const ws = new WebSocket("ws://localhost:8484/api/v1/ws");
 
     // Handle WebSocket events
@@ -27,8 +38,9 @@ export const WebSocketProvider = ({ children }) => {
     return () => {
       // Clean up WebSocket on unmount
       ws.close();
+      setSocket(null);
     };
-  }, []);
+  }, [isAuthenticated, token]);
 
   const subscribe = (callback) => {
     subscribers.current.push(callback);

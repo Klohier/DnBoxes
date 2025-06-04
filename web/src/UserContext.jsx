@@ -11,7 +11,7 @@ export const useUser = () => {
 export const UserProvider = ({ children }) => {
   const { user, loading } = useFetchUser();
 
-  console.log("This is from Provider: " + user);
+  console.log("This is from Provider: ", user);
 
   if (loading) {
     return <div>Loading...</div>; // Or any fallback UI
