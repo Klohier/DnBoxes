@@ -8,8 +8,7 @@ const Chatbox = ({ gameID }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const { user } = useUser();
-  const ws = useWebSocket();
-
+  const { socket, subscribe } = useWebSocket();
   useEffect(() => {
     const fetchMessages = async () => {
       try {
@@ -34,14 +33,12 @@ const Chatbox = ({ gameID }) => {
   }, [gameID]);
 
   useEffect(() => {
-    if (!ws) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
       console.log("No WebSocket connection available");
       return;
     }
 
-    const handleMessage = (event) => {
-      const message = JSON.parse(event.data);
-
+    const unsubscribe = subscribe((message) => {
       if (
         message.payload &&
         message.payload.username &&
@@ -55,18 +52,15 @@ const Chatbox = ({ gameID }) => {
       if (message.type === "chat:new") {
         setMessages((prev) => [...prev, message.payload]);
       }
-    };
+    });
 
-    // Attach WebSocket event listeners
-    ws.addEventListener("message", handleMessage);
-    console.log("WebSocket message listener attached");
+    console.log("WebSocket message subscription attached");
 
     return () => {
-      // Cleanup event listeners on component unmount
-      ws.removeEventListener("message", handleMessage);
-      console.log("WebSocket message listener removed");
+      unsubscribe();
+      console.log("WebSocket message subscription removed");
     };
-  }, [gameID, ws]); // Re-run when WebSocket instance changes
+  }, [gameID, socket, subscribe]);
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
@@ -82,11 +76,13 @@ const Chatbox = ({ gameID }) => {
       },
     };
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
       console.log("Sending message:", message);
-      ws.send(JSON.stringify(message));
+      socket.send(JSON.stringify(message));
+    } else if (socket) {
+      console.log("WebSocket is not open. ReadyState:", socket.readyState);
     } else {
-      console.log("WebSocket is not open. ReadyState:", ws.readyState);
+      console.log("WebSocket is not available");
     }
 
     setNewMessage("");

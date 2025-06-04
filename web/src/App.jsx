@@ -18,41 +18,37 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <UserProvider>
-            <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="/home"
-                element={
-                  <ProtectedRoute>
-                    <WebSocketProvider>
+            <WebSocketProvider>
+              <Routes>
+                <Route path="/" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/home"
+                  element={
+                    <ProtectedRoute>
                       <Home />
-                    </WebSocketProvider>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/Grid"
-                element={
-                  <ProtectedRoute>
-                    <WebSocketProvider>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/Grid"
+                  element={
+                    <ProtectedRoute>
                       <Grid />
-                    </WebSocketProvider>
-                  </ProtectedRoute>
-                }
-              />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route
-                path="/game/:gameID"
-                element={
-                  <ProtectedRoute>
-                    <WebSocketProvider>
+                <Route
+                  path="/game/:gameID"
+                  element={
+                    <ProtectedRoute>
                       <Game />
-                    </WebSocketProvider>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </WebSocketProvider>
           </UserProvider>
         </AuthProvider>
       </BrowserRouter>

@@ -9,54 +9,41 @@ const PlayerList = () => {
   const [boardSize, setBoardSize] = useState(5);
   const [incomingInvite, setIncomingInvite] = useState(null);
   const { user } = useUser();
-  const ws = useWebSocket();
+  const { socket, subscribe } = useWebSocket();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!ws) return;
-
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-      ws.send(JSON.stringify({ type: "player:get" }));
-    };
-
-    console.log(user);
-
     if (user?.gameID) {
+      console.log("Detected active game. Navigating...");
       navigate(`/game/${user.gameID}`);
+    }
+  }, [user?.gameID, navigate]);
+
+  useEffect(() => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.log("No WebSocket connection available");
       return;
     }
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-
-      if (message.type === "player:get") {
-        setPlayers(message.payload);
-      }
-
-      if (message.type === "invite:new") {
-        setIncomingInvite(message.payload);
-      }
-
+    const unsubscribe = subscribe((message) => {
+      if (message.type === "player:get") setPlayers(message.payload);
+      if (message.type === "invite:new") setIncomingInvite(message.payload);
       if (message.type === "game:new") {
-        const { gameID } = message.payload;
-        console.log(`Redirecting to game page with ID: ${gameID}`);
-        navigate(`/game/${gameID}`);
+        navigate(`/game/${message.payload.gameID}`);
       }
-    };
+    });
 
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
-    };
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "player:get" }));
+    } else {
+      socket.onopen = () => {
+        console.log("WebSocket connected");
+        socket.send(JSON.stringify({ type: "player:get" }));
+      };
+    }
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-    };
-
-    return () => {
-      ws.removeEventListener("message", ws.onmessage);
-    };
-  }, [navigate, user, ws]);
+    return () => unsubscribe();
+  }, [navigate, subscribe, socket]);
 
   const handlePlayerClick = (player) => {
     setSelectedPlayer(player);
@@ -73,15 +60,15 @@ const PlayerList = () => {
   const handleSendGameInvite = () => {
     if (selectedPlayer) {
       // Send a game invite to the selected player
-      ws.send(
+      socket.send(
         JSON.stringify({
           type: "invite:new",
           payload: {
-            senderID: user.userID,
-            senderName: user.username, // The ID of the user sending the invite
-            receiverID: selectedPlayer.userID,
-            receiverName: selectedPlayer.username, // The ID of the player receiving the invite
-            timestamp: new Date().toISOString(), // Optional: to track when the invite was sent
+            senderID: user.userID, // The ID of the user sending the invite
+            senderName: user.username,
+            receiverID: selectedPlayer.userID, // The ID of the player receiving the invite
+            receiverName: selectedPlayer.username,
+            timestamp: new Date().toISOString(),
             board_size: boardSize,
           },
         })
@@ -93,7 +80,7 @@ const PlayerList = () => {
 
   const handleAcceptInvite = () => {
     if (incomingInvite) {
-      ws.send(
+      socket.send(
         JSON.stringify({
           type: "invite:accept",
           payload: {
@@ -110,7 +97,7 @@ const PlayerList = () => {
 
   const handleDeclineInvite = () => {
     if (incomingInvite) {
-      ws.send(
+      socket.send(
         JSON.stringify({
           type: "invite:decline",
           payload: {
@@ -214,7 +201,7 @@ const PlayerList = () => {
         >
           <h4>Game Invite</h4>
           <p>
-            {incomingInvite.inviterName} has invited you to a game with a board
+            {incomingInvite.senderName} has invited you to a game with a board
             size of {incomingInvite.board_size}.
           </p>
           <button onClick={handleAcceptInvite}>Accept</button>

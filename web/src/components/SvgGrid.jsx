@@ -9,39 +9,15 @@ const Grid = ({ gameID }) => {
   const [boxes, setBoxes] = useState([]);
   const boxSize = 50;
   const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState(null);
-  const ws = useWebSocket();
+  const { socket, subscribe } = useWebSocket();
   const { user } = useUser();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    if (!ws) return;
+    if (!socket) return;
 
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-      fetchGridData();
-    };
-
-    const fetchGridData = () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "game:state",
-            payload: {
-              gameID: parseInt(gameID),
-            },
-          })
-        );
-      } else {
-        console.log("WebSocket not ready, retrying...");
-        setTimeout(fetchGridData, 500);
-      }
-    };
-
-    fetchGridData();
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
+    const unsubscribe = subscribe((message) => {
       if (message.type === "game:state") {
         console.log("Received game:state message", message);
         setBoxes(message.payload.grids);
@@ -63,26 +39,39 @@ const Grid = ({ gameID }) => {
 
       if (message.type === "game:quit") {
         console.log("User Quit Game");
-
         setShowModal(true);
       }
-    };
+    });
 
-    ws.onclose = (event) => {
-      console.log("WebSocket disconnected", event);
-    };
-
-    ws.onerror = (error) => {
-      console.error("WebSocket error", error);
-    };
+    if (socket.readyState === WebSocket.OPEN) {
+      fetchGridData();
+    } else {
+      const interval = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          fetchGridData();
+          clearInterval(interval);
+        }
+      }, 500);
+    }
 
     return () => {
-      ws.onmessage = null;
+      unsubscribe();
     };
-  }, [gameID, ws]);
+  }, [socket, subscribe, gameID]);
+
+  const fetchGridData = () => {
+    socket.send(
+      JSON.stringify({
+        type: "game:state",
+        payload: {
+          gameID: parseInt(gameID),
+        },
+      })
+    );
+  };
 
   const handleClick = (gameId, playerId, row, col, edge) => {
-    if (ws) {
+    if (socket) {
       const payload = {
         gameId,
         playerId,
@@ -93,7 +82,7 @@ const Grid = ({ gameID }) => {
 
       console.log(payload);
 
-      ws.send(
+      socket.send(
         JSON.stringify({
           type: "game:move",
           payload,
@@ -109,13 +98,13 @@ const Grid = ({ gameID }) => {
   };
 
   const handleQuitGame = () => {
-    if (ws) {
+    if (socket) {
       const payload = {
         gameId: parseInt(gameID),
         playerId: parseInt(user.userID),
       };
 
-      ws.send(
+      socket.send(
         JSON.stringify({
           type: "game:quit",
           payload,

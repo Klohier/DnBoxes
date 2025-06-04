@@ -7,29 +7,29 @@ import { useWebSocket } from "../WebSocketContext";
 
 const Game = () => {
   const { gameID } = useParams();
-  const ws = useWebSocket();
-  const navigate = useNavigate();
+  // const ws = useWebSocket();
+  // const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!ws) return;
+  // useEffect(() => {
+  //   if (!ws) return;
 
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-      ws.send(JSON.stringify({ type: "player:get" }));
-    };
+  //   ws.onopen = () => {
+  //     console.log("WebSocket connected");
+  //     ws.send(JSON.stringify({ type: "player:get" }));
+  //   };
 
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
-    };
+  //   ws.onclose = () => {
+  //     console.log("WebSocket disconnected");
+  //   };
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-    };
+  //   ws.onerror = (err) => {
+  //     console.error("WebSocket error:", err);
+  //   };
 
-    return () => {
-      ws.removeEventListener("message", ws.onmessage);
-    };
-  }, []);
+  //   return () => {
+  //     ws.removeEventListener("message", ws.onmessage);
+  //   };
+  // }, []);
 
   return (
     <div>

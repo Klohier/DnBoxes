@@ -1,20 +1,27 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 
 const WebSocketContext = createContext(null);
 
 // eslint-disable-next-line react/prop-types
 export const WebSocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
+  const subscribers = useRef([]);
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
     // Create WebSocket connection
     const ws = new WebSocket("ws://localhost:8484/api/v1/ws");
-    setSocket(ws);
 
     // Handle WebSocket events
-    ws.onopen = () => console.log("WebSocket connected");
-    ws.onmessage = (event) => console.log("Message received:", event.data);
+    ws.onopen = () => {
+      console.log("WebSocket connected");
+      setSocket(ws); // set only once connected
+    };
+    ws.onmessage = (event) => {
+      console.log("Message received:", event.data);
+      const message = JSON.parse(event.data);
+      subscribers.current.forEach((cb) => cb(message));
+    };
     ws.onclose = () => console.log("WebSocket disconnected");
 
     return () => {
@@ -23,8 +30,15 @@ export const WebSocketProvider = ({ children }) => {
     };
   }, []);
 
+  const subscribe = (callback) => {
+    subscribers.current.push(callback);
+    return () => {
+      subscribers.current = subscribers.current.filter((cb) => cb !== callback);
+    };
+  };
+
   return (
-    <WebSocketContext.Provider value={socket}>
+    <WebSocketContext.Provider value={{ socket, subscribe }}>
       {children}
     </WebSocketContext.Provider>
   );
