@@ -1,13 +1,14 @@
 import Chatbox from "../components/ChatBox";
 import { useAuth } from "../AuthContext";
 import PlayerList from "../components/PlayerList";
+import PlayerLobby from "../components/PlayerLobby";
 
 const Home = () => {
   const { logout } = useAuth();
 
   return (
     <>
-      <PlayerList></PlayerList>
+      <PlayerLobby></PlayerLobby>
       <Chatbox></Chatbox>
       <button onClick={logout} style={{ marginTop: "20px" }}>
         Logout
