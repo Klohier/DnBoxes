@@ -37,13 +37,14 @@ const (
 type Message struct {
 	UserID    int        `json:"userID"`
 	Username  string     `json:"username"`
-	GameID    *int       `json:"gameID"`
+	SessionID int       `json:"session_id"`
 	Message   string     `json:"message"`
 	TimeStamp time.Time  `json:"timeStamp"`
 }
 type QuitGameEvent struct {
     PlayerID int    `json:"playerID"` // The ID of the player quitting the game
-    GameID   int    `json:"gameID"`   // The ID of the game being quit
+    SessionID   int    `json:"session_id"`
+	GameID int `json:"gameID"`   // The ID of the game being quit
 }
 type GetGridsPayload struct {
 	GameID int `json:"gameID"`
@@ -72,7 +73,7 @@ type DeclineInviteEvent struct {
 type MessageEvent struct {
 	UserID   int    `json:"userID"`   
     Username string `json:"username"`   
-    GameID   *int   `json:"gameID"`    
+    SessionID int `json:"session_id"`   
     Message  string `json:"message"`    
     Timestamp time.Time `json:"timestamp"` 
 }
@@ -117,18 +118,24 @@ type Player struct {
 func PlayerHandler(event Event, c *Connection) error {
 	var players []Player
 
-	
-	for client := range c.manager.connections {
-		// Collect player info from the connected clients
+
+	sessionID := c.sessionID
 
 
-		if client.gameID == nil {
-		players = append(players, Player{
-			UserID:   client.userID,   
-			Username: client.username, 
-		})
-	}
-	}
+	c.manager.RLock()
+    conns, ok := c.manager.rooms[sessionID]
+    c.manager.RUnlock()
+    if !ok {
+        return fmt.Errorf("session room %d does not exist", sessionID)
+    }
+
+	// Collect players in this session room
+    for client := range conns {
+        players = append(players, Player{
+            UserID:   client.userID,
+            Username: client.username,
+        })
+    }
 
 	responsePayload, err := json.Marshal(players)
 	if err != nil {
@@ -141,7 +148,7 @@ func PlayerHandler(event Event, c *Connection) error {
 		Payload: responsePayload,
 	}
 
-	for client := range c.manager.connections {
+	for client := range conns {
 		client.egress <- responseEvent 
 	}
 
@@ -159,11 +166,10 @@ func MessageHandler(event Event, c *Connection) error {
 	var Message MessageEvent
 	
 
-	Message.Timestamp = time.Now().UTC() 
     Message.Message = chatevent.Message
     Message.Username = chatevent.Username
     Message.UserID = chatevent.UserID
-    Message.GameID = chatevent.GameID
+    Message.SessionID = chatevent.SessionID
     Message.Timestamp = chatevent.Timestamp
 
 	data, err := json.Marshal(Message)
@@ -177,31 +183,26 @@ func MessageHandler(event Event, c *Connection) error {
 	outgoingEvent.Type = EventMessage
 
 
-	// Broadcast to all other clients based on gameID l
-	for client := range c.manager.connections {
-		//Sends to global chat
-		if chatevent.GameID == nil && client.gameID == nil {
-			client.egress <- outgoingEvent
-		}
+	c.manager.RLock()
+    defer c.manager.RUnlock()
 
-		//Sends to same game ID
-		 if chatevent.GameID != nil && client.gameID != nil && *client.gameID == *chatevent.GameID {
-			
-			client.egress <- outgoingEvent
-		}
-	}
 
-	
+	conns, ok := c.manager.rooms[chatevent.SessionID]
+    if !ok {
+        return fmt.Errorf("session room %d does not exist", chatevent.SessionID)
+    }
+
+    for conn := range conns {
+        conn.egress <- outgoingEvent
+    }
 
 	msg := chat.Message{
 		UserID:    chatevent.UserID,
 		Username:  chatevent.Username,
-		GameID:    chatevent.GameID,
+		SessionID:    chatevent.SessionID,
 		Message:   chatevent.Message,
 		TimeStamp: chatevent.Timestamp,
 	}
-
-	
 
 	ctx := context.Background()
 	err = c.manager.chatService.SaveMessage(ctx, msg)
@@ -250,20 +251,10 @@ func InviteHandler(event Event, c *Connection) error {
 		return errors.New("bad payload in send_invite request: " + err.Error())
 	}
 
-	// if inviteEvent.BoardSize < 5 || inviteEvent.BoardSize > 10 {
-	// 	return fmt.Errorf("invalid board_size %d, it must be between 1 and 10", inviteEvent.BoardSize)
-	// }
+	if inviteEvent.BoardSize < 5 || inviteEvent.BoardSize > 10 {
+		return fmt.Errorf("invalid board_size %d, it must be between 5 and 10", inviteEvent.BoardSize)
+	}
 
-
-	//OutGoing Message
-
-	// var receiveEvent ReceiveInviteEvent
-
-	// receiveEvent.InviterID = inviteEvent.SenderID
-	// receiveEvent.PlayerID = inviteEvent.ReceiverID
-	// receiveEvent.Username = inviteEvent.SenderName
-	// receiveEvent.BoardSize = inviteEvent.BoardSize
-	// receiveEvent.Timestamp = inviteEvent.Timestamp
 
 	var outgoingEvent Event
 	inviteEvent.Timestamp = time.Now().UTC()
@@ -292,7 +283,6 @@ func AcceptInviteHandler(event Event, c *Connection) error {
         return errors.New("bad payload in accept_invite request: "  + err.Error())
     }
 
-    
 
     // Find the sender's connection
     inviterConnection := findConnectionByUserID(c.manager, acceptInviteEvent.SenderId)
@@ -305,25 +295,26 @@ func AcceptInviteHandler(event Event, c *Connection) error {
     inviteeID := c.userID 
 	boardSize := acceptInviteEvent.BoardSize
 
+
+	playerIDs := []int{senderID, inviteeID}
+
+	// Session creation
+	ctx := context.Background()
+	session, err := c.manager.sessionService.CreateSession(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+
+
     // Create a new game with both players
-    ctx := context.Background()
-    game, err := c.manager.gameService.CreateGame(ctx, senderID, inviteeID, boardSize)
+    game, err := c.manager.gameService.CreateGame(ctx, playerIDs, boardSize, session.SessionID)
     if err != nil {
         return errors.New("failed to create game: "  + err.Error())
     }
 
-	_, err = c.manager.userService.UpdateGameID(ctx, senderID, game.GameId)
-    if err != nil {
-        return errors.New("failed to update sender gameID in database: " + err.Error())
-    }
+	c.manager.JoinRoom(c, session.SessionID)
 
-    _, err = c.manager.userService.UpdateGameID(ctx, inviteeID, game.GameId)
-    if err != nil {
-        return fmt.Errorf("failed to update invitee gameID in database: "  + err.Error())
-    }
-
-	c.gameID = game.GameId
-    inviterConnection.gameID = game.GameId
+	inviterConnection.manager.JoinRoom(inviterConnection, session.SessionID)
 
     // Notify both players of the accepted invite and game creation
     gameCreatedEvent := Event{
@@ -351,7 +342,7 @@ func AcceptInviteHandler(event Event, c *Connection) error {
     c.egress <- gameCreatedEvent
     inviterConnection.egress <- gameCreatedEvent
 
-	BroadcastPlayerList(c.manager)
+	BroadcastPlayerListToRoom(c.manager, session.SessionID)
 
     return nil
 }
@@ -397,21 +388,12 @@ func MoveHandler(event Event, c *Connection) error {
 			Payload: responsePayload,
 		}
 	
-		for client := range c.manager.connections {
-			if client.gameID != nil && *client.gameID == payload.GameID {
-				client.egress <- responseEvent
-			}
-		}
 
-		// for client := range c.manager.connections {
-		// 	if client.gameID != nil && *client.gameID == payload.GameID && client.userID != payload.PlayerID {
-		// 		yourTurnEvent := Event{
-		// 			Type:    "your_turn",
-					
-		// 		}
-		// 		client.egress <- yourTurnEvent
-		// 	}
-		// }
+		for client := range c.manager.connections {
+    if client.sessionID == c.sessionID {
+        client.egress <- responseEvent
+    }
+}
 	
 		return nil
 }
@@ -427,20 +409,39 @@ func QuitGameHandler(event Event, c *Connection) error {
         Type:    EventQuitGame,
     } 
 
-    c.gameID = nil
+	mainLobbyID := 1
 
-	c.manager.userService.UpdateGameID(context.Background(), quitGameEvent.PlayerID, nil)
+	if err := c.manager.sessionService.AddUserToSession(context.Background(), mainLobbyID, quitGameEvent.PlayerID); err != nil {
+		return err
+	}
 
-	
-// Send to other players with the same gameID
+	c.sessionID = mainLobbyID
+
+	winnerSet := false
+
+	// Notify other players in the same session (the old game session)
 	for client := range c.manager.connections {
-        if client.gameID != nil && *client.gameID == quitGameEvent.GameID && client.userID != quitGameEvent.PlayerID {
-            client.egress <- quitEvent 
-			client.gameID = nil
-			client.manager.userService.UpdateGameID(context.Background(), client.userID, nil)
-			client.manager.gameService.SetWinner(context.Background(), quitGameEvent.GameID, &client.userID)
-        }
-    }
+		if client.sessionID == quitGameEvent.SessionID {
+			if client.userID != quitGameEvent.PlayerID {
+				// Send quit event to other players
+				client.egress <- quitEvent
 
-    return nil
+				// Move them to main lobby
+				if err := client.manager.sessionService.AddUserToSession(context.Background(), mainLobbyID, client.userID); err != nil {
+					return err
+				}
+				client.sessionID = mainLobbyID
+
+				// Set first remaining player as winner
+				if !winnerSet {
+					if err := client.manager.gameService.SetWinner(context.Background(), quitGameEvent.GameID, &client.userID); err != nil {
+						return err
+					}
+					winnerSet = true
+				}
+			}
+		}
+	}
+
+	return nil
 }
