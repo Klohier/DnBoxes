@@ -3,25 +3,41 @@ import { useUser } from "../UserContext";
 import { useWebSocket } from "../WebSocketContext";
 import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
+import Box from "./Box";
 
 // eslint-disable-next-line react/prop-types
 const Grid = ({ gameID }) => {
   const [boxes, setBoxes] = useState([]);
+  const [sessionID, setSessionID] = useState([]);
   const boxSize = 50;
   const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState(null);
   const { socket, subscribe } = useWebSocket();
   const { user } = useUser();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [userColors, setUserColors] = useState({});
+  const [boardSize, setBoardSize] = useState();
 
   useEffect(() => {
     if (!socket) return;
+
+    const colors = ["red", "blue", "green", "purple", "orange", "pink"];
 
     const unsubscribe = subscribe((message) => {
       if (message.type === "game:state") {
         console.log("Received game:state message", message);
         setBoxes(message.payload.grids);
-        setCurrentTurnPlayerId(message.payload.game.CurrentTurn);
+        setCurrentTurnPlayerId(message.payload.game.current_turn);
+        setSessionID(message.payload.game.session_id);
+        setBoardSize(message.payload.game.board_size);
+        const players = message.payload.game.players;
+        if (players) {
+          const colorMap = {};
+          players.forEach((player, index) => {
+            colorMap[player.user_id] = colors[index % colors.length];
+          });
+          setUserColors(colorMap);
+        }
       }
 
       if (message.type === "your_turn") {
@@ -102,6 +118,7 @@ const Grid = ({ gameID }) => {
       const payload = {
         gameId: parseInt(gameID),
         playerId: parseInt(user.userID),
+        session_id: parseInt(sessionID),
       };
 
       socket.send(
@@ -126,126 +143,24 @@ const Grid = ({ gameID }) => {
         </div>
       )}
 
-      <svg width={boxSize * 6} height={boxSize * 6}>
-        {boxes.map((box) => {
-          const {
-            BoxId,
-            Row,
-            Col,
-            top_edge,
-            left_edge,
-            right_edge,
-            bottom_edge,
-            completed,
-            completed_by,
-          } = box;
-          const x = Col * boxSize;
-          const y = Row * boxSize;
-          const completedText = completed_by;
-          return (
-            <g key={BoxId}>
-              {completed && (
-                <>
-                  <rect
-                    x={x}
-                    y={y}
-                    width={boxSize}
-                    height={boxSize}
-                    fill="transparent"
-                  />
-
-                  <text
-                    x={x + boxSize / 2}
-                    y={y + boxSize / 2}
-                    textAnchor="middle"
-                    alignmentBaseline="middle"
-                    fontSize="12"
-                    fill="black"
-                  >
-                    {completedText}
-                  </text>
-                </>
-              )}
-
-              {/* Top Edge */}
-              <line
-                x1={x}
-                y1={y}
-                x2={x + boxSize}
-                y2={y}
-                className={top_edge ? "active" : "inactive"}
-                strokeWidth="2"
-                onClick={() =>
-                  handleClick(
-                    parseInt(gameID),
-                    parseInt(user.userID),
-                    Row,
-                    Col,
-                    "top_edge"
-                  )
-                }
-                style={{ cursor: "pointer" }}
-              />
-              {/* Left Edge */}
-              <line
-                x1={x}
-                y1={y}
-                x2={x}
-                y2={y + boxSize}
-                className={left_edge ? "active" : "inactive"}
-                strokeWidth="2"
-                onClick={() =>
-                  handleClick(
-                    parseInt(gameID),
-                    parseInt(user.userID),
-                    Row,
-                    Col,
-                    "left_edge"
-                  )
-                }
-                style={{ cursor: "pointer" }}
-              />
-              {/* Right Edge */}
-              <line
-                x1={x + boxSize}
-                y1={y}
-                x2={x + boxSize}
-                y2={y + boxSize}
-                className={right_edge ? "active" : "inactive"}
-                strokeWidth="2"
-                onClick={() =>
-                  handleClick(
-                    parseInt(gameID),
-                    parseInt(user.userID),
-                    Row,
-                    Col,
-                    "right_edge"
-                  )
-                }
-                style={{ cursor: "pointer" }}
-              />
-              {/* Bottom Edge */}
-              <line
-                x1={x}
-                y1={y + boxSize}
-                x2={x + boxSize}
-                y2={y + boxSize}
-                className={bottom_edge ? "active" : "inactive"}
-                strokeWidth="2"
-                onClick={() =>
-                  handleClick(
-                    parseInt(gameID),
-                    parseInt(user.userID),
-                    Row,
-                    Col,
-                    "bottom_edge"
-                  )
-                }
-                style={{ cursor: "pointer" }}
-              />
-            </g>
-          );
-        })}
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`-5 -5 ${boxSize * boardSize + 10} ${boxSize * boardSize + 10}`}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {boxes.map((box) => (
+          <Box
+            key={box.box_id}
+            box={box}
+            userColors={userColors}
+            onEdgeClick={handleClick}
+            currentUserId={parseInt(user.userID)}
+            gameID={parseInt(gameID)}
+            boxSize={boxSize}
+            boardSize={boardSize}
+          />
+        ))}
       </svg>
       <button onClick={handleQuitGame} style={{ marginTop: "10px" }}>
         Quit Game
