@@ -18,7 +18,6 @@ type UserHandler struct {
 type UserResponse struct {
 	UserID int `json:"userID"`
     Username string `json:"username" validate:"required"`
-	GameID *int `json:"gameID"`
 }
 
 
@@ -26,7 +25,6 @@ func NewUserResponse(user *User) *UserResponse {
 	return &UserResponse{
 		UserID: user.UserID,
 		Username: user.Username,
-		GameID: user.GameID,
 	}
 }
 

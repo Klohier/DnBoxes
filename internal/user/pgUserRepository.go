@@ -22,7 +22,7 @@ func NewPgUserRepository(db *pgxpool.Pool) *PgUserRepository{
 func (repo *PgUserRepository) FindAll( ctx context.Context) ([]User, error){
 	var users []User
 
-	query := `SELECT user_id, username, game_id FROM users`
+	query := `SELECT user_id, username FROM users`
 	rows, err := repo.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (repo *PgUserRepository) FindAll( ctx context.Context) ([]User, error){
 
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.UserID, &user.Username, &user.GameID); err != nil {
+		if err := rows.Scan(&user.UserID, &user.Username); err != nil {
 			return nil, err
 	}
 	users = append(users, user)
@@ -45,8 +45,8 @@ func (repo *PgUserRepository) FindAll( ctx context.Context) ([]User, error){
 	
 func (repo *PgUserRepository) FindByID(ctx context.Context, id int) (*User, error){
 	var user User
-	query := `SELECT user_id, username, game_id FROM users WHERE user_id = $1`
-	err := repo.db.QueryRow(ctx, query, id).Scan(&user.UserID,&user.Username, &user.GameID)
+	query := `SELECT user_id, username FROM users WHERE user_id = $1`
+	err := repo.db.QueryRow(ctx, query, id).Scan(&user.UserID,&user.Username)
 	if err !=nil {
 		return nil, fmt.Errorf("failed to find user %d : %w", id, err)
 	}
@@ -68,16 +68,14 @@ func (repo *PgUserRepository) Create(ctx context.Context, username string, passw
 
 func (repo *PgUserRepository) FindByUsername(ctx context.Context, username string) (*User, error){
 	var user User
-	query := `SELECT username, password, user_id, game_id FROM users WHERE username = $1`
-	err := repo.db.QueryRow(ctx, query, username).Scan(&user.Username, &user.Password, &user.UserID, &user.GameID)
+	query := `SELECT username, password, user_id FROM users WHERE username = $1`
+	err := repo.db.QueryRow(ctx, query, username).Scan(&user.Username, &user.Password, &user.UserID)
 
 	if err != nil {
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
-
 	
-		// log.Printf("Error checking username uniqueness: %v", err)
 		return nil, errors.New("failed to check username uniqueness")
 	}
 
