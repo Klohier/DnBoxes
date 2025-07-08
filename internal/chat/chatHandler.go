@@ -21,9 +21,13 @@ func NewChatHandler(chatService *ChatService) *ChatHandler{
 
 
 // GetAllMessagesHandler handles the request to get all messages
-func (h *ChatHandler) GetAllMessage(c echo.Context) error {
-	// Call GetAllMessage from ChatService
-	messages, err := h.chatService.GetAllMessage(c.Request().Context())
+func (h *ChatHandler) GetAllMessageFromSession(c echo.Context) error {
+	sessionID, err := strconv.Atoi(c.QueryParam("sessionID"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errors.New("invalid session id"))
+}
+
+	messages, err := h.chatService.GetAllMessageFromSession(c.Request().Context(), sessionID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, errors.New("Failed to get messages: " + err.Error()),
 		)

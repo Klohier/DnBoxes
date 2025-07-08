@@ -19,14 +19,14 @@ func NewPgChatRepository(db *pgxpool.Pool) *PgChatRepository{
 	}
 }
 
-func (repo *PgChatRepository) SaveMessage(ctx context.Context, userID int, message string, time time.Time, gameID *int) (error){
+func (repo *PgChatRepository) SaveMessage(ctx context.Context, userID int, message string, time time.Time, sessionID int) (error){
 	
 	// var msg Message
-	query :=`INSERT INTO chats (user_id, message, timestamp, game_id) VALUES ($1, $2, $3, $4)`
-	_, err := repo.db.Exec(ctx, query, userID, message, time, gameID)
+	query :=`INSERT INTO chats (user_id, message, sent_at, session_id) VALUES ($1, $2, $3, $4)`
+	_, err := repo.db.Exec(ctx, query, userID, message, time, sessionID)
     if err != nil {
 		fmt.Printf("Executing query: %s\n", query)
-fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, gameID=%v\n", userID, message, time, gameID)
+fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, sessionID=%v\n", userID, message, time, sessionID)
         return  errors.New("Failed to Save Message" + err.Error())
     }
 
@@ -35,22 +35,22 @@ fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, gameID=%v\n", userID, m
 }
 
 
-func (repo *PgChatRepository) GetAllMessage(ctx context.Context) ([]Message, error){
+func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message, error){
 	var messages []Message
 	
 
 
 	query := `
-		SELECT c.message, c.timestamp, u.username, u.user_id
+		SELECT c.message, c.sent_at, c.session_id, u.username, u.user_id
 		FROM chats c
 		LEFT JOIN users u ON c.user_id = u.user_id
-		WHERE c.game_id IS NULL
-		AND c.timestamp >= NOW() - INTERVAL '5 minutes'
-		ORDER BY c.timestamp ASC
+		WHERE c.session_id = $1
+		AND c.sent_at >= NOW() - INTERVAL '5 minutes'
+		ORDER BY c.sent_at ASC
 	`
 
 
-	rows, err := repo.db.Query(ctx, query)
+	rows, err := repo.db.Query(ctx, query, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,14 +58,15 @@ func (repo *PgChatRepository) GetAllMessage(ctx context.Context) ([]Message, err
 
 	for rows.Next() {
 		var message Message
-		if err := rows.Scan(&message.Message, &message.TimeStamp, &message.Username, &message.UserID); err != nil {
+		if err := rows.Scan(&message.Message, &message.TimeStamp, &message.SessionID, &message.Username, &message.UserID); err != nil {
 			return nil, err
 		}
 		messages = append(messages, message)
-		if err := rows.Err(); err != nil {
+	}
+if err := rows.Err(); err != nil {
 			return nil, err
 		}
-	}
+
 	return messages, nil
 }
 

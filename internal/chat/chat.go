@@ -10,7 +10,7 @@ import (
 type Message struct {
 	UserID int `json:"userID"`
 	Username string `json:"username"`
-	GameID *int
+	SessionID int `json:"session_id"`
 	Message string `json:"message"`
 	TimeStamp time.Time
 }

@@ -16,7 +16,7 @@ func NewChatService(chatRepo ChatRepository) *ChatService{
 }
 
 func (s *ChatService) SaveMessage(ctx context.Context, msg Message) error {
-	err := s.chatRepo.SaveMessage(ctx, msg.UserID, msg.Message, msg.TimeStamp, msg.GameID)
+	err := s.chatRepo.SaveMessage(ctx, msg.UserID, msg.Message, msg.TimeStamp, msg.SessionID)
 	if err != nil {
 		return errors.New("Failed to send message" + err.Error())
 	}
@@ -33,8 +33,8 @@ func (s *ChatService) GetAllGameMessage(ctx context.Context, gameId int) ([]Mess
 }
  
 
-func (s *ChatService) GetAllMessage(ctx context.Context) ([]Message , error) {
-	msg, err := s.chatRepo.GetAllMessage(ctx)
+func (s *ChatService) GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message , error) {
+	msg, err := s.chatRepo.GetAllMessageFromSession(ctx, sessionID)
 	if err != nil {
 		return nil, errors.New("failed to get message from game" + err.Error())
 	}
