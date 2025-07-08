@@ -4,13 +4,17 @@ import (
 	"context"
 	"dango/internal/auth"
 	"dango/internal/chat"
+
 	"dango/internal/websocket"
 	"fmt"
 
 	"dango/internal/game"
+	"dango/internal/session"
 	"dango/internal/user"
+	"net/http"
+	_ "net/http/pprof"
 
-	"dango/web"
+	// "dango/web"
 	"log"
 	"log/slog"
 	"os"
@@ -67,7 +71,7 @@ func main() {
 
 	// SETUP for embeded react app into go binary
 
-	web.RegisterHandlers(app)
+	// web.RegisterHandlers(app)
 
 	// SETUP FOR Logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -95,8 +99,13 @@ func main() {
 
 	//SETUP CORS
 
+	clientOrigin := os.Getenv("CLIENT_ORIGIN")
+if clientOrigin == "" {
+    clientOrigin = "http://localhost:5173" 
+}
+
 	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-        AllowOrigins: []string{"http://localhost:5173"},
+        AllowOrigins: []string{clientOrigin},
         AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
 		AllowCredentials: true,
     }))
@@ -113,8 +122,11 @@ func main() {
 	gameRepo := game.NewPgGameRepository(db)
 	gameService := game.NewGameService(gameRepo)
 	gameHandler := game.NewGameHandler(gameService)
+	sessionRepo := session.NewPgSessionRepository(db)
+	sessionService := session.NewSessionService(sessionRepo)
+	sessionHandler := session.NewSessionHandler(sessionService)
 
-	manager := websocket.NewManager(gameService, userService, chatService)
+	manager := websocket.NewManager(gameService, userService, chatService, sessionService)
 
 	
 
@@ -142,11 +154,25 @@ api.GET("/ws", manager.ServeWs)
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
 
 	//Chat
-	api.GET("/chat", chatHandler.GetAllMessage)
+	api.GET("/chat", chatHandler.GetAllMessageFromSession)
 	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
 	api.POST("/games/:gameId/chat", nil)
 
-	
+	//Session
+	api.GET("/sessions", sessionHandler.GetAllSessions)
+	api.POST("/sessions", sessionHandler.CreateSession)
+api.GET("/sessions/:sessionID/chat", chatHandler.GetAllMessageFromSession)	
+	api.POST("/sessions/:sessionId/users/:userId", sessionHandler.AddUserToSession)
+	api.DELETE("/sessions/:sessionId/users/:userId", sessionHandler.RemoveUserFromSession)
+
+
+
+	go func() {
+    log.Println("pprof server listening on :6060")
+    if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+        log.Fatal(err)
+    }
+}()
 	
 	app.Start(fmt.Sprintf("0.0.0.0:%s", port))
 	logger.Info("Server Started")
