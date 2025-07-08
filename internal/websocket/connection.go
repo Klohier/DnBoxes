@@ -26,18 +26,19 @@ type Connection struct {
 	egress chan Event
 	userID   int
 	username string
-	gameID *int
+	sessionID int
+	
 }
 
 // NewConnection creates a new WebSocket connection.
-func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string, gameID *int) *Connection {
+func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string, sessionID int) *Connection {
 	return &Connection{
 		ws:     ws,
 		manager: manager,
-		egress:     make(chan Event, 10),
+		egress:     make(chan Event, 100),
 		userID: userID,
 		username: username,
-		gameID: gameID,
+		sessionID: sessionID,
 	}
 }
 
