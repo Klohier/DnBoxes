@@ -25,23 +25,6 @@ const Login = () => {
       formData.append("password", password);
 
       await login(formData);
-      //   const response = await axios.post(
-      //     "http://localhost:8484/api/v1/login",
-      //     formData,
-      //     {
-      //       headers: {
-      //         "Content-Type": "application/x-www-form-urlencoded",
-      //       },
-      //       withCredentials: true,
-      //     }
-      //   );
-
-      //   if (response.status === 200) {
-      //     loginUser(response.data);
-      //     navigate("/home");
-      //   } else {
-      //     setError("Invalid username or password");
-      //   }
     } catch (err) {
       console.log("Login error:", err);
       setError("Failed to log in. Please try again.");
