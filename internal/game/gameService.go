@@ -37,19 +37,29 @@ func (s *GameService) GetGameState(ctx context.Context, gameId int) (*GameState,
     }, nil
 }
 
-func (s *GameService) CreateGame(ctx context.Context, p1 int, p2 int, boardSize int) (*Game, error){
+func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int, sessionId int) (*Game, error){
 
 	//Checks for if boardSize is more than 5 less than 10
 
-	// if boardSize <= 4 || boardSize >= 11 {
-	// 	return nil, errors.New("invalid board size: must be greater than 5 and less than 10, selected: " + strconv.Itoa(boardSize))
-	// }
-
-	if p1 == p2 {
-		return nil, errors.New("players must be different")
+	if boardSize <= 4 || boardSize >= 11 {
+		return nil, errors.New("invalid board size: must be greater than 5 and less than 10, selected: " + strconv.Itoa(boardSize))
 	}
 
-	game, err := s.gameRepo.Create(ctx, p1, p2, boardSize)
+	if len(playerIDs) < 2 {
+		return nil, errors.New("a game requires at least 2 players")
+	}
+
+	// Ensure no duplicate player IDs
+	playerIDSet := make(map[int]struct{})
+	for _, id := range playerIDs {
+		if _, exists := playerIDSet[id]; exists {
+			return nil, fmt.Errorf("duplicate player ID detected: %d", id)
+		}
+		playerIDSet[id] = struct{}{}
+	}
+
+
+	game, err := s.gameRepo.Create(ctx, playerIDs, boardSize, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +83,23 @@ func (s *GameService) MakeMove(ctx context.Context,gameId int, playerId int, row
 		return GameState{},  errors.New("failed to find game: " + err.Error())
 	}
 
-	//Checks if player is part of game
-	if playerId != game.Player1 && playerId != game.Player2 {
-		return GameState{}, errors.New("player is not part of this game")
+	// Checks if player is part of the game
+	playerTurnOrder := -1
+	found := false
+	for _, p := range game.Player {
+		if p.UserID == playerId {
+			playerTurnOrder = p.TurnOrder
+			found = true
+		break
 	}
+}
+
+	if !found {
+		return GameState{}, errors.New("player is not part of this game")
+}
 
 	//Check if its player's turn
-	if game.CurrentTurn != playerId {
+	if *game.CurrentTurn != playerTurnOrder {
         return GameState{}, errors.New("it's not player " + strconv.Itoa(playerId) + " 's turn" )
     }
 
@@ -93,7 +113,7 @@ func (s *GameService) MakeMove(ctx context.Context,gameId int, playerId int, row
         return GameState{}, fmt.Errorf("invalid move: edge %s for box at row %d, col %d is already selected", edge, row, col)
     }
 
-	boxCompleted := false
+	
 
 	//Updates Grid
 	_, err = s.gameRepo.UpdateGrid(ctx, gameId , row , col , edge  )
@@ -102,10 +122,13 @@ func (s *GameService) MakeMove(ctx context.Context,gameId int, playerId int, row
 	}
 
 	
-
+boxCompleted := false
 	// Check if the box at the current position was completed
 	if completed, err := s.CheckSetCompletion(ctx, gameId, row, col, playerId); err == nil && completed {
 		boxCompleted = true
+		if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
+		slog.Error("failed to increment player score", "error", err)
+	}
 	}
 
 
@@ -116,6 +139,9 @@ func (s *GameService) MakeMove(ctx context.Context,gameId int, playerId int, row
 			completed, err := s.CheckSetCompletion(ctx, gameId, row-1, col, playerId)
 			if err == nil && completed {
 				boxCompleted = true
+			if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
+		slog.Error("failed to increment player score", "error", err)
+	}	
 			}
 		}
 	case "left_edge":
@@ -123,46 +149,45 @@ func (s *GameService) MakeMove(ctx context.Context,gameId int, playerId int, row
 			completed, err := s.CheckSetCompletion(ctx, gameId, row, col-1, playerId)
 			if err == nil && completed {
 				boxCompleted = true
+				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
+		slog.Error("failed to increment player score", "error", err)
+	}
 			}
 		}
 	case "right_edge":
-		if col > game.BoardSize-1 {
+		if col < game.BoardSize-1 {
 			completed, err := s.CheckSetCompletion(ctx, gameId, row, col +1, playerId)
 			if err == nil && completed {
 				boxCompleted = true
+				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
+		slog.Error("failed to increment player score", "error", err)
+	}
 			}
 		}
 	case "bottom_edge":
-		if row > game.BoardSize-1{
+		if row < game.BoardSize-1{
 			completed, err := s.CheckSetCompletion(ctx, gameId, row+1, col, playerId)
 			if err == nil && completed {
 				boxCompleted = true
+				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
+		slog.Error("failed to increment player score", "error", err)
+	}
 			}
 		}
 	}
-var nextPlayer int
+
+	var nextPlayerId int
 	if !boxCompleted {
 		slog.Info("box is not completed, updating turn")
-    
-    if game.CurrentTurn == playerId {
-        // If it's the current player's turn, set the next player
-        if game.Player1 == playerId {
-            nextPlayer = game.Player2
-		} else if 
-         game.Player2 == playerId {
-            nextPlayer = game.Player1
-        } else {
-            return GameState{}, errors.New("invalid player ID in game")
-        }
-
-		slog.Info("Updating turn to player:", nextPlayer)
-
-        // Update the turn in the database
-        if err := s.gameRepo.UpdateTurn(ctx, gameId, nextPlayer); err != nil {
-            return GameState{}, fmt.Errorf("failed to update turn: %w", err)
-        }
+		nextTurnOrder := (*game.CurrentTurn + 1) % len(game.Player)
+	 if err := s.gameRepo.UpdateTurn(ctx, gameId, nextTurnOrder); err != nil {
+        return GameState{}, fmt.Errorf("failed to update turn: %w", err)
     }
-}
+	
+		slog.Info("Updating turn to player:", "nextPlayerId", nextPlayerId)
+
+	}
+
 
 // Check if there are any more moves left
 boxes, err := s.gameRepo.GetGrids(ctx, gameId)
@@ -180,32 +205,34 @@ if err != nil {
 	}
 
 	if allCompleted {
-		player1Score := 0
-		player2Score := 0
-
-		// Count the number of boxes each player has completed
-		for _, box := range boxes {
-			if *box.Completed_by == game.Player1 {
-				player1Score++
-			} else if *box.Completed_by == game.Player2 {
-				player2Score++
-			}
+		playerScores, err := s.gameRepo.GetPlayerScores(ctx, gameId)
+		if err != nil {
+			return GameState{}, fmt.Errorf("failed to get player scores: %w", err)
 		}
 
 		var winnerId *int
-		if player1Score > player2Score {
-			winnerId = &game.Player1
-		} else if player2Score > player1Score {
-			winnerId = &game.Player2
-		} else {
-			// It's a draw if the scores are equal
-			winnerId = nil
+		highestScore := -1
+		tie := false
+
+		for userId, score := range playerScores {
+			if score > highestScore {
+				highestScore = score
+				winnerId = &userId
+				tie = false
+			} else if score == highestScore {
+				tie = true
+			}
 		}
 
-		if err := s.SetWinner(ctx, gameId, winnerId); err != nil {
-			return GameState{}, errors.New("failed to set winner: " + err.Error())
-		}
+	// If there's a tie, set winnerId to nil
+	if tie {
+		winnerId = nil
 	}
+
+	if err := s.SetWinner(ctx, gameId, winnerId); err != nil {
+		return GameState{}, fmt.Errorf("failed to set winner: %w", err)
+	}
+}
 
 	// Reload updated game state
     updatedGame, err := s.gameRepo.FindByID(ctx, gameId)
