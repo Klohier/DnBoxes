@@ -35,15 +35,20 @@ func NewGameHandler(userService *GameService) *GameHandler{
 func(h *GameHandler) CreateGame(c echo.Context) error {
 
 	var req struct {
-		Player1        int `json:"player1"`
-		Player2        int `json:"player2"`
+		PlayerIds []int `json:"player_ids"`
 		BoardSize int `json:"board_size"`
+		SessionID int `json:"session_id"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
 
-	game, err := h.gameService.CreateGame(c.Request().Context(), req.Player1, req.Player2, req.BoardSize)
+	if len(req.PlayerIds) < 2 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "At least two players are required to start a game"})
+	}
+
+
+	game, err := h.gameService.CreateGame(c.Request().Context(), req.PlayerIds, req.BoardSize, req.SessionID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create game" + err.Error()})
 	}
