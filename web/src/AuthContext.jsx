@@ -9,6 +9,7 @@ export const useAuth = () => useContext(AuthContext);
 
 // eslint-disable-next-line react/prop-types
 export const AuthProvider = ({ children }) => {
+  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -28,7 +29,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await axios.post(
-        "http://localhost:8484/api/v1/login",
+        `http://${apiUrl}/api/v1/login`,
         credentials,
         {
           headers: {

@@ -1,6 +1,6 @@
 import "./App.css";
 // import ChatBox from "./components/ChatBox"; // Path to the SvgGrid component
-import Grid from "./components/SvgGrid";
+// import Grid from "./components/SvgGrid";
 // import { NavLink } from "react-router";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { UserProvider } from "./UserContext"; // Import the UserProvider
@@ -26,18 +26,15 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <UserProvider>
-            {/* <WebSocketProvider> */}
             <Routes>
               <Route path="/" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
               <Route element={<ProtectedLayout />}>
                 <Route path="/home" element={<Home />} />
-                <Route path="/Grid" element={<Grid />} />
                 <Route path="/game/:gameID" element={<Game />} />
               </Route>
             </Routes>
-            {/* </WebSocketProvider> */}
           </UserProvider>
         </AuthProvider>
       </BrowserRouter>

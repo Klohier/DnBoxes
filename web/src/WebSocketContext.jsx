@@ -7,6 +7,7 @@ export const WebSocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const { isAuthenticated, token } = useAuth();
   const subscribers = useRef([]);
+  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
@@ -21,7 +22,7 @@ export const WebSocketProvider = ({ children }) => {
       return;
     }
 
-    const ws = new WebSocket("ws://localhost:8484/api/v1/ws");
+    const ws = new WebSocket(`ws://${apiUrl}/api/v1/ws`);
 
     // Handle WebSocket events
     ws.onopen = () => {

@@ -14,7 +14,7 @@ export const UserProvider = ({ children }) => {
   console.log("This is from Provider: ", user);
 
   if (loading) {
-    return <div>Loading...</div>; // Or any fallback UI
+    return <div>Loading...</div>;
   }
 
   return (

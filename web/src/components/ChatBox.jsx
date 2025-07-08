@@ -4,23 +4,26 @@ import { useWebSocket } from "../WebSocketContext";
 import axios from "axios";
 
 // eslint-disable-next-line react/prop-types
-const Chatbox = ({ gameID }) => {
+const Chatbox = ({ sessionID }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const { user } = useUser();
   const { socket, subscribe } = useWebSocket();
+  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
+
   useEffect(() => {
+    if (!sessionID || !socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
     const fetchMessages = async () => {
       try {
         // Make an API request to fetch past messages for the given gameID
 
-        const endpoint = gameID
-          ? `http://localhost:8484/api/v1/games/${gameID}/chat`
-          : `http://localhost:8484/api/v1/chat`;
+        const endpoint = `http://${apiUrl}/api/v1/chat?sessionID=${sessionID}`;
 
         const response = await axios.get(endpoint);
 
-        // console.log(response);
+        console.log(response);
         if (response.data) {
           setMessages(response.data);
         }
@@ -30,7 +33,7 @@ const Chatbox = ({ gameID }) => {
     };
 
     fetchMessages();
-  }, [gameID]);
+  }, [sessionID, socket]);
 
   useEffect(() => {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -39,15 +42,15 @@ const Chatbox = ({ gameID }) => {
     }
 
     const unsubscribe = subscribe((message) => {
-      if (
-        message.payload &&
-        message.payload.username &&
-        message.payload.message &&
-        (message.payload.gameID === gameID ||
-          (message.payload.gameID === null && gameID === null))
-      ) {
-        setMessages((prev) => [...prev, message.payload]);
-      }
+      // if (
+      //   message.payload &&
+      //   message.payload.username &&
+      //   message.payload.message &&
+      //   (message.payload.session_id === sessionID ||
+      //     (message.payload.session_id === null && sessionID === null))
+      // ) {
+      //   setMessages((prev) => [...prev, message.payload]);
+      // }
 
       if (message.type === "chat:new") {
         setMessages((prev) => [...prev, message.payload]);
@@ -60,7 +63,7 @@ const Chatbox = ({ gameID }) => {
       unsubscribe();
       console.log("WebSocket message subscription removed");
     };
-  }, [gameID, socket, subscribe]);
+  }, [sessionID, socket, subscribe]);
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
@@ -70,7 +73,7 @@ const Chatbox = ({ gameID }) => {
       payload: {
         userID: parseInt(user.userID),
         username: user.username,
-        gameID: parseInt(gameID),
+        session_id: parseInt(sessionID),
         message: newMessage,
         timestamp: new Date().toISOString(),
       },

@@ -7,6 +7,7 @@ const useFetchUser = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { isAuthenticated, token } = useAuth();
+  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
 
   useEffect(() => {
     console.log("useEffect triggered:", { isAuthenticated, token });
@@ -18,7 +19,7 @@ const useFetchUser = () => {
 
       console.log("Fetching user with ID:", userId);
       axios
-        .get(`http://localhost:8484/api/v1/users/${userId}`)
+        .get(`http://${apiUrl}/api/v1/users/${userId}`)
         .then((response) => {
           setUser(response.data);
           setLoading(false);

@@ -1,5 +1,4 @@
 /* eslint-disable react/prop-types */
-// eslint-disable-next-line react/prop-types
 import styles from "./SendInviteModal.module.css";
 const SendInviteModal = ({
   selectedPlayer,

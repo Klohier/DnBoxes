@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Cookies from "js-cookie";
 import { useUser } from "../UserContext";
 
 const Register = () => {
@@ -10,12 +9,7 @@ const Register = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { loginUser } = useUser();
-  // useEffect(() => {
-  //   const token = Cookies.get("DnB-Session");
-  //   if (token) {
-  //     navigate("/home");
-  //   }
-  // }, [navigate]);
+  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -26,7 +20,7 @@ const Register = () => {
       formData.append("password", password);
 
       const response = await axios.post(
-        "http://localhost:8484/api/v1/users",
+        `http://${apiUrl}/api/v1/users`,
         formData,
         {
           headers: {
