@@ -9,25 +9,23 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
-type UserHandler struct {
 
+type UserHandler struct {
 	userService *UserService
-	logger *slog.Logger
+	logger      *slog.Logger
 }
 
 type UserResponse struct {
-	UserID int `json:"userID"`
-    Username string `json:"username" validate:"required"`
+	UserID   int    `json:"userID"`
+	Username string `json:"username" validate:"required"`
 }
-
 
 func NewUserResponse(user *User) *UserResponse {
 	return &UserResponse{
-		UserID: user.UserID,
+		UserID:   user.UserID,
 		Username: user.Username,
 	}
 }
-
 
 // Creates a Slice of UserResponses Populated from a slice of Users
 func NewUserResponses(users []User) []UserResponse {
@@ -38,29 +36,27 @@ func NewUserResponses(users []User) []UserResponse {
 	return userResponses
 }
 
-func NewUserHandler(userService *UserService) *UserHandler{
+func NewUserHandler(userService *UserService) *UserHandler {
 	return &UserHandler{userService: userService,
-	logger:  slog.New(slog.NewJSONHandler(os.Stdout, nil)),}
+		logger: slog.New(slog.NewJSONHandler(os.Stdout, nil))}
 }
 
-
-func(h *UserHandler) CreateUser(c echo.Context) error {
+func (h *UserHandler) CreateUser(c echo.Context) error {
 
 	username := c.FormValue("username")
 	password := c.FormValue("password")
 
 	ctx := c.Request().Context()
-    user, err := h.userService.CreateUser(ctx, username, password)
+	user, err := h.userService.CreateUser(ctx, username, password)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Could Not Create User: " + err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Could Not Create User: "+err.Error())
 	}
-	h.logger.Info("New User Created", 
-        "uri", c.Request().RequestURI,
-        "status", http.StatusCreated,
-    
-    )
+	h.logger.Info("New User Created",
+		"uri", c.Request().RequestURI,
+		"status", http.StatusCreated,
+	)
 	userResponse := NewUserResponse(user)
-	
+
 	return c.JSON(http.StatusCreated, userResponse)
 }
 
@@ -70,11 +66,11 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("userId"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, errors.New("invalid User ID"))
-}
+	}
 
 	user, err := h.userService.FindByID(ctx, id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: " + err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
 	}
 
 	UserResponse := NewUserResponse(user)
@@ -83,21 +79,18 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 
 }
 
-
 func (h *UserHandler) GetAllUsers(c echo.Context) error {
 	ctx := c.Request().Context()
- 
+
 	users, err := h.userService.userRepo.FindAll(ctx)
- 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve Users: " + err.Error())
-		}
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve Users: "+err.Error())
+	}
 
 	UserResponses := NewUserResponses(users)
- 	return c.JSON(http.StatusOK, UserResponses)
-} 
+	return c.JSON(http.StatusOK, UserResponses)
+}
 
-
-
-func(h UserHandler) HandleNewUser(c echo.Context) error {
-return nil;	
+func (h UserHandler) HandleNewUser(c echo.Context) error {
+	return nil
 }

@@ -6,22 +6,13 @@ import (
 	"net"
 )
 
-func GenerateToken(ip, timestamp, userAgent string, userId int) (string, error){
+func GenerateToken(ip, timestamp, userAgent string, userId int) (string, error) {
 
-   
+	parsedIP := net.ParseIP(ip).To16()
 
+	rawToken := fmt.Sprintf("%d|%s|%s|%s|%s", userId, ip, timestamp, userAgent, parsedIP)
 
-    parsedIP := net.ParseIP(ip).To16()
-    
+	token := base64.StdEncoding.EncodeToString([]byte(rawToken))
 
-    rawToken := fmt.Sprintf("%d|%s|%s|%s|%s", userId, ip, timestamp, userAgent, parsedIP)
-
-
-    token := base64.StdEncoding.EncodeToString([]byte(rawToken))
-    
-    
-
-    
-    
-    return token, nil
+	return token, nil
 }

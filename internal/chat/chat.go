@@ -6,17 +6,16 @@ import (
 	"time"
 )
 
-//Message
+// Message
 type Message struct {
-	UserID int `json:"userID"`
-	Username string `json:"username"`
-	SessionID int `json:"session_id"`
-	Message string `json:"message"`
+	UserID    int    `json:"userID"`
+	Username  string `json:"username"`
+	SessionID int    `json:"session_id"`
+	Message   string `json:"message"`
 	TimeStamp time.Time
 }
 
-
 type ChatHandler struct {
-    chatService *ChatService
-	logger *slog.Logger
+	chatService *ChatService
+	logger      *slog.Logger
 }

@@ -13,16 +13,16 @@ import (
 )
 
 type PgGameRepository struct {
-    db *pgxpool.Pool
+	db *pgxpool.Pool
 }
 
-func NewPgGameRepository(db *pgxpool.Pool) *PgGameRepository{
+func NewPgGameRepository(db *pgxpool.Pool) *PgGameRepository {
 	return &PgGameRepository{
 		db: db,
 	}
 }
 
-func (repo *PgGameRepository) FindAll( ctx context.Context) ([]Game, error){
+func (repo *PgGameRepository) FindAll(ctx context.Context) ([]Game, error) {
 	var games []Game
 
 	query := `SELECT game_id FROM games`
@@ -36,23 +36,23 @@ func (repo *PgGameRepository) FindAll( ctx context.Context) ([]Game, error){
 		var game Game
 		if err := rows.Scan(&game.GameId); err != nil {
 			return nil, err
+		}
+		games = append(games, game)
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+
 	}
-	games = append(games, game)
-	if err := rows.Err(); err != nil {
-		return nil, err 
-	}
-	
-	}
-	return games, nil 
+	return games, nil
 }
-	
-func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, error){
+
+func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, error) {
 	var game Game
 	query := `SELECT game_id, name, board_size, winner_id, current_turn, created_at, session_id
 			  FROM games
 			  WHERE game_id = $1`
 	err := repo.db.QueryRow(ctx, query, gameID).Scan(&game.GameId, &game.GameName, &game.BoardSize, &game.WinnerId, &game.CurrentTurn, &game.CreatedAt, &game.SessionId)
-	if err !=nil {
+	if err != nil {
 		return nil, fmt.Errorf("failed to find game %d : %w", gameID, err)
 	}
 
@@ -82,11 +82,10 @@ func (repo *PgGameRepository) GetPlayersForGame(ctx context.Context, gameId int)
 	var players []Player
 	for rows.Next() {
 		var player Player
-		
 
 		err := rows.Scan(
 			&player.UserID,
-			&player.Username, 
+			&player.Username,
 			&player.TurnOrder,
 			&player.Score,
 		)
@@ -104,41 +103,37 @@ func (repo *PgGameRepository) GetPlayersForGame(ctx context.Context, gameId int)
 	return players, nil
 }
 
-func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, boardSize int, sessionID int) (*Game, error){
-	 // Start a new transaction
-	 tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
-	 if err != nil {
-		 return nil, errors.New("Failed to begin transaction: " + err.Error())
-	 }
- 
-	 //Rollsback if failure
-	 defer func() {
-		 if err != nil {
-			 tx.Rollback(ctx)
-		 }
-	 }()
+func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, boardSize int, sessionID int) (*Game, error) {
+	// Start a new transaction
+	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, errors.New("Failed to begin transaction: " + err.Error())
+	}
 
+	//Rollsback if failure
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
 
- 
-	 var game Game
- 
-	 query := `INSERT INTO games (board_size, session_id) 
+	var game Game
+
+	query := `INSERT INTO games (board_size, session_id) 
 			   VALUES ($1, $2) 
 			   RETURNING game_id, board_size, session_id`
-	 err = tx.QueryRow(ctx, query, boardSize, sessionID).Scan(&game.GameId, &game.BoardSize, &game.SessionId)
-	 if err != nil {
-		 return nil, errors.New("Failed to create game: " + err.Error())
-	 }
+	err = tx.QueryRow(ctx, query, boardSize, sessionID).Scan(&game.GameId, &game.BoardSize, &game.SessionId)
+	if err != nil {
+		return nil, errors.New("Failed to create game: " + err.Error())
+	}
 
-	 //randomize turn order
-	 rand.Shuffle(len(playerIds), func(i, j int) {
+	//randomize turn order
+	rand.Shuffle(len(playerIds), func(i, j int) {
 		playerIds[i], playerIds[j] = playerIds[j], playerIds[i]
 	})
 
-
-
-	 //Put players in to tables 
-	 for turnOrder, playerId := range playerIds {
+	//Put players in to tables
+	for turnOrder, playerId := range playerIds {
 		playerQuery := `INSERT INTO game_details (game_id, user_id, turn_order, score) VALUES ($1, $2, $3, 0)`
 		_, err = tx.Exec(ctx, playerQuery, game.GameId, playerId, turnOrder)
 		if err != nil {
@@ -155,29 +150,29 @@ func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, board
 
 	currentTurn := 0
 	game.CurrentTurn = &currentTurn
- 
-	 // Create the boxes associated with the game
-	 for i := 0; i < boardSize; i++ {
-		 for j := 0; j < boardSize; j++ {
-			 boxQuery := `INSERT INTO grids (game_id, grid_row, grid_col, completed_by) 
+
+	// Create the boxes associated with the game
+	for i := 0; i < boardSize; i++ {
+		for j := 0; j < boardSize; j++ {
+			boxQuery := `INSERT INTO grids (game_id, grid_row, grid_col, completed_by) 
 						  VALUES ($1, $2, $3, NULL)`
-			 _, err = tx.Exec(ctx, boxQuery, game.GameId, i, j)
-			 if err != nil {
-				 return nil, errors.New("Failed to create box: " + err.Error())
-			 }
-		 }
-	 }
- 
-	 // Commit the transaction if all operations are successful
-	 err = tx.Commit(ctx)
-	 if err != nil {
-		 return nil, errors.New("Failed to commit transaction: " + err.Error())
-	 }
- 
-	 return &game, nil
+			_, err = tx.Exec(ctx, boxQuery, game.GameId, i, j)
+			if err != nil {
+				return nil, errors.New("Failed to create box: " + err.Error())
+			}
+		}
+	}
+
+	// Commit the transaction if all operations are successful
+	err = tx.Commit(ctx)
+	if err != nil {
+		return nil, errors.New("Failed to commit transaction: " + err.Error())
+	}
+
+	return &game, nil
 }
 
-func (repo *PgGameRepository) GetGrids(ctx context.Context, gameId int) ([]Box, error){
+func (repo *PgGameRepository) GetGrids(ctx context.Context, gameId int) ([]Box, error) {
 	var boxes []Box
 	query := `
 	SELECT box_id, game_id, top_edge, right_edge, left_edge, bottom_edge, grid_row, grid_col, completed, completed_by 
@@ -194,22 +189,22 @@ func (repo *PgGameRepository) GetGrids(ctx context.Context, gameId int) ([]Box, 
 		var box Box
 		if err := rows.Scan(&box.BoxId, &box.GameId, &box.TopEdge, &box.RightEdge, &box.LeftEdge, &box.BottomEdge, &box.Row, &box.Col, &box.Completed, &box.Completed_by); err != nil {
 			return nil, err
+		}
+		boxes = append(boxes, box)
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+
 	}
-	boxes = append(boxes, box)
-	if err := rows.Err(); err != nil {
-		return nil, err 
-	}
-	
-	}
-	return boxes, nil 
+	return boxes, nil
 }
 
 func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row int, col int, edge string) ([]Box, error) {
- 	
+
 	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
-    if err != nil {
-        return nil, errors.New("failed to begin transaction: " + err.Error())
-    }
+	if err != nil {
+		return nil, errors.New("failed to begin transaction: " + err.Error())
+	}
 
 	defer func() {
 		if err != nil {
@@ -218,75 +213,75 @@ func (repo *PgGameRepository) UpdateGrid(ctx context.Context, gameId int, row in
 	}()
 
 	game, err := repo.FindByID(ctx, gameId)
-    if err != nil {
-        return nil, fmt.Errorf("failed to retrieve game %d: %w", gameId, err)
-    }
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve game %d: %w", gameId, err)
+	}
 
-    query := fmt.Sprintf(`UPDATE grids SET %s = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, edge)
-    //TODO think about getting results
+	query := fmt.Sprintf(`UPDATE grids SET %s = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, edge)
+	//TODO think about getting results
 	_, err = repo.db.Exec(ctx, query, gameId, row, col)
-    if err != nil {
-        return nil, fmt.Errorf("failed to update edge for box at row %d, col %d: %w", row, col, err)
-    }
+	if err != nil {
+		return nil, fmt.Errorf("failed to update edge for box at row %d, col %d: %w", row, col, err)
+	}
 
 	//Update Adjacent Edges
 
 	//TODO Can this be made better?
 	switch edge {
-    case "top_edge":
-        if row > 0 {
-            _, err = repo.db.Exec(ctx, `UPDATE grids SET bottom_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row-1, col)
-            if err != nil {
-                return nil, fmt.Errorf("failed to update adjacent bottom edge for box at row %d, col %d: %w", row-1, col, err)
-            }
-        }
+	case "top_edge":
+		if row > 0 {
+			_, err = repo.db.Exec(ctx, `UPDATE grids SET bottom_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row-1, col)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update adjacent bottom edge for box at row %d, col %d: %w", row-1, col, err)
+			}
+		}
 
-    case "right_edge":
-        if col < game.BoardSize-1 { 
-            _, err = repo.db.Exec(ctx, `UPDATE grids SET left_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row, col+1)
-            if err != nil {
-                return nil, fmt.Errorf("failed to update adjacent left edge for box at row %d, col %d: %w", row, col+1, err)
-            }
-        }
+	case "right_edge":
+		if col < game.BoardSize-1 {
+			_, err = repo.db.Exec(ctx, `UPDATE grids SET left_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row, col+1)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update adjacent left edge for box at row %d, col %d: %w", row, col+1, err)
+			}
+		}
 
-    case "left_edge":
-        if col > 0 {
-            _, err = repo.db.Exec(ctx, `UPDATE grids SET right_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row, col-1)
-            if err != nil {
-                return nil, fmt.Errorf("failed to update adjacent right edge for box at row %d, col %d: %w", row, col-1, err)
-            }
-        }
+	case "left_edge":
+		if col > 0 {
+			_, err = repo.db.Exec(ctx, `UPDATE grids SET right_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row, col-1)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update adjacent right edge for box at row %d, col %d: %w", row, col-1, err)
+			}
+		}
 
-    case "bottom_edge":
-        if row < game.BoardSize-1 { 
-            _, err = repo.db.Exec(ctx, `UPDATE grids SET top_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row+1, col)
-            if err != nil {
-                return nil, fmt.Errorf("failed to update adjacent top edge for box at row %d, col %d: %w", row+1, col, err)
-            }
-        }
-    }
+	case "bottom_edge":
+		if row < game.BoardSize-1 {
+			_, err = repo.db.Exec(ctx, `UPDATE grids SET top_edge = TRUE WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, gameId, row+1, col)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update adjacent top edge for box at row %d, col %d: %w", row+1, col, err)
+			}
+		}
+	}
 
-    // Retrieve the updated grid
-    boxes, err := repo.GetGrids(ctx, gameId)
-    if err != nil {
-        return nil, errors.New("failed to get updated grids after updating edge: " + err.Error())
-    }
+	// Retrieve the updated grid
+	boxes, err := repo.GetGrids(ctx, gameId)
+	if err != nil {
+		return nil, errors.New("failed to get updated grids after updating edge: " + err.Error())
+	}
 
 	if err := tx.Commit(ctx); err != nil {
-        return nil, errors.New("failed to commit transaction: " + err.Error())
-    }
+		return nil, errors.New("failed to commit transaction: " + err.Error())
+	}
 
-    return boxes, nil
+	return boxes, nil
 }
 
 func (repo *PgGameRepository) SetBoxCompleted(ctx context.Context, gameId int, row int, col int, playerId int) error {
-    query := `
+	query := `
         UPDATE grids
         SET completed = true, completed_by = $4
         WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3
     `
-    _, err := repo.db.Exec(ctx, query, gameId, row, col, playerId)
-    return err
+	_, err := repo.db.Exec(ctx, query, gameId, row, col, playerId)
+	return err
 }
 
 func (repo *PgGameRepository) GetBoxByRowCol(ctx context.Context, gameId int, row int, col int) (*Box, error) {
@@ -296,49 +291,49 @@ func (repo *PgGameRepository) GetBoxByRowCol(ctx context.Context, gameId int, ro
         FROM grids
         WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3
     `
-    
-    var box Box
-    err := repo.db.QueryRow(ctx, query, gameId, row, col).Scan(
-        &box.BoxId,
-        &box.Row,
-        &box.Col,
-        &box.TopEdge,
-        &box.LeftEdge,
-        &box.RightEdge,
-        &box.BottomEdge,
-        &box.Completed,
-    )
 
-    if err != nil {
-        if err == pgx.ErrNoRows {
-            return nil, fmt.Errorf("box not found for gameId: %d, row: %d, col: %d", gameId, row, col)
-        }
-        return nil, errors.New("failed to get box by row and col: " + err.Error())
-    }
+	var box Box
+	err := repo.db.QueryRow(ctx, query, gameId, row, col).Scan(
+		&box.BoxId,
+		&box.Row,
+		&box.Col,
+		&box.TopEdge,
+		&box.LeftEdge,
+		&box.RightEdge,
+		&box.BottomEdge,
+		&box.Completed,
+	)
 
-    return &box, nil
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("box not found for gameId: %d, row: %d, col: %d", gameId, row, col)
+		}
+		return nil, errors.New("failed to get box by row and col: " + err.Error())
+	}
+
+	return &box, nil
 }
 
 func (r *PgGameRepository) UpdateTurn(ctx context.Context, gameId int, turnOrder int) error {
-    query := `UPDATE games SET current_turn = $1 WHERE game_id = $2`
-    _, err := r.db.Exec(ctx, query, turnOrder, gameId)
-    return err
+	query := `UPDATE games SET current_turn = $1 WHERE game_id = $2`
+	_, err := r.db.Exec(ctx, query, turnOrder, gameId)
+	return err
 }
 
 func (repo *PgGameRepository) IsEdgeSelected(ctx context.Context, gameId int, row int, col int, edge string) (bool, error) {
-    var result bool
-    query := fmt.Sprintf(`SELECT %s FROM grids WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, edge)
-    err := repo.db.QueryRow(ctx, query, gameId, row, col).Scan(&result)
-    if err != nil {
-        return false, fmt.Errorf("failed to query edge status for box at row %d, col %d: %w", row, col, err)
-    }
-    return result, nil
+	var result bool
+	query := fmt.Sprintf(`SELECT %s FROM grids WHERE game_id = $1 AND grid_row = $2 AND grid_col = $3`, edge)
+	err := repo.db.QueryRow(ctx, query, gameId, row, col).Scan(&result)
+	if err != nil {
+		return false, fmt.Errorf("failed to query edge status for box at row %d, col %d: %w", row, col, err)
+	}
+	return result, nil
 }
 
 func (repo *PgGameRepository) SetWinner(ctx context.Context, gameId int, winnerId *int) error {
 	query := "UPDATE games SET winner_id = $1 WHERE game_id = $2"
-    _, err := repo.db.Exec(ctx, query, winnerId, gameId)
-    return err
+	_, err := repo.db.Exec(ctx, query, winnerId, gameId)
+	return err
 }
 
 func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) ([]Game, error) {
@@ -353,8 +348,8 @@ func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) (
 
 	for rows.Next() {
 		var game Game
-		if err := rows.Scan(&game.GameName, &game.GameId, &game.BoardSize); err !=nil {
-			return nil,err
+		if err := rows.Scan(&game.GameName, &game.GameId, &game.BoardSize); err != nil {
+			return nil, err
 		}
 		games = append(games, game)
 	}

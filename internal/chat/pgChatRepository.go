@@ -10,35 +10,32 @@ import (
 )
 
 type PgChatRepository struct {
-    db *pgxpool.Pool
+	db *pgxpool.Pool
 }
 
-func NewPgChatRepository(db *pgxpool.Pool) *PgChatRepository{
+func NewPgChatRepository(db *pgxpool.Pool) *PgChatRepository {
 	return &PgChatRepository{
 		db: db,
 	}
 }
 
-func (repo *PgChatRepository) SaveMessage(ctx context.Context, userID int, message string, time time.Time, sessionID int) (error){
-	
-	// var msg Message
-	query :=`INSERT INTO chats (user_id, message, sent_at, session_id) VALUES ($1, $2, $3, $4)`
-	_, err := repo.db.Exec(ctx, query, userID, message, time, sessionID)
-    if err != nil {
-		fmt.Printf("Executing query: %s\n", query)
-fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, sessionID=%v\n", userID, message, time, sessionID)
-        return  errors.New("Failed to Save Message" + err.Error())
-    }
+func (repo *PgChatRepository) SaveMessage(ctx context.Context, userID int, message string, time time.Time, sessionID int) error {
 
-    return nil
+	// var msg Message
+	query := `INSERT INTO chats (user_id, message, sent_at, session_id) VALUES ($1, $2, $3, $4)`
+	_, err := repo.db.Exec(ctx, query, userID, message, time, sessionID)
+	if err != nil {
+		fmt.Printf("Executing query: %s\n", query)
+		fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, sessionID=%v\n", userID, message, time, sessionID)
+		return errors.New("Failed to Save Message" + err.Error())
+	}
+
+	return nil
 
 }
 
-
-func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message, error){
+func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message, error) {
 	var messages []Message
-	
-
 
 	query := `
 		SELECT c.message, c.sent_at, c.session_id, u.username, u.user_id
@@ -48,7 +45,6 @@ func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sess
 		AND c.sent_at >= NOW() - INTERVAL '5 minutes'
 		ORDER BY c.sent_at ASC
 	`
-
 
 	rows, err := repo.db.Query(ctx, query, sessionID)
 	if err != nil {
@@ -63,17 +59,16 @@ func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sess
 		}
 		messages = append(messages, message)
 	}
-if err := rows.Err(); err != nil {
-			return nil, err
-		}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return messages, nil
 }
 
-func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID int) ([]Message, error){
+func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID int) ([]Message, error) {
 	var messages []Message
-	
-   
+
 	query := `
 		SELECT c.message, c.timestamp, u.username, u.user_id
 		FROM chats c
@@ -100,4 +95,3 @@ func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID int) ([
 	}
 	return messages, nil
 }
-

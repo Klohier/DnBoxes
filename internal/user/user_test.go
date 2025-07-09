@@ -13,8 +13,8 @@ import (
 )
 
 type TestSuite struct {
-	app *echo.Echo
-	mockRepo UserRepository
+	app         *echo.Echo
+	mockRepo    UserRepository
 	userHandler *UserHandler
 	userService *UserService
 }
@@ -24,19 +24,16 @@ func setup() *TestSuite {
 	mockRepo := NewMockUserRepository()
 	userService := NewUserService(mockRepo)
 	userHandler := NewUserHandler(userService)
-	
 
 	return &TestSuite{
-		app: app,
-		mockRepo: mockRepo,
+		app:         app,
+		mockRepo:    mockRepo,
 		userHandler: userHandler,
 		userService: userService,
 	}
 }
 
-
-func TestCreateUser(t *testing.T){
-	
+func TestCreateUser(t *testing.T) {
 
 	suite := setup()
 
@@ -58,7 +55,7 @@ func TestCreateUser(t *testing.T){
 	}
 
 	expectedResponse := UserResponse{
-		UserID: 1,
+		UserID:   1,
 		Username: "testing245",
 	}
 
@@ -70,10 +67,10 @@ func TestCreateUser(t *testing.T){
 	if strings.TrimSpace(rec.Body.String()) != strings.TrimSpace(string(jsonResponse)) {
 		t.Errorf("Expected body %s, got %s", string(jsonResponse), rec.Body.String())
 
-	}	
+	}
 }
 
-func TestFindByID(t *testing.T){
+func TestFindByID(t *testing.T) {
 	// suite := setup()
 
 }

@@ -11,38 +11,33 @@ import (
 var (
 	// pongWait is how long we will await a pong response from client
 	pongWait = 10 * time.Second
-	
+
 	pingInterval = (pongWait * 9) / 10
 )
 
-
 type ConnectionList map[*Connection]bool
 
-
-//Connection for a single websocket user
+// Connection for a single websocket user
 type Connection struct {
-	ws     *websocket.Conn
-	manager *Manager
-	egress chan Event
-	userID   int
-	username string
+	ws        *websocket.Conn
+	manager   *Manager
+	egress    chan Event
+	userID    int
+	username  string
 	sessionID int
-	
 }
 
 // NewConnection creates a new WebSocket connection.
 func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string, sessionID int) *Connection {
 	return &Connection{
-		ws:     ws,
-		manager: manager,
-		egress:     make(chan Event, 100),
-		userID: userID,
-		username: username,
+		ws:        ws,
+		manager:   manager,
+		egress:    make(chan Event, 100),
+		userID:    userID,
+		username:  username,
 		sessionID: sessionID,
 	}
 }
-
-
 
 func (c *Connection) readMessage() {
 	defer func() {
@@ -75,22 +70,18 @@ func (c *Connection) readMessage() {
 		var request Event
 		if err := json.Unmarshal(payload, &request); err != nil {
 			log.Printf("error marshalling message: %v", err)
-		
-		}
 
+		}
 
 		log.Println("got message", string(payload))
 		// Route the Event
-		
 
 		if err := c.manager.routeEvent(request, c); err != nil {
 			log.Println("Error handeling Message: ", err)
 		}
-		
+
 	}
 }
-
-
 
 // WriteMessage sends a message to the WebSocket.
 // writeMessages is a process that listens for new messages to output to the Client
@@ -103,7 +94,7 @@ func (c *Connection) writeMessage() {
 
 	for {
 		select {
-		case message, ok := <- c.egress:
+		case message, ok := <-c.egress:
 			// Ok will be false Incase the egress channel is closed
 			if !ok {
 				log.Println("Egress channel closed")
@@ -116,16 +107,14 @@ func (c *Connection) writeMessage() {
 			data, err := json.Marshal(message)
 			if err != nil {
 				log.Println(err)
-				return 
+				return
 			}
-
-			
 
 			// Write a Regular text message to the connection
 			if err := c.ws.WriteMessage(websocket.TextMessage, data); err != nil {
 				log.Println(err)
 			}
-			log.Println("sent message",)
+			log.Println("sent message")
 		case <-ticker.C:
 			log.Println("ping")
 			if err := c.ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
@@ -136,7 +125,6 @@ func (c *Connection) writeMessage() {
 
 	}
 }
-
 
 func (c *Connection) pongHandler(pongMsg string) error {
 	// Current time + Pong Wait time

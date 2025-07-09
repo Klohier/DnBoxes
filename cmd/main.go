@@ -26,13 +26,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-
-
-type DB struct {}
-
+type DB struct{}
 
 func main() {
-	
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -46,14 +43,12 @@ func main() {
 	dbPort := os.Getenv("DATABASEPORT")
 	port := os.Getenv("PORT")
 
-
 	// Should Move into a .env file soon!!!!!!!
 
-	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbName,dbUser,dbPass, dbHost, dbPort , dbType)
-	
+	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbName, dbUser, dbPass, dbHost, dbPort, dbType)
+
 	db, err := pgxpool.Connect(context.Background(), connStr)
-	
-	
+
 	if err != nil {
 		log.Fatal((err))
 	}
@@ -64,9 +59,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-
-
-
 	app := echo.New()
 
 	// SETUP for embeded react app into go binary
@@ -76,39 +68,39 @@ func main() {
 	// SETUP FOR Logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	app.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-    LogStatus:   true,
-    LogURI:      true,
-    LogError:    true,
-    HandleError: true, 
-    LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-        if v.Error == nil {
-            logger.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST",
-                slog.String("uri", v.URI),
-                slog.Int("status", v.Status),
-            )
-        } else {
-            logger.LogAttrs(context.Background(), slog.LevelError, "REQUEST_ERROR",
-                slog.String("uri", v.URI),
-                slog.Int("status", v.Status),
-                slog.String("err", v.Error.Error()),
-            )
-        }
-        return nil
-    },
-}))
+		LogStatus:   true,
+		LogURI:      true,
+		LogError:    true,
+		HandleError: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			if v.Error == nil {
+				logger.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST",
+					slog.String("uri", v.URI),
+					slog.Int("status", v.Status),
+				)
+			} else {
+				logger.LogAttrs(context.Background(), slog.LevelError, "REQUEST_ERROR",
+					slog.String("uri", v.URI),
+					slog.Int("status", v.Status),
+					slog.String("err", v.Error.Error()),
+				)
+			}
+			return nil
+		},
+	}))
 
 	//SETUP CORS
 
 	clientOrigin := os.Getenv("CLIENT_ORIGIN")
-if clientOrigin == "" {
-    clientOrigin = "http://localhost:5173" 
-}
+	if clientOrigin == "" {
+		clientOrigin = "http://localhost:5173"
+	}
 
 	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-        AllowOrigins: []string{clientOrigin},
-        AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowOrigins:     []string{clientOrigin},
+		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
 		AllowCredentials: true,
-    }))
+	}))
 
 	// CREATE Services and Handlers     (Must be a way to do this better?)
 	userRepo := user.NewPgUserRepository(db)
@@ -128,20 +120,12 @@ if clientOrigin == "" {
 
 	manager := websocket.NewManager(gameService, userService, chatService, sessionService)
 
-	
-
-	
-
-
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")
 
-
-
-
-api.GET("/ws", manager.ServeWs)
+	api.GET("/ws", manager.ServeWs)
 	//Users
-	api.GET("/users/:userId" , userHandler.FindByID)
+	api.GET("/users/:userId", userHandler.FindByID)
 	api.POST("/users", userHandler.CreateUser)
 	api.GET("/users", userHandler.GetAllUsers)
 
@@ -161,19 +145,17 @@ api.GET("/ws", manager.ServeWs)
 	//Session
 	api.GET("/sessions", sessionHandler.GetAllSessions)
 	api.POST("/sessions", sessionHandler.CreateSession)
-api.GET("/sessions/:sessionID/chat", chatHandler.GetAllMessageFromSession)	
+	api.GET("/sessions/:sessionID/chat", chatHandler.GetAllMessageFromSession)
 	api.POST("/sessions/:sessionId/users/:userId", sessionHandler.AddUserToSession)
 	api.DELETE("/sessions/:sessionId/users/:userId", sessionHandler.RemoveUserFromSession)
 
-
-
 	go func() {
-    log.Println("pprof server listening on :6060")
-    if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-        log.Fatal(err)
-    }
-}()
-	
+		log.Println("pprof server listening on :6060")
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
 	app.Start(fmt.Sprintf("0.0.0.0:%s", port))
 	logger.Info("Server Started")
 }

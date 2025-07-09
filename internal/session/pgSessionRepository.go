@@ -10,16 +10,16 @@ import (
 )
 
 type PgSessionRepository struct {
-    db *pgxpool.Pool
+	db *pgxpool.Pool
 }
 
-func NewPgSessionRepository(db *pgxpool.Pool) *PgSessionRepository{
+func NewPgSessionRepository(db *pgxpool.Pool) *PgSessionRepository {
 	return &PgSessionRepository{
 		db: db,
 	}
 }
 
-func (repo *PgSessionRepository) FindAll( ctx context.Context) ([]Session, error){
+func (repo *PgSessionRepository) FindAll(ctx context.Context) ([]Session, error) {
 	var sessions []Session
 
 	query := `SELECT s.session_id, s.status, s.created_at, COUNT(su.user_id) as user_count
@@ -28,7 +28,7 @@ func (repo *PgSessionRepository) FindAll( ctx context.Context) ([]Session, error
 	GROUP BY s.session_id, s.status, s.created_at
 	ORDER BY s.created_at DESC
 	`
-	
+
 	rows, err := repo.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -37,21 +37,21 @@ func (repo *PgSessionRepository) FindAll( ctx context.Context) ([]Session, error
 
 	for rows.Next() {
 		var session Session
-		if err := rows.Scan(&session.SessionID, &session.Status,  &session.CreatedAt, &session.UserCount); err != nil {
+		if err := rows.Scan(&session.SessionID, &session.Status, &session.CreatedAt, &session.UserCount); err != nil {
 			return nil, err
-	}
+		}
 
-	sessions = append(sessions, session)
+		sessions = append(sessions, session)
 
-	if err := rows.Err(); err != nil {
-		return nil, err 
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+
 	}
-	
-	}
-	return sessions, nil 
+	return sessions, nil
 }
 
-func (repo *PgSessionRepository) FindByID(ctx context.Context, sessionID int) (*FullSession, error){
+func (repo *PgSessionRepository) FindByID(ctx context.Context, sessionID int) (*FullSession, error) {
 	var session Session
 	querySession := `SELECT session_id, status, created_at FROM sessions WHERE session_id = $1`
 
@@ -62,7 +62,6 @@ func (repo *PgSessionRepository) FindByID(ctx context.Context, sessionID int) (*
 		return nil, fmt.Errorf("session not found: %w", err)
 	}
 
-	
 	queryUsers := `
 		SELECT u.user_id, u.username, su.connection_status, su.joined_at
 		FROM session_users su
@@ -75,18 +74,18 @@ func (repo *PgSessionRepository) FindByID(ctx context.Context, sessionID int) (*
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var status string
 	var users []SessionUser
 
 	for rows.Next() {
 		var sessionUser SessionUser
-		
+
 		if err := rows.Scan(&sessionUser.UserID, &sessionUser.Username, &status, &sessionUser.JoinedAt); err != nil {
 			return nil, err
 		}
 		connectionStatus, err := parseConnectionStatus(status)
-		if err !=nil {
+		if err != nil {
 			return nil, err
 		}
 		sessionUser.ConnectionStatus = connectionStatus
@@ -108,7 +107,7 @@ func (repo *PgSessionRepository) Create(ctx context.Context) (*Session, error) {
 
 	var session Session
 
-	err := repo.db.QueryRow(ctx, query,).Scan(&session.SessionID, &session.Status, &session.CreatedAt)
+	err := repo.db.QueryRow(ctx, query).Scan(&session.SessionID, &session.Status, &session.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}

@@ -7,16 +7,15 @@ import (
 )
 
 var (
-    //go:embed all:dist/*
-    dist embed.FS
-   
-    distDirFS     = echo.MustSubFS(dist, "dist")
+	//go:embed all:dist/*
+	dist embed.FS
 
-) 
+	distDirFS = echo.MustSubFS(dist, "dist")
+)
 
 func RegisterHandlers(e *echo.Echo) {
 	e.StaticFS("/", distDirFS)
-    
-    e.FileFS("/*", "index.html", distDirFS)
-    
+
+	e.FileFS("/*", "index.html", distDirFS)
+
 }

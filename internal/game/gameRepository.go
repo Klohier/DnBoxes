@@ -18,5 +18,4 @@ type GameRepository interface {
 	FindAllFromUser(ctx context.Context, userId int) ([]Game, error)
 	IncrementPlayerScore(ctx context.Context, gameId int, userId int) error
 	GetPlayerScores(ctx context.Context, gameId int) (map[int]int, error)
-
 }
