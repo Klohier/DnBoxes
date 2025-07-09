@@ -43,7 +43,6 @@ func main() {
 	dbPort := os.Getenv("DATABASEPORT")
 	port := os.Getenv("PORT")
 
-	// Should Move into a .env file soon!!!!!!!
 
 	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbName, dbUser, dbPass, dbHost, dbPort, dbType)
 
@@ -129,6 +128,7 @@ func main() {
 	api.POST("/users", userHandler.CreateUser)
 	api.GET("/users", userHandler.GetAllUsers)
 
+	//Auth
 	api.POST("/login", loginHandler.Login)
 
 	//Game
