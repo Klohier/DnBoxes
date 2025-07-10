@@ -19,8 +19,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/jackc/pgx/v4/pgxpool"
-	_ "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -46,7 +45,8 @@ func main() {
 
 	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbName, dbUser, dbPass, dbHost, dbPort, dbType)
 
-	db, err := pgxpool.Connect(context.Background(), connStr)
+
+	db, err := pgxpool.New(context.Background(), connStr)
 
 	if err != nil {
 		log.Fatal((err))
