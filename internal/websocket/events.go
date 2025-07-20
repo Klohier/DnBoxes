@@ -323,7 +323,7 @@ func AcceptInviteHandler(event Event, c *Connection) error {
 	c.egress <- gameCreatedEvent
 	inviterConnection.egress <- gameCreatedEvent
 
-	BroadcastPlayerListToRoom(c.manager, session.SessionID)
+	c.manager.BroadcastPlayerListToRoom(session.SessionID)
 
 	return nil
 }

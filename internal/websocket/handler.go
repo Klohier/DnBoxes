@@ -103,16 +103,6 @@ func (m *Manager) ServeWs(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
 	}
 
-	// tokenParts := strings.Split(string(decodedToken), "|")
-
-	// userIDStr := tokenParts[0]
-
-	// userID, err := strconv.Atoi(userIDStr)
-	// if err != nil {
-	// 	slog.Error("Error converting userID to int: " + err.Error())
-	// 	return err
-	// }
-
 	//grabs full user data from datanase
 	user, err := m.userService.FindByID(c.Request().Context(), userID)
 	if err != nil {
@@ -188,15 +178,6 @@ func (m *Manager) addConnection(connection *Connection) {
 		log.Printf("Closing existing connection for UserID=%d", existingConn.userID)
 		m.cleanupConnection(existingConn) // safe to run without deadlock
 	}
-
-	// // Remove any existing connection for this user
-	// for existingConn := range m.connections {
-	// 	if existingConn.userID == connection.userID {
-	// 		log.Printf("Closing existing connection for UserID=%d", existingConn.userID)
-	// 		m.cleanupConnection(existingConn)
-	// 		break
-	// 	}
-	// }
 	m.Lock()
 	m.connections[connection] = true
 	m.Unlock()
@@ -206,14 +187,7 @@ func (m *Manager) addConnection(connection *Connection) {
 func (m *Manager) removeConnection(connection *Connection) {
 	m.Lock()
 	defer m.Unlock()
-	// Check if Client exists, then delete it
-	// close connection
-	// connection.ws.Close()
-	// remove
 	delete(m.connections, connection)
-
-	// close(connection.egress)
-
 }
 
 func findConnectionByUserID(m *Manager, userID int) *Connection {
@@ -228,14 +202,12 @@ func findConnectionByUserID(m *Manager, userID int) *Connection {
 	return nil
 }
 
-func BroadcastPlayerListToRoom(manager *Manager, room int) error {
-	var players []Player
-
-	manager.RLock()
+func (m *Manager) BroadcastToRoom(event Event, room int) error {
+	m.RLock()
 
 	//Check if room exists
-	conns, ok := manager.rooms[room]
-	manager.RUnlock()
+	conns, ok := m.rooms[room]
+	m.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("room %d does not exist", room)
@@ -243,28 +215,48 @@ func BroadcastPlayerListToRoom(manager *Manager, room int) error {
 
 	// Collect the list of players in this room
 	for client := range conns {
+		select {
+		case client.egress <- event:
+		default:
+			slog.Warn("Dropping message: egress channel full", "userID", client.userID, "room", room)
+		}
+	}
+
+	return nil
+}
+
+
+func (m *Manager) BroadcastPlayerListToRoom(sessionID int) error {
+	m.RLock()
+	conns, ok := m.rooms[sessionID]
+	m.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("room %d does not exist", sessionID)
+	}
+
+	var players []Player
+	for client := range conns {
 		players = append(players, Player{
 			UserID:   client.userID,
 			Username: client.username,
 		})
 	}
 
-	responsePayload, err := json.Marshal(players)
+	payload, err := json.Marshal(players)
 	if err != nil {
-		return fmt.Errorf("failed to marshal players response: %v", err)
+		return fmt.Errorf("failed to marshal player list: %v", err)
 	}
 
-	newPlayersEvent := Event{
+	event := Event{
 		Type:    EventGetPlayers,
-		Payload: responsePayload,
+		Payload: payload,
 	}
 
-	for client := range conns {
-		client.egress <- newPlayersEvent
-	}
-
-	return nil
+	return m.BroadcastToRoom(event, sessionID)
 }
+
+
 
 func (m *Manager) JoinRoom(connection *Connection, sessionID int) {
 	m.Lock()
@@ -291,7 +283,7 @@ func (m *Manager) JoinRoom(connection *Connection, sessionID int) {
 	m.Unlock()
 
 	slog.Info("User joined session", "userID", connection.userID, "sessionID", sessionID)
-	if err := BroadcastPlayerListToRoom(m, sessionID); err != nil {
+	if err := m.BroadcastPlayerListToRoom(sessionID); err != nil {
 		log.Printf("error broadcasting player list to session %d: %v", sessionID, err)
 	}
 
@@ -331,7 +323,7 @@ func (m *Manager) LeaveRoom(connection *Connection) {
 
 	slog.Info("User marked disconnected from session", "userID", connection.userID, "sessionID", sessionID)
 
-	if err := BroadcastPlayerListToRoom(m, sessionID); err != nil {
+	if err := m.BroadcastPlayerListToRoom(sessionID); err != nil {
 		log.Printf("error broadcasting player list to session %d: %v", sessionID, err)
 	}
 }
