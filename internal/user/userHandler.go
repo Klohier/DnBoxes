@@ -1,6 +1,7 @@
 package user
 
 import (
+	"dango/internal/token"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -69,6 +70,32 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 	}
 
 	user, err := h.userService.FindByID(ctx, id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
+	}
+
+	UserResponse := NewUserResponse(user)
+
+	return c.JSON(http.StatusOK, UserResponse)
+
+}
+
+func (h *UserHandler) GetMe(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	cookie, err := c.Cookie("DnB-Session")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve Cookie: "+err.Error())
+	}
+
+	tokenString := cookie.Value
+
+	userID, err := token.VerifyToken(tokenString)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
+	}
+
+	user, err := h.userService.FindByID(ctx, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
 	}

@@ -5,7 +5,7 @@ const WebSocketContext = createContext(null);
 // eslint-disable-next-line react/prop-types
 export const WebSocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const subscribers = useRef([]);
   const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
 
@@ -13,7 +13,7 @@ export const WebSocketProvider = ({ children }) => {
   useEffect(() => {
     // Create WebSocket connection
 
-    if (!isAuthenticated || !token) {
+    if (!isAuthenticated) {
       // If not authenticated, close existing socket
       if (socket) {
         socket.close();
@@ -41,7 +41,7 @@ export const WebSocketProvider = ({ children }) => {
       ws.close();
       setSocket(null);
     };
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated]);
 
   const subscribe = (callback) => {
     subscribers.current.push(callback);

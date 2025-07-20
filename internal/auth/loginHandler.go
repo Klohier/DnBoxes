@@ -4,6 +4,7 @@ import (
 	// "errors"
 	// "dango/internal/auth"
 	// "log"
+	"dango/internal/token"
 	"log/slog"
 	"net/http"
 	"time"
@@ -38,11 +39,11 @@ func (h *LoginHandler) Login(c echo.Context) error {
 	cookie := new(http.Cookie)
 	cookie.Name = "DnB-Session"
 
-	// cookie.HttpOnly = true
+	cookie.HttpOnly = true
 	cookie.Expires = time.Now().Add(24 * time.Hour)
 	cookie.Path = "/"
 
-	sessionToken, nil := GenerateToken(c.RealIP(), time.Now().UTC().String(), c.Request().UserAgent(), user.UserID)
+	sessionToken, nil := token.GenerateToken(user.UserID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate session token: ")
 	}
@@ -58,4 +59,17 @@ func (h *LoginHandler) Login(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, user)
 
+}
+func (h *LoginHandler) Logout(c echo.Context) error {
+    // Clear the HttpOnly cookie by setting MaxAge to -1
+    cookie := new(http.Cookie)
+    cookie.Name = "DnB-Session"
+    cookie.Value = ""
+    cookie.Path = "/"
+    cookie.HttpOnly = true
+    cookie.MaxAge = -1    // Expire immediately
+
+    c.SetCookie(cookie)
+
+    return c.NoContent(http.StatusOK)
 }

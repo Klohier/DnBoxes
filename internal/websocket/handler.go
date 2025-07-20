@@ -5,16 +5,14 @@ import (
 	"dango/internal/chat"
 	"dango/internal/game"
 	"dango/internal/session"
+	"dango/internal/token"
 	"dango/internal/user"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -98,22 +96,22 @@ func (m *Manager) ServeWs(c echo.Context) error {
 		slog.Error("Error getting session from cookie: " + err.Error())
 		return echo.NewHTTPError(http.StatusUnauthorized, "Session not found in cookie")
 	}
-	decodedToken, err := base64.StdEncoding.DecodeString(cookie.Value)
+	userID, err := token.VerifyToken(cookie.Value)
 
 	if err != nil {
 		log.Printf("Error decoding the cookie: %v", err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
 	}
 
-	tokenParts := strings.Split(string(decodedToken), "|")
+	// tokenParts := strings.Split(string(decodedToken), "|")
 
-	userIDStr := tokenParts[0]
+	// userIDStr := tokenParts[0]
 
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		slog.Error("Error converting userID to int: " + err.Error())
-		return err
-	}
+	// userID, err := strconv.Atoi(userIDStr)
+	// if err != nil {
+	// 	slog.Error("Error converting userID to int: " + err.Error())
+	// 	return err
+	// }
 
 	//grabs full user data from datanase
 	user, err := m.userService.FindByID(c.Request().Context(), userID)

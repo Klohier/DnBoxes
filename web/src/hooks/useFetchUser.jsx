@@ -11,15 +11,17 @@ const useFetchUser = () => {
 
   useEffect(() => {
     console.log("useEffect triggered:", { isAuthenticated, token });
-    if (isAuthenticated && token) {
-      const decodedToken = atob(token);
-      const tokenParts = decodedToken.split("|");
+    if (isAuthenticated) {
+      // const decodedToken = atob(token);
+      // const tokenParts = decodedToken.split("|");
 
-      const userId = String(tokenParts[0]);
+      // const userId = String(tokenParts[0]);
 
-      console.log("Fetching user with ID:", userId);
+      // console.log("Fetching user with ID:", userId);
       axios
-        .get(`http://${apiUrl}/api/v1/users/${userId}`)
+        .get(`http://${apiUrl}/api/v1/users/me`, {
+          withCredentials: true,
+        })
         .then((response) => {
           setUser(response.data);
           setLoading(false);
@@ -33,7 +35,7 @@ const useFetchUser = () => {
       setLoading(false);
       setUser(null);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated]);
   return { user, loading, error };
 };
 

@@ -125,11 +125,13 @@ func main() {
 	api.GET("/ws", manager.ServeWs)
 	//Users
 	api.GET("/users/:userId", userHandler.FindByID)
+	api.GET("/users/me", userHandler.GetMe)
 	api.POST("/users", userHandler.CreateUser)
 	api.GET("/users", userHandler.GetAllUsers)
 
 	//Auth
 	api.POST("/login", loginHandler.Login)
+	api.POST("/logout", loginHandler.Logout)
 
 	//Game
 	api.POST("/games", gameHandler.CreateGame)
