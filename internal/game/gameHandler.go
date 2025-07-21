@@ -103,7 +103,7 @@ func (h *GameHandler) MakeMove(c echo.Context) error {
 	}
 
 	response := MakeMoveResponse{
-		GameState: &gameState,
+		GameState: gameState,
 	}
 
 	return c.JSON(http.StatusOK, response)

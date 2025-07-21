@@ -67,17 +67,17 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 
 }
 
-func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, row int, col int, edge string) (GameState, error) {
+func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, row int, col int, edge string) (*GameState, error) {
 
 	//Checks if edge is a valid option
 	if edge != "top_edge" && edge != "right_edge" && edge != "left_edge" && edge != "bottom_edge" {
-		return GameState{}, errors.New("invalid edge : " + edge)
+		return nil, errors.New("invalid edge : " + edge)
 	}
 
 	//Gets Game from ID
 	game, err := s.gameRepo.FindByID(ctx, gameId)
 	if err != nil {
-		return GameState{}, errors.New("failed to find game: " + err.Error())
+		return nil, errors.New("failed to find game: " + err.Error())
 	}
 
 	// Checks if player is part of the game
@@ -92,28 +92,28 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 	}
 
 	if !found {
-		return GameState{}, errors.New("player is not part of this game")
+		return nil, errors.New("player is not part of this game")
 	}
 
 	//Check if its player's turn
 	if *game.CurrentTurn != playerTurnOrder {
-		return GameState{}, errors.New("it's not player " + strconv.Itoa(playerId) + " 's turn")
+		return nil, errors.New("it's not player " + strconv.Itoa(playerId) + " 's turn")
 	}
 
 	//Checks if Selected Edge is a Valid Move (Not already chosen)
 	isEdgeSelected, err := s.gameRepo.IsEdgeSelected(ctx, gameId, row, col, edge)
 	if err != nil {
-		return GameState{}, errors.New("failed to check if edge is already selected: " + err.Error())
+		return nil, errors.New("failed to check if edge is already selected: " + err.Error())
 	}
 
 	if isEdgeSelected {
-		return GameState{}, fmt.Errorf("invalid move: edge %s for box at row %d, col %d is already selected", edge, row, col)
+		return nil, fmt.Errorf("invalid move: edge %s for box at row %d, col %d is already selected", edge, row, col)
 	}
 
 	//Updates Grid
-	_, err = s.gameRepo.UpdateGrid(ctx, gameId, row, col, edge)
+	boxes, err := s.gameRepo.UpdateGrid(ctx, gameId, row, col, edge)
 	if err != nil {
-		return GameState{}, errors.New("failed to update grid edge: " + err.Error())
+		return nil, errors.New("failed to update grid edge: " + err.Error())
 	}
 
 	boxCompleted := false
@@ -174,7 +174,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 		slog.Info("box is not completed, updating turn")
 		nextTurnOrder := (*game.CurrentTurn + 1) % len(game.Players)
 		if err := s.gameRepo.UpdateTurn(ctx, gameId, nextTurnOrder); err != nil {
-			return GameState{}, fmt.Errorf("failed to update turn: %w", err)
+			return nil, fmt.Errorf("failed to update turn: %w", err)
 		}
 
 		slog.Info("Updating turn to player:", "nextPlayerId", nextPlayerId)
@@ -182,10 +182,10 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 	}
 
 	// Check if there are any more moves left
-	boxes, err := s.gameRepo.GetGrids(ctx, gameId)
-	if err != nil {
-		return GameState{}, errors.New("failed to get grids:" + err.Error())
-	}
+	// boxes, err := s.gameRepo.GetGrids(ctx, gameId)
+	// if err != nil {
+	// 	return GameState{}, errors.New("failed to get grids:" + err.Error())
+	// }
 
 	allCompleted := true
 	//Checks if any box has an edge left as false
@@ -199,7 +199,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 	if allCompleted {
 		playerScores, err := s.gameRepo.GetPlayerScores(ctx, gameId)
 		if err != nil {
-			return GameState{}, fmt.Errorf("failed to get player scores: %w", err)
+			return nil, fmt.Errorf("failed to get player scores: %w", err)
 		}
 
 		var winnerId *int
@@ -222,26 +222,26 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 		}
 
 		if err := s.SetWinner(ctx, gameId, winnerId); err != nil {
-			return GameState{}, fmt.Errorf("failed to set winner: %w", err)
+			return nil, fmt.Errorf("failed to set winner: %w", err)
 		}
 	}
 
 	// Reload updated game state
 	updatedGame, err := s.gameRepo.FindByID(ctx, gameId)
 	if err != nil {
-		return GameState{}, errors.New("failed to reload game after move: " + err.Error())
+		return nil, errors.New("failed to reload game after move: " + err.Error())
 	}
 
-	//Grab Most Latest Board to Send
+	// Grab Most Latest Board to Send
 	updatedGrids, err := s.gameRepo.GetGrids(ctx, gameId)
 	if err != nil {
-		return GameState{}, errors.New("failed to get grids after move: " + err.Error())
+		return nil, errors.New("failed to get grids after move: " + err.Error())
 	}
 
-	return GameState{
-		Game:  updatedGame,
-		Grids: updatedGrids,
-	}, nil
+	return &GameState{
+    Game:  updatedGame,
+    Grids: updatedGrids,
+}, nil
 
 }
 

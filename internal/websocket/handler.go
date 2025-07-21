@@ -327,3 +327,20 @@ func (m *Manager) LeaveRoom(connection *Connection) {
 		log.Printf("error broadcasting player list to session %d: %v", sessionID, err)
 	}
 }
+
+func (m *Manager) movePlayersToMainLobby(gameSessionID int) error {
+	mainLobbyID := 1
+	ctx := context.Background()
+
+	for client := range m.connections {
+		if client.sessionID == gameSessionID {
+			if err := m.sessionService.AddUserToSession(ctx, mainLobbyID, client.userID); err != nil {
+				return err
+			}
+			client.sessionID = mainLobbyID
+
+		
+		}
+	}
+	return nil
+}

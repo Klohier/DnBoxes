@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"dango/internal/chat"
+	"dango/internal/game"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -233,30 +234,11 @@ func GameStateHandler(event Event, c *Connection) error {
 
 	c.egress <- responseEvent
 
-	if gameState.Game.WinnerId != nil {
-
-		//TODO Fix
-playerMap := make(map[int]string, len(gameState.Game.Players))
-for _, player := range gameState.Game.Players {
-    playerMap[player.UserID] = player.Username
+	if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
+	slog.Error("failed to broadcast winner", "error", err)
 }
 
-winnerUsername := playerMap[*gameState.Game.WinnerId]
 
-		winnerPayload, err := json.Marshal(map[string]interface{}{
-			"gameId":   payload.GameID,
-			"winnerId": *gameState.Game.WinnerId,
-			"winnerUsername": winnerUsername,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to marshal winner_set payload: %v", err)
-		}
-
-		c.egress <- Event{
-			Type:    "winner_set",
-			Payload: winnerPayload,
-		}
-	}
 
 	return nil
 }
@@ -398,6 +380,19 @@ func MoveHandler(event Event, c *Connection) error {
 			client.egress <- responseEvent
 		}
 	}
+	if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
+	slog.Error("failed to marshal winner_set payload", "error", err)
+}
+if gameState.Game.WinnerId != nil {
+	// Broadcast winner
+
+
+	// Move all players back to the main lobby
+	if err := c.manager.movePlayersToMainLobby(c.sessionID); err != nil {
+		slog.Error("failed to move players to main lobby", "error", err)
+	}
+}
+
 
 	return nil
 }
@@ -443,6 +438,38 @@ func QuitGameHandler(event Event, c *Connection) error {
 					winnerSet = true
 				}
 			}
+		}
+	}
+
+	return nil
+}    
+func  broadcastWinnerEvent(c *Connection, gameState *game.GameState, gameID int) error {
+	if gameState.Game.WinnerId == nil {
+		return nil
+	}
+
+	playerMap := make(map[int]string, len(gameState.Game.Players))
+	for _, player := range gameState.Game.Players {
+		playerMap[player.UserID] = player.Username
+	}
+
+	winnerPayload, err := json.Marshal(map[string]interface{}{
+		"gameId":         gameID,
+		"winnerId":       *gameState.Game.WinnerId,
+		"winnerUsername": playerMap[*gameState.Game.WinnerId],
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal winner_set payload: %v", err)
+	}
+
+	winnerEvent := Event{
+		Type:    "winner_set",
+		Payload: winnerPayload,
+	}
+
+	for client := range c.manager.connections {
+		if client.sessionID == c.sessionID {
+			client.egress <- winnerEvent
 		}
 	}
 
