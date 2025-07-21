@@ -232,6 +232,32 @@ func GameStateHandler(event Event, c *Connection) error {
 	}
 
 	c.egress <- responseEvent
+
+	if gameState.Game.WinnerId != nil {
+
+		//TODO Fix
+playerMap := make(map[int]string, len(gameState.Game.Players))
+for _, player := range gameState.Game.Players {
+    playerMap[player.UserID] = player.Username
+}
+
+winnerUsername := playerMap[*gameState.Game.WinnerId]
+
+		winnerPayload, err := json.Marshal(map[string]interface{}{
+			"gameId":   payload.GameID,
+			"winnerId": *gameState.Game.WinnerId,
+			"winnerUsername": winnerUsername,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to marshal winner_set payload: %v", err)
+		}
+
+		c.egress <- Event{
+			Type:    "winner_set",
+			Payload: winnerPayload,
+		}
+	}
+
 	return nil
 }
 

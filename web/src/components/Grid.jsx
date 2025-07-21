@@ -17,6 +17,8 @@ const Grid = ({ gameID }) => {
   const [showModal, setShowModal] = useState(false);
   const [userColors, setUserColors] = useState({});
   const [boardSize, setBoardSize] = useState();
+  const [winnerId, setWinnerId] = useState(null);
+  const [playerScores, setPlayerScores] = useState([]);
 
   useEffect(() => {
     if (!socket) return;
@@ -37,7 +39,16 @@ const Grid = ({ gameID }) => {
             colorMap[player.user_id] = colors[index % colors.length];
           });
           setUserColors(colorMap);
+          setPlayerScores(players);
         }
+      }
+      if (message.type === "winner_set") {
+        const winnerId = message.payload.winnerId;
+        setWinnerId(winnerId);
+        setShowModal(true);
+        toast.success(
+          `Player ${message.payload.winnerUsername} has won the game!`
+        );
       }
 
       if (message.type === "your_turn") {
@@ -189,7 +200,27 @@ const Grid = ({ gameID }) => {
               width: "300px",
             }}
           >
-            <h2>You win!</h2>
+            <h2>
+              {parseInt(user.userID) === winnerId ? "You win!" : "You lost!"}
+            </h2>
+            <h3 style={{ marginTop: "10px" }}>Final Scores</h3>
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              {playerScores.map((player) => (
+                <li
+                  key={player.user_id}
+                  style={{
+                    fontWeight:
+                      parseInt(player.user_id) === winnerId ? "bold" : "normal",
+                    color: userColors[player.user_id],
+                    marginBottom: "5px",
+                  }}
+                >
+                  Player {player.user_id}
+                  {player.username ? ` (${player.username})` : ""}:{" "}
+                  {player.score}
+                </li>
+              ))}
+            </ul>
             <button onClick={handleGoHome} style={{ marginTop: "20px" }}>
               Go to Home
             </button>

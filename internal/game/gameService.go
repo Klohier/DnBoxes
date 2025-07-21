@@ -83,7 +83,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 	// Checks if player is part of the game
 	playerTurnOrder := -1
 	found := false
-	for _, p := range game.Player {
+	for _, p := range game.Players {
 		if p.UserID == playerId {
 			playerTurnOrder = p.TurnOrder
 			found = true
@@ -172,7 +172,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 	var nextPlayerId int
 	if !boxCompleted {
 		slog.Info("box is not completed, updating turn")
-		nextTurnOrder := (*game.CurrentTurn + 1) % len(game.Player)
+		nextTurnOrder := (*game.CurrentTurn + 1) % len(game.Players)
 		if err := s.gameRepo.UpdateTurn(ctx, gameId, nextTurnOrder); err != nil {
 			return GameState{}, fmt.Errorf("failed to update turn: %w", err)
 		}
