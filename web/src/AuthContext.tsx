@@ -1,30 +1,34 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
-// import Cookies from "js-cookie";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import axios, { AxiosError } from "axios";
+import type { AuthContextType, LoginCredentials } from "./types/auth";
 import { useNavigate } from "react-router-dom";
 
-const AuthContext = createContext();
+type AuthProviderProps = {
+  children: ReactNode;
+};
 
-export const useAuth = () => useContext(AuthContext);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// eslint-disable-next-line react/prop-types
-export const AuthProvider = ({ children }) => {
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // const [token, setToken] = useState(Cookies.get("DnB-Session") || null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<AxiosError | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const navigate = useNavigate();
-
-  // useEffect(() => {
-  //   if (token) {
-  //     setIsAuthenticated(true);
-  //     setLoading(false);
-  //   } else {
-  //     setLoading(false);
-  //     setIsAuthenticated(false);
-  //   }
-  // }, [token]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -44,11 +48,14 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (credentials) => {
+  const login = async (credentials: LoginCredentials): Promise<void> => {
+    const formData = new URLSearchParams();
+    formData.append("username", credentials.username);
+    formData.append("password", credentials.password);
     try {
       const response = await axios.post(
         `http://${apiUrl}/api/v1/login`,
-        credentials,
+        formData,
         {
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -60,12 +67,18 @@ export const AuthProvider = ({ children }) => {
       if (response.status === 200) {
         setLoading(false);
         setIsAuthenticated(true);
-        // setToken(Cookies.get("DnB-Session"));
         navigate("/home");
       }
     } catch (err) {
-      setError(err);
-      setLoading(false);
+      const axiosError = err as AxiosError;
+      const data = axiosError.response?.data as { message?: string };
+      const errorMessage = data?.message || "Login failed. Please try again.";
+
+
+      throw new Error(errorMessage);
+      // setLoading(false);
+
+
     }
   };
 

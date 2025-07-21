@@ -1,9 +1,7 @@
 import "./App.css";
-// import ChatBox from "./components/ChatBox"; // Path to the SvgGrid component
-// import Grid from "./components/SvgGrid";
-// import { NavLink } from "react-router";
+
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
-import { UserProvider } from "./UserContext"; // Import the UserProvider
+import { UserProvider } from "./UserContext";
 import { AuthProvider } from "./AuthContext";
 import { WebSocketProvider } from "./WebSocketContext";
 import Game from "./pages/Game";
@@ -11,6 +9,7 @@ import ProtectedRoute from "./ProtectedRoutes";
 import Home from "./pages/Home";
 import Register from "./pages/Registration";
 import Login from "./pages/Login";
+import Layout from "./components/Layout";
 
 const ProtectedLayout = () => (
   <ProtectedRoute>
@@ -27,6 +26,7 @@ function App() {
         <AuthProvider>
           <UserProvider>
             <Routes>
+              {/* <Route element={<Layout />}> */}
               <Route path="/" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
@@ -34,6 +34,7 @@ function App() {
                 <Route path="/home" element={<Home />} />
                 <Route path="/game/:gameID" element={<Game />} />
               </Route>
+              {/* </Route> */}
             </Routes>
           </UserProvider>
         </AuthProvider>

@@ -148,15 +148,16 @@ const Grid = ({ gameID }) => {
       <Toaster position="top-right" richColors />
 
       {/* Show current turn */}
-      {currentTurnPlayerId !== null && (
+      {/* {currentTurnPlayerId !== null && (
         <div style={{ marginBottom: "10px", fontSize: "18px" }}>
           Current Turn: Player {currentTurnPlayerId}
         </div>
-      )}
+      )} */}
+<div className="w-full aspect-square border rounded-lg">
+
 
       <svg
-        width="100%"
-        height="100%"
+        className="w-full h-full" 
         viewBox={`-5 -5 ${boxSize * boardSize + 10} ${boxSize * boardSize + 10}`}
         preserveAspectRatio="xMidYMid meet"
       >
@@ -173,9 +174,10 @@ const Grid = ({ gameID }) => {
           />
         ))}
       </svg>
-      <button onClick={handleQuitGame} style={{ marginTop: "10px" }}>
+      </div>
+      {/* <button onClick={handleQuitGame} style={{ marginTop: "10px" }}>
         Quit Game
-      </button>
+      </button> */}
       {showModal && (
         <div
           style={{

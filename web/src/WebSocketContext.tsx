@@ -1,20 +1,35 @@
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  ReactNode,
+} from "react";
 import { useAuth } from "./AuthContext";
-const WebSocketContext = createContext(null);
 
-// eslint-disable-next-line react/prop-types
-export const WebSocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null);
+interface WebSocketContextValue {
+  socket: WebSocket | null;
+  subscribe: (callback: (message: any) => void) => () => void;
+}
+
+const WebSocketContext = createContext<WebSocketContextValue | null>(null);
+
+interface WebSocketProviderProps {
+  children: ReactNode;
+}
+
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
+  children,
+}) => {
+  const [socket, setSocket] = useState<WebSocket | null>(null);
   const { isAuthenticated } = useAuth();
-  const subscribers = useRef([]);
+  const subscribers = useRef<Array<(message: any) => void>>([]);
   const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
-    // Create WebSocket connection
-
     if (!isAuthenticated) {
-      // If not authenticated, close existing socket
       if (socket) {
         socket.close();
         setSocket(null);
@@ -43,7 +58,7 @@ export const WebSocketProvider = ({ children }) => {
     };
   }, [isAuthenticated]);
 
-  const subscribe = (callback) => {
+  const subscribe = (callback: (message: any) => void) => {
     subscribers.current.push(callback);
     return () => {
       subscribers.current = subscribers.current.filter((cb) => cb !== callback);
@@ -57,6 +72,10 @@ export const WebSocketProvider = ({ children }) => {
   );
 };
 
-export const useWebSocket = () => {
-  return useContext(WebSocketContext);
+export const useWebSocket = (): WebSocketContextValue => {
+  const context = useContext(WebSocketContext);
+  if (!context) {
+    throw new Error("useWebSocket must be used within a WebSocketProvider");
+  }
+  return context;
 };
