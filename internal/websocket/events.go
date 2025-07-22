@@ -108,7 +108,7 @@ type NewBoxEvent struct {
 }
 
 type Player struct {
-	UserID   int    `json:"userID"`
+	UserID   int    `json:"user_id"`
 	Username string `json:"username"`
 }
 
@@ -234,10 +234,12 @@ func GameStateHandler(event Event, c *Connection) error {
 
 	c.egress <- responseEvent
 
+	if gameState.Game.WinnerId != nil {
 	if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
 	slog.Error("failed to broadcast winner", "error", err)
 }
 
+	}
 
 
 	return nil
@@ -266,6 +268,14 @@ func InviteHandler(event Event, c *Connection) error {
 
 	// Find the receiver's connection
 	client := findConnectionByUserID(c.manager, inviteEvent.ReceiverID)
+	if client == nil {
+    return fmt.Errorf("could not find connection for receiver ID %d", inviteEvent.ReceiverID)
+}
+
+slog.Info("Sending invite",
+  "sender_id", inviteEvent.SenderID,
+  "receiver_id", inviteEvent.ReceiverID,
+)
 
 	client.egress <- outgoingEvent
 
@@ -380,12 +390,12 @@ func MoveHandler(event Event, c *Connection) error {
 			client.egress <- responseEvent
 		}
 	}
-	if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
-	slog.Error("failed to marshal winner_set payload", "error", err)
-}
+	
 if gameState.Game.WinnerId != nil {
 	// Broadcast winner
-
+if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
+	slog.Error("failed to marshal winner_set payload", "error", err)
+}
 
 	// Move all players back to the main lobby
 	if err := c.manager.movePlayersToMainLobby(c.sessionID); err != nil {
