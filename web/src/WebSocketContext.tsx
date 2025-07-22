@@ -36,24 +36,33 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       }
       return;
     }
-
     const ws = new WebSocket(`ws://${apiUrl}/api/v1/ws`);
+    let reconnectInterval: NodeJS.Timeout;
+    const connect = () => {
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        setSocket(ws); // set only once connected
+      };
+      ws.onmessage = (event) => {
+        console.log("Message received:", event.data);
+        const message = JSON.parse(event.data);
+        subscribers.current.forEach((cb) => cb(message));
+      };
+      ws.onclose = () => {
+        console.log("WebSocket disconnected");
+        reconnectInterval = setTimeout(connect, 1000);
+      };
+      ws.onerror = (err) => {
+        console.error("WebSocket error", err);
+        ws.close(); // Trigger onclose
+      };
+    };
 
-    // Handle WebSocket events
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-      setSocket(ws); // set only once connected
-    };
-    ws.onmessage = (event) => {
-      console.log("Message received:", event.data);
-      const message = JSON.parse(event.data);
-      subscribers.current.forEach((cb) => cb(message));
-    };
-    ws.onclose = () => console.log("WebSocket disconnected");
+    connect();
 
     return () => {
-      // Clean up WebSocket on unmount
-      ws.close();
+      clearTimeout(reconnectInterval);
+      ws?.close();
       setSocket(null);
     };
   }, [isAuthenticated]);
