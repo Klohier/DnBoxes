@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import Box from "./Box";
 
-// eslint-disable-next-line react/prop-types
 const Grid = ({
   gameID,
   boxes,
@@ -21,7 +20,7 @@ const Grid = ({
   const handleGoHome = () => {
     setShowModal(false);
     console.log("Navigating to /home");
-    navigate("/home"); // Navigate back to the home page using useNavigate
+    navigate("/home");
   };
 
   return (

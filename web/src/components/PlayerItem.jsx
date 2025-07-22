@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "../UserContext";
 const PlayerItem = ({ player, onClick }) => {
   const { user } = useUser();
-  const isCurrentUser = player.userID === user?.userID;
+  const isCurrentUser = player.user_id === user?.userID;
 
   const handleClick = () => {
     if (!isCurrentUser) {
@@ -34,7 +34,7 @@ const PlayerItem = ({ player, onClick }) => {
         <div>
           <div className="font-medium">{player.username}</div>
           <div className="text-xs text-muted-foreground">
-            ID: {player.userID}
+            ID: {player.user_id}
           </div>
         </div>
       </div>

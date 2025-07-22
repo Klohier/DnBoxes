@@ -9,6 +9,7 @@ import { useWebSocket } from "../WebSocketContext";
 import PlayerLobby from "../components/PlayerLobby";
 import { useUser } from "@/UserContext";
 import { Toaster, toast } from "sonner";
+import { Box, GamePlayer, Message } from "@/types/websocket";
 import {
   Dialog,
   DialogTrigger,
@@ -20,30 +21,35 @@ import {
 
 const Game = () => {
   const { gameID } = useParams();
-  const [boxes, setBoxes] = useState([]);
-  const [sessionID, setSessionID] = useState(null);
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [sessionID, setSessionID] = useState<number>();
   const { user } = useUser();
   const { socket, subscribe } = useWebSocket();
   const navigate = useNavigate();
   const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
-  const [players, setPlayers] = useState<
-    { user_id: number; username: string; turn_order: number; score: number }[]
-  >([]);
-  const [userColors, setUserColors] = useState({});
-  const [boardSize, setBoardSize] = useState();
-  const [winnerId, setWinnerId] = useState(null);
+  const [players, setPlayers] = useState<GamePlayer[]>([]);
+  const [userColors, setUserColors] = useState<Record<string, string>>({});
+  const [boardSize, setBoardSize] = useState<number>();
+  const [winnerId, setWinnerId] = useState<number | null>(null);
   const [playerScores, setPlayerScores] = useState([]);
   const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
-  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState<number | null>(
-    null
-  );
+  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState<
+    number | undefined
+  >();
 
   useEffect(() => {
     if (!socket) return;
 
-    const colors = ["red", "blue", "green", "purple", "orange", "pink"];
+    const colors: string[] = [
+      "red",
+      "blue",
+      "green",
+      "purple",
+      "orange",
+      "pink",
+    ];
 
-    const unsubscribe = subscribe((message) => {
+    const unsubscribe = subscribe((message: Message) => {
       if (message.type === "game:state") {
         const game = message.payload.game;
         const players = game.players;
@@ -53,7 +59,7 @@ const Game = () => {
         setBoardSize(game.board_size);
 
         if (players) {
-          const colorMap = {};
+          const colorMap: Record<GamePlayer["user_id"], string> = {};
           players.forEach((player, index) => {
             colorMap[player.user_id] = colors[index % colors.length];
           });
@@ -67,13 +73,12 @@ const Game = () => {
         const winnerUsername = message.payload.winnerUsername;
         setWinnerId(winnerId);
         setWinnerUsername(winnerUsername);
-        // toast.success(`Player ${winnerUsername} has won the game!`);
+        toast.success(`Player ${winnerUsername} has won the game!`);
       }
 
       if (message.type === "your_turn") {
-        toast("It's your turn!", {
+        toast.info("It's your turn!", {
           description: "Make your move now.",
-          type: "info",
         });
       }
 
@@ -111,7 +116,7 @@ const Game = () => {
           payload: {
             gameId: parseInt(gameID!),
             playerId: user.userID,
-            session_id: parseInt(sessionID),
+            session_id: sessionID,
           },
         })
       );
@@ -119,7 +124,13 @@ const Game = () => {
     // navigate("/home");
   };
 
-  const handleClick = (gameId, playerId, row, col, edge) => {
+  const handleClick = (
+    gameId: number,
+    playerId: number,
+    row: number,
+    col: number,
+    edge: string
+  ) => {
     if (socket) {
       const payload = {
         gameId,
@@ -199,7 +210,7 @@ const Game = () => {
       <Dialog open={winnerId !== null}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>🎉 Game Over</DialogTitle>
+            <DialogTitle>Game Over</DialogTitle>
           </DialogHeader>
           <div className="text-center py-4">
             <p className="text-lg font-semibold">

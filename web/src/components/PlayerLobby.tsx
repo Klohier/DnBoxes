@@ -2,25 +2,26 @@ import { useState, useEffect } from "react";
 import { useWebSocket } from "../WebSocketContext";
 import { useUser } from "../UserContext";
 import { useNavigate } from "react-router-dom";
-
+import { Message, Player } from "@/types/websocket";
 import PlayerList from "./PlayerList";
 import SendInviteModal from "./SendInviteModal";
 import IncomingInviteModal from "./IncomingInviteModal";
 
 const PlayerLobby = () => {
   const [players, setPlayers] = useState([]);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+
   const [boardSize, setBoardSize] = useState(5);
-  const [incomingInvite, setIncomingInvite] = useState(null);
+  const [incomingInvite, setIncomingInvite] = useState();
   const { user } = useUser();
+  const [selectedPlayer, setSelectedPlayer] = useState<Player>();
   const { socket, subscribe } = useWebSocket();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (user?.gameID) {
-      navigate(`/game/${user.gameID}`);
-    }
-  }, [user?.gameID, navigate]);
+  // useEffect(() => {
+  //   if (user?.gameID) {
+  //     navigate(`/game/${user.gameID}`);
+  //   }
+  // }, [user?.gameID, navigate]);
 
   useEffect(() => {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -51,14 +52,14 @@ const PlayerLobby = () => {
   };
 
   const handleSendGameInvite = () => {
-    if (selectedPlayer) {
+    if (selectedPlayer && socket && user) {
       socket.send(
         JSON.stringify({
           type: "invite:new",
           payload: {
             senderID: user.userID,
             senderName: user.username,
-            receiverID: selectedPlayer.userID,
+            receiverID: selectedPlayer.user_id,
             receiverName: selectedPlayer.username,
             timestamp: new Date().toISOString(),
             board_size: boardSize,
@@ -70,7 +71,7 @@ const PlayerLobby = () => {
   };
 
   const handleAcceptInvite = () => {
-    if (incomingInvite) {
+    if (incomingInvite && socket && user) {
       socket.send(
         JSON.stringify({
           type: "invite:accept",
@@ -86,7 +87,7 @@ const PlayerLobby = () => {
   };
 
   const handleDeclineInvite = () => {
-    if (incomingInvite) {
+    if (incomingInvite && socket && user) {
       socket.send(
         JSON.stringify({
           type: "invite:decline",

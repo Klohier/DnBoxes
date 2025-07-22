@@ -15,7 +15,7 @@ interface ChatMessage {
 }
 
 interface ChatboxProps {
-  sessionID: number | null;
+  sessionID: number | undefined;
 }
 
 const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
