@@ -439,10 +439,21 @@ func QuitGameHandler(event Event, c *Connection) error {
 				}
 			}
 		}
+		
 	}
 
-	return nil
+	if winnerSet  {
+	gameState, err := c.manager.gameService.GetGameState(context.Background(), quitGameEvent.GameID)
+	if err != nil {
+		return fmt.Errorf("failed to get game state: %w", err)
+	}
+
+	if err := broadcastWinnerEvent(c, gameState, quitGameEvent.GameID); err != nil {
+		return fmt.Errorf("failed to broadcast winner: %w", err)
+	}
 }    
+return nil
+}
 func  broadcastWinnerEvent(c *Connection, gameState *game.GameState, gameID int) error {
 	if gameState.Game.WinnerId == nil {
 		return nil

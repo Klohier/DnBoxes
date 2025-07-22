@@ -6,117 +6,17 @@ import { Toaster, toast } from "sonner";
 import Box from "./Box";
 
 // eslint-disable-next-line react/prop-types
-const Grid = ({ gameID }) => {
-  const [boxes, setBoxes] = useState([]);
-  const [sessionID, setSessionID] = useState([]);
+const Grid = ({
+  gameID,
+  boxes,
+  userColors,
+  boardSize,
+  userID,
+  handleClick,
+}) => {
   const boxSize = 50;
-  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState(null);
-  const { socket, subscribe } = useWebSocket();
-  const { user } = useUser();
-  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
-  const [userColors, setUserColors] = useState({});
-  const [boardSize, setBoardSize] = useState();
-  const [winnerId, setWinnerId] = useState(null);
-  const [playerScores, setPlayerScores] = useState([]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const colors = ["red", "blue", "green", "purple", "orange", "pink"];
-
-    const unsubscribe = subscribe((message) => {
-      if (message.type === "game:state") {
-        console.log("Received game:state message", message);
-        setBoxes(message.payload.grids);
-        setCurrentTurnPlayerId(message.payload.game.current_turn);
-        setSessionID(message.payload.game.session_id);
-        setBoardSize(message.payload.game.board_size);
-        const players = message.payload.game.players;
-        if (players) {
-          const colorMap = {};
-          players.forEach((player, index) => {
-            colorMap[player.user_id] = colors[index % colors.length];
-          });
-          setUserColors(colorMap);
-          setPlayerScores(players);
-        }
-      }
-      if (message.type === "winner_set") {
-        const winnerId = message.payload.winnerId;
-        setWinnerId(winnerId);
-        setShowModal(true);
-        toast.success(
-          `Player ${message.payload.winnerUsername} has won the game!`
-        );
-      }
-
-      if (message.type === "your_turn") {
-        toast("It's your turn!", {
-          description: "Make your move now.",
-          type: "info",
-        });
-      }
-
-      if (message.type === "invalid_move") {
-        toast.error(
-          "Invalid Move, not your turn or selected already selected block"
-        );
-      }
-
-      if (message.type === "game:quit") {
-        console.log("User Quit Game");
-        setShowModal(true);
-      }
-    });
-
-    if (socket.readyState === WebSocket.OPEN) {
-      fetchGridData();
-    } else {
-      const interval = setInterval(() => {
-        if (socket.readyState === WebSocket.OPEN) {
-          fetchGridData();
-          clearInterval(interval);
-        }
-      }, 500);
-    }
-
-    return () => {
-      unsubscribe();
-    };
-  }, [socket, subscribe, gameID]);
-
-  const fetchGridData = () => {
-    socket.send(
-      JSON.stringify({
-        type: "game:state",
-        payload: {
-          gameID: parseInt(gameID),
-        },
-      })
-    );
-  };
-
-  const handleClick = (gameId, playerId, row, col, edge) => {
-    if (socket) {
-      const payload = {
-        gameId,
-        playerId,
-        row,
-        col,
-        edge,
-      };
-
-      console.log(payload);
-
-      socket.send(
-        JSON.stringify({
-          type: "game:move",
-          payload,
-        })
-      );
-    }
-  };
+  const navigate = useNavigate();
 
   const handleGoHome = () => {
     setShowModal(false);
@@ -124,56 +24,35 @@ const Grid = ({ gameID }) => {
     navigate("/home"); // Navigate back to the home page using useNavigate
   };
 
-  const handleQuitGame = () => {
-    if (socket) {
-      const payload = {
-        gameId: parseInt(gameID),
-        playerId: parseInt(user.userID),
-        session_id: parseInt(sessionID),
-      };
-
-      socket.send(
-        JSON.stringify({
-          type: "game:quit",
-          payload,
-        })
-      );
-    }
-    console.log("Navigating to /home");
-    navigate("/home");
-  };
-
   return (
     <div>
-      <Toaster position="top-right" richColors />
-
       {/* Show current turn */}
       {/* {currentTurnPlayerId !== null && (
         <div style={{ marginBottom: "10px", fontSize: "18px" }}>
           Current Turn: Player {currentTurnPlayerId}
         </div>
       )} */}
-<div className="w-full aspect-square border rounded-lg">
-
-
-      <svg
-        className="w-full h-full" 
-        viewBox={`-5 -5 ${boxSize * boardSize + 10} ${boxSize * boardSize + 10}`}
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {boxes.map((box) => (
-          <Box
-            key={box.box_id}
-            box={box}
-            userColors={userColors}
-            onEdgeClick={handleClick}
-            currentUserId={parseInt(user.userID)}
-            gameID={parseInt(gameID)}
-            boxSize={boxSize}
-            boardSize={boardSize}
-          />
-        ))}
-      </svg>
+      <div className="w-full aspect-square border rounded-lg">
+        <svg
+          className="w-full h-full"
+          viewBox={`-5 -5 ${boxSize * boardSize + 10} ${
+            boxSize * boardSize + 10
+          }`}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {boxes.map((box) => (
+            <Box
+              key={box.box_id}
+              box={box}
+              userColors={userColors}
+              onEdgeClick={handleClick}
+              currentUserId={userID}
+              gameID={parseInt(gameID)}
+              boxSize={boxSize}
+              boardSize={boardSize}
+            />
+          ))}
+        </svg>
       </div>
       {/* <button onClick={handleQuitGame} style={{ marginTop: "10px" }}>
         Quit Game
