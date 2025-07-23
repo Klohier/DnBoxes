@@ -24,7 +24,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const { isAuthenticated } = useAuth();
-  const subscribers = useRef<Array<(message: any) => void>>([]);
+  const subscribers = useRef<((message: any) => void)[]>([]);
   const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
 
   //TODO: Turn this into a custom hook
@@ -46,7 +46,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       ws.onmessage = (event) => {
         console.log("Message received:", event.data);
         const message = JSON.parse(event.data);
-        subscribers.current.forEach((cb) => cb(message));
+        subscribers.current.forEach((cb) => { cb(message); });
       };
       ws.onclose = () => {
         console.log("WebSocket disconnected");

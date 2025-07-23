@@ -1,18 +1,18 @@
-export type GamePlayer = Player & {
+export interface GamePlayer extends Player {
   turn_order: number;
   is_spectator?: boolean;
   is_connected?: boolean;
   score: number;
-};
+}
 
-export type Player = {
+export interface Player {
   user_id: number;
   username: string;
   avatarUrl: string;
   status: string;
-};
+}
 
-export type Game = {
+export interface Game {
   game_id: number;
   session_id: number;
   game_name?: string;
@@ -21,9 +21,9 @@ export type Game = {
   winner?: number;
   created_at: Date;
   current_turn?: number;
-};
+}
 
-export type Box = {
+export interface Box {
   box_id: number;
   game_id: number;
   top_edge: boolean;
@@ -34,17 +34,17 @@ export type Box = {
   col: number;
   completed: boolean | null;
   completed_by: number | null;
-};
+}
 
-export type GameStatePayload = {
+export interface GameStatePayload {
   game: Game;
   grids: Box[];
-};
+}
 
-export type WinnerPayload = {
+export interface WinnerPayload {
   winnerId: number;
   winnerUsername: string;
-};
+}
 
 export type Message =
   | { type: "game:state"; payload: GameStatePayload }

@@ -34,8 +34,8 @@ const Edge: React.FC<EdgeProps> = ({
         strokeWidth="15"
         style={{ cursor: cursorStyle, pointerEvents: "stroke" }}
         onClick={active ? undefined : onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onMouseEnter={() => { setHovered(true); }}
+        onMouseLeave={() => { setHovered(false); }}
       />
 
       <line

@@ -54,7 +54,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
       }
     });
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); };
   }, [sessionID, socket, subscribe]);
 
   useEffect(() => {
@@ -133,7 +133,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
         <Input
           placeholder="Press Enter to send..."
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => { setNewMessage(e.target.value); }}
           onKeyDown={onInputKeyDown}
           className="flex-1 mr-2 text-base"
         />

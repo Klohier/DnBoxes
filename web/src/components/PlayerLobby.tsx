@@ -44,7 +44,7 @@ const PlayerLobby = () => {
       };
     }
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); };
   }, [socket, subscribe, navigate]);
 
   const handlePlayerClick = (player) => {
@@ -110,14 +110,14 @@ const PlayerLobby = () => {
         boardSize={boardSize}
         onBoardSizeChange={setBoardSize}
         onSendInvite={handleSendGameInvite}
-        onClose={() => setSelectedPlayer(null)}
+        onClose={() => { setSelectedPlayer(null); }}
       />
 
       <IncomingInviteModal
         incomingInvite={incomingInvite}
         onAccept={handleAcceptInvite}
         onDecline={handleDeclineInvite}
-        onClose={() => setIncomingInvite(null)}
+        onClose={() => { setIncomingInvite(null); }}
       />
     </div>
   );

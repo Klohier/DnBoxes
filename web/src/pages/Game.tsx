@@ -105,7 +105,7 @@ const Game = () => {
       );
     }
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); };
   }, [socket, subscribe, gameID]);
 
   const handleQuitGame = () => {

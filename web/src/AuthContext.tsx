@@ -9,9 +9,9 @@ import axios, { AxiosError } from "axios";
 import type { AuthContextType, LoginCredentials } from "./types/auth";
 import { useNavigate } from "react-router-dom";
 
-type AuthProviderProps = {
+interface AuthProviderProps {
   children: ReactNode;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

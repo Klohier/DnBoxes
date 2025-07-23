@@ -83,7 +83,7 @@ const Box: React.FC<BoxProps> = ({
         x2={x + boxSize}
         y2={y}
         active={top_edge}
-        onClick={() => handleEdgeClick("top_edge")}
+        onClick={() => { handleEdgeClick("top_edge"); }}
         userColor={color}
       />
       <Edge
@@ -92,7 +92,7 @@ const Box: React.FC<BoxProps> = ({
         x2={x}
         y2={y + boxSize}
         active={left_edge}
-        onClick={() => handleEdgeClick("left_edge")}
+        onClick={() => { handleEdgeClick("left_edge"); }}
         userColor={color}
       />
 
@@ -102,7 +102,7 @@ const Box: React.FC<BoxProps> = ({
         x2={x + boxSize}
         y2={y + boxSize}
         active={right_edge}
-        onClick={() => handleEdgeClick("right_edge")}
+        onClick={() => { handleEdgeClick("right_edge"); }}
         userColor={color}
       />
       <Edge
@@ -111,7 +111,7 @@ const Box: React.FC<BoxProps> = ({
         x2={x + boxSize}
         y2={y + boxSize}
         active={bottom_edge}
-        onClick={() => handleEdgeClick("bottom_edge")}
+        onClick={() => { handleEdgeClick("bottom_edge"); }}
         userColor={color}
       />
     </g>

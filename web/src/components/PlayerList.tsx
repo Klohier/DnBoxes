@@ -1,10 +1,10 @@
 import PlayerItem from "./PlayerItem";
 import { Player } from "@/types/websocket";
 
-type PlayerListProps = {
+interface PlayerListProps {
   players: Player[];
   onPlayerClick: (player: Player) => void;
-};
+}
 
 const PlayerList: React.FC<PlayerListProps> = ({ players, onPlayerClick }) => {
   return (

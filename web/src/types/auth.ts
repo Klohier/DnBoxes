@@ -5,10 +5,10 @@ export interface LoginCredentials {
   password: string;
 }
 
-export type AuthContextType = {
+export interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
   error: AxiosError | null;
-};
+}
