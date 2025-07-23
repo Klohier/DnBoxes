@@ -16,8 +16,8 @@ interface BoxProps {
   box: BoxData;
   userColors: Record<string, string>;
   onEdgeClick: (
-    gameID: string,
-    userID: string,
+    gameID: number,
+    userID: number,
     row: number,
     col: number,
     edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge"

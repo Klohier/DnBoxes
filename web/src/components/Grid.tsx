@@ -13,8 +13,8 @@ interface GridProps {
   boardSize: number;
   userID: number;
   handleClick: (
-    gameID: string,
-    userID: string,
+    gameID: number,
+    userID: number,
     row: number,
     col: number,
     edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge"

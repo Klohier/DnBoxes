@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 
 const Game = () => {
-  const { gameID } = useParams();
+  const gameID = Number(useParams<{ gameID: string }>().gameID);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [sessionID, setSessionID] = useState<number>();
   const { user } = useUser();
@@ -29,7 +29,7 @@ const Game = () => {
   const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
   const [players, setPlayers] = useState<GamePlayer[]>([]);
   const [userColors, setUserColors] = useState<Record<string, string>>({});
-  const [boardSize, setBoardSize] = useState<number>();
+  const [boardSize, setBoardSize] = useState<number>(5);
   const [winnerId, setWinnerId] = useState<number | null>(null);
   const [playerScores, setPlayerScores] = useState([]);
   const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
@@ -100,7 +100,7 @@ const Game = () => {
       socket.send(
         JSON.stringify({
           type: "game:state",
-          payload: { gameID: parseInt(gameID!) },
+          payload: { gameID: gameID },
         })
       );
     }
@@ -114,7 +114,7 @@ const Game = () => {
         JSON.stringify({
           type: "game:quit",
           payload: {
-            gameId: parseInt(gameID!),
+            gameId: gameID,
             playerId: user.userID,
             session_id: sessionID,
           },
@@ -184,14 +184,16 @@ const Game = () => {
           </Button>
         </div>
         <div className="w-full max-w-[500px] md:max-w-[700px] lg:max-w-[900px]">
-          <Grid
-            gameID={gameID}
-            boxes={boxes}
-            userColors={userColors}
-            boardSize={boardSize}
-            userID={user?.userID}
-            handleClick={handleClick}
-          />
+          {user && (
+            <Grid
+              gameID={gameID}
+              boxes={boxes}
+              userColors={userColors}
+              boardSize={boardSize}
+              userID={user.userID}
+              handleClick={handleClick}
+            />
+          )}
         </div>
       </div>
 
