@@ -5,6 +5,7 @@
       "@/*": ["./src/*"]
     },
     "composite": true,
+    "strict": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true
