@@ -8,6 +8,8 @@ export type GamePlayer = Player & {
 export type Player = {
   user_id: number;
   username: string;
+  avatarUrl: string;
+  status: string;
 };
 
 export type Game = {
@@ -30,8 +32,8 @@ export type Box = {
   bottom_edge: boolean;
   row: number;
   col: number;
-  completed?: boolean;
-  completed_by?: number;
+  completed: boolean | null;
+  completed_by: number | null;
 };
 
 export type GameStatePayload = {

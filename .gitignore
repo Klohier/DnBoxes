@@ -51,3 +51,5 @@ go.work.sum
 
 tmp/
 air
+*storybook.log
+storybook-static

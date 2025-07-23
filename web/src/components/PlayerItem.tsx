@@ -1,8 +1,14 @@
-/* eslint-disable react/prop-types */
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "../UserContext";
-const PlayerItem = ({ player, onClick }) => {
+import { Player } from "@/types/websocket";
+
+interface PlayerItemProps {
+  player: Player;
+  onClick: (player: Player) => void;
+}
+
+const PlayerItem: React.FC<PlayerItemProps> = ({ player, onClick }) => {
   const { user } = useUser();
   const isCurrentUser = player.user_id === user?.userID;
 
@@ -39,7 +45,7 @@ const PlayerItem = ({ player, onClick }) => {
         </div>
       </div>
       {player.status && (
-        <Badge variant={player.status === "online" ? "success" : "default"}>
+        <Badge variant={player.status === "online" ? "secondary" : "default"}>
           {player.status}
         </Badge>
       )}
