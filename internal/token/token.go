@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-	var key = []byte("testing")
+	var key = []byte("asecretkeyisherefortestinghahaha")
 
 func GenerateToken(userID int) (string, error) {
 	claims := jwt.MapClaims{
