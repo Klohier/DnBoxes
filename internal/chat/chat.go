@@ -12,7 +12,7 @@ type Message struct {
 	Username  string `json:"username"`
 	SessionID int    `json:"session_id"`
 	Message   string `json:"message"`
-	TimeStamp time.Time
+	TimeStamp time.Time `json:"timestamp"`
 }
 
 type ChatHandler struct {

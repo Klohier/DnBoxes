@@ -2,20 +2,26 @@ import { useState, useEffect } from "react";
 import { useWebSocket } from "../WebSocketContext";
 import { useUser } from "../UserContext";
 import { useNavigate } from "react-router-dom";
-import { Message, Player } from "@/types/websocket";
+import { Message, Player, InvitePayload } from "@/types/websocket";
 import PlayerList from "./PlayerList";
 import SendInviteModal from "./SendInviteModal";
 import IncomingInviteModal from "./IncomingInviteModal";
 
 const PlayerLobby = () => {
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers] = useState<Player[]>([]);
 
   const [boardSize, setBoardSize] = useState(5);
-  const [incomingInvite, setIncomingInvite] = useState();
+  const [incomingInvite, setIncomingInvite] = useState<InvitePayload | null>(
+    null
+  );
   const { user } = useUser();
-  const [selectedPlayer, setSelectedPlayer] = useState<Player>();
-  const { socket, subscribe } = useWebSocket();
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>();
+  const { send, subscribe } = useWebSocket();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    send({ type: "player:get" });
+  }, []);
 
   // useEffect(() => {
   //   if (user?.gameID) {
@@ -24,78 +30,68 @@ const PlayerLobby = () => {
   // }, [user?.gameID, navigate]);
 
   useEffect(() => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      console.log("No WebSocket connection available");
-      return;
-    }
+    // if (!socket || socket.readyState !== WebSocket.OPEN) {
+    //   console.log("No WebSocket connection available");
+    //   return;
+    // }
 
-    const unsubscribe = subscribe((message) => {
-      if (message.type === "player:get") setPlayers(message.payload);
+    const unsubscribe = subscribe((message: Message) => {
+      if (message.type === "player:get" && message.payload) {
+        setPlayers(message.payload);
+      }
       if (message.type === "invite:new") setIncomingInvite(message.payload);
       if (message.type === "game:new")
-        navigate(`/game/${message.payload.gameID}`);
+        void navigate(`/game/${message.payload.gameID}`);
     });
 
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "player:get" }));
-    } else {
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ type: "player:get" }));
-      };
-    }
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe, navigate]);
 
-    return () => { unsubscribe(); };
-  }, [socket, subscribe, navigate]);
-
-  const handlePlayerClick = (player) => {
+  const handlePlayerClick = (player: Player) => {
     setSelectedPlayer(player);
   };
 
   const handleSendGameInvite = () => {
-    if (selectedPlayer && socket && user) {
-      socket.send(
-        JSON.stringify({
-          type: "invite:new",
-          payload: {
-            senderID: user.userID,
-            senderName: user.username,
-            receiverID: selectedPlayer.user_id,
-            receiverName: selectedPlayer.username,
-            timestamp: new Date().toISOString(),
-            board_size: boardSize,
-          },
-        })
-      );
+    if (selectedPlayer && user) {
+      send({
+        type: "invite:new",
+        payload: {
+          senderID: user.userID,
+          senderName: user.username,
+          receiverID: selectedPlayer.user_id,
+          receiverName: selectedPlayer.username,
+          timestamp: new Date().toISOString(),
+          board_size: boardSize,
+        },
+      });
       setSelectedPlayer(null);
     }
   };
 
   const handleAcceptInvite = () => {
-    if (incomingInvite && socket && user) {
-      socket.send(
-        JSON.stringify({
-          type: "invite:accept",
-          payload: {
-            playerID: user.userID,
-            senderID: incomingInvite.senderID,
-            board_size: incomingInvite.board_size,
-          },
-        })
-      );
+    if (incomingInvite && user) {
+      send({
+        type: "invite:accept",
+        payload: {
+          playerID: user.userID,
+          senderID: incomingInvite.senderID,
+          board_size: incomingInvite.board_size,
+        },
+      });
       setIncomingInvite(null);
     }
   };
 
   const handleDeclineInvite = () => {
-    if (incomingInvite && socket && user) {
-      socket.send(
-        JSON.stringify({
-          type: "invite:decline",
-          payload: {
-            inviterID: incomingInvite.inviterID,
-          },
-        })
-      );
+    if (incomingInvite && user) {
+      send({
+        type: "invite:decline",
+        payload: {
+          inviterID: incomingInvite.senderID,
+        },
+      });
       setIncomingInvite(null);
     }
   };
@@ -110,14 +106,18 @@ const PlayerLobby = () => {
         boardSize={boardSize}
         onBoardSizeChange={setBoardSize}
         onSendInvite={handleSendGameInvite}
-        onClose={() => { setSelectedPlayer(null); }}
+        onClose={() => {
+          setSelectedPlayer(null);
+        }}
       />
 
       <IncomingInviteModal
         incomingInvite={incomingInvite}
         onAccept={handleAcceptInvite}
         onDecline={handleDeclineInvite}
-        onClose={() => { setIncomingInvite(null); }}
+        onClose={() => {
+          setIncomingInvite(null);
+        }}
       />
     </div>
   );

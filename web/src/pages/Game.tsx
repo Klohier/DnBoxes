@@ -24,7 +24,7 @@ const Game = () => {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [sessionID, setSessionID] = useState<number>();
   const { user } = useUser();
-  const { socket, subscribe } = useWebSocket();
+  const { send, subscribe, connected } = useWebSocket();
   const navigate = useNavigate();
   const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
   const [players, setPlayers] = useState<GamePlayer[]>([]);
@@ -38,8 +38,7 @@ const Game = () => {
   >();
 
   useEffect(() => {
-    if (!socket) return;
-
+    if (!connected) return;
     const colors: string[] = [
       "red",
       "blue",
@@ -48,6 +47,11 @@ const Game = () => {
       "orange",
       "pink",
     ];
+
+    send({
+      type: "game:state",
+      payload: { gameID: gameID },
+    });
 
     const unsubscribe = subscribe((message: Message) => {
       if (message.type === "game:state") {
@@ -96,30 +100,21 @@ const Game = () => {
       }
     });
 
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(
-        JSON.stringify({
-          type: "game:state",
-          payload: { gameID: gameID },
-        })
-      );
-    }
-
-    return () => { unsubscribe(); };
-  }, [socket, subscribe, gameID]);
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe, gameID, connected]);
 
   const handleQuitGame = () => {
     if (sessionID && user?.userID) {
-      socket?.send(
-        JSON.stringify({
-          type: "game:quit",
-          payload: {
-            gameId: gameID,
-            playerId: user.userID,
-            session_id: sessionID,
-          },
-        })
-      );
+      send({
+        type: "game:quit",
+        payload: {
+          gameId: gameID,
+          playerId: user.userID,
+          session_id: sessionID,
+        },
+      });
     }
     // navigate("/home");
   };
@@ -131,24 +126,20 @@ const Game = () => {
     col: number,
     edge: string
   ) => {
-    if (socket) {
-      const payload = {
-        gameId,
-        playerId,
-        row,
-        col,
-        edge,
-      };
+    const payload = {
+      gameId,
+      playerId,
+      row,
+      col,
+      edge,
+    };
 
-      console.log(payload);
+    console.log(payload);
 
-      socket.send(
-        JSON.stringify({
-          type: "game:move",
-          payload,
-        })
-      );
-    }
+    send({
+      type: "game:move",
+      payload,
+    });
   };
 
   return (
@@ -203,10 +194,7 @@ const Game = () => {
           <PlayerLobby />
         </div>
         <div className="h-64">
-          <Chatbox
-            sessionID={sessionID}
-            // setCurrentTurnPlayerId={setCurrentTurnPlayerId}
-          />
+          {sessionID && <Chatbox sessionID={sessionID} />}
         </div>
       </div>
       <Dialog open={winnerId !== null}>
@@ -236,7 +224,7 @@ const Game = () => {
               onClick={() => {
                 setWinnerId(null);
                 setWinnerUsername(null);
-                navigate("/home");
+                void navigate("/home");
               }}
             >
               Return Home

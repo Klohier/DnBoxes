@@ -5,63 +5,86 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-interface ChatMessage {
-  userID: number;
-  username: string;
-  session_id: number;
-  message: string;
-  timestamp: string;
-}
+import { Message, ChatMessagePayload } from "@/types/websocket";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface ChatboxProps {
   sessionID: number | undefined;
 }
 
 const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // const [messages, setMessages] = useState<ChatMessagePayload[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
   const { user } = useUser();
-  const { socket, subscribe } = useWebSocket();
-  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
+
+  const { send, subscribe, connected } = useWebSocket();
+  const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
   const scrollRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  // useEffect(() => {
+  //   if (!sessionID) return;
 
-  useEffect(() => {
-    if (!sessionID || !socket || socket.readyState !== WebSocket.OPEN) return;
+  const sendMessageMutation = useMutation({
+    mutationFn: async (message: Message) => {
+      // Send via WebSocket here
+      send(message);
+      return message;
+    },
 
-    const fetchMessages = async () => {
-      try {
-        const endpoint = `http://${apiUrl}/api/v1/chat?sessionID=${sessionID}`;
-        const response = await axios.get<ChatMessage[]>(endpoint);
-        if (response.data) setMessages(response.data);
-      } catch (error) {
-        console.error("Error fetching past messages:", error);
+    onError: (_err, _newMessage, context) => {
+      // Roll back optimistic update on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          ["chatMessages", sessionID, apiUrl],
+          context.previousMessages
+        );
       }
-    };
+    },
+  });
 
-    fetchMessages();
-  }, [sessionID, socket, apiUrl]);
+  const {
+    data: fetchedMessages,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<ChatMessagePayload[]>({
+    queryKey: ["chatMessages", sessionID, apiUrl],
+    queryFn: async () => {
+      if (!sessionID) return [];
+      const endpoint = `http://${apiUrl}/api/v1/chat?sessionID=${sessionID}`;
+      const response = await axios.get<ChatMessagePayload[]>(endpoint);
+      return response.data;
+    },
+    enabled: !!sessionID,
+    staleTime: 1000 * 60,
+  });
 
   useEffect(() => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-    const unsubscribe = subscribe((message: any) => {
+    console.log("Effect triggered", { connected, sessionID });
+    if (!sessionID || !connected) return;
+    const unsubscribe = subscribe((message: Message) => {
+      console.log("Received WS message:", message);
       if (
         message.type === "chat:new" &&
         message.payload.session_id === sessionID
       ) {
-        setMessages((prev) => [...prev, message.payload]);
+        queryClient.setQueryData<ChatMessagePayload[]>(
+          ["chatMessages", sessionID, apiUrl],
+          (old) => [...(old ?? []), message.payload]
+        );
       }
     });
 
-    return () => { unsubscribe(); };
-  }, [sessionID, socket, subscribe]);
+    return () => {
+      unsubscribe();
+    };
+  }, [sessionID, subscribe, queryClient, apiUrl, connected]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [fetchedMessages ?? []]);
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
@@ -71,7 +94,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
       return;
     }
 
-    const message = {
+    const message: Message = {
       type: "chat:new",
       payload: {
         userID: Number(user.userID),
@@ -82,12 +105,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
       },
     };
 
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(message));
-    } else {
-      console.log("WebSocket is not open");
-    }
-
+    sendMessageMutation.mutate(message);
     setNewMessage("");
   };
 
@@ -104,7 +122,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-2 text-sm space-y-1 font-mono"
       >
-        {messages.map((msg, index) => {
+        {(fetchedMessages ?? []).map((msg, index) => {
           const isOwn = msg.userID === Number(user?.userID);
           return (
             <div key={index} className="text-foreground">
@@ -133,7 +151,9 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
         <Input
           placeholder="Press Enter to send..."
           value={newMessage}
-          onChange={(e) => { setNewMessage(e.target.value); }}
+          onChange={(e) => {
+            setNewMessage(e.target.value);
+          }}
           onKeyDown={onInputKeyDown}
           className="flex-1 mr-2 text-base"
         />

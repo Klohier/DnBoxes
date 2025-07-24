@@ -7,6 +7,7 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
+import tanstack from "@tanstack/eslint-plugin-query";
 
 export default [
   { ignores: ["dist"] },
@@ -45,6 +46,8 @@ export default [
   ...storybook.configs["flat/recommended"],
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
+  ...tanstack.configs["flat/recommended"],
+
   {
     languageOptions: {
       parserOptions: {

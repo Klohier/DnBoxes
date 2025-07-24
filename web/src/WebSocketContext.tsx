@@ -7,10 +7,12 @@ import {
   ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
+import { Message } from "./types/websocket";
 
 interface WebSocketContextValue {
-  socket: WebSocket | null;
+  send: (message: Message) => void;
   subscribe: (callback: (message: any) => void) => () => void;
+  connected: boolean;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -22,34 +24,54 @@ interface WebSocketProviderProps {
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
 }) => {
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const { isAuthenticated } = useAuth();
+  const socket = useRef<WebSocket | null>(null);
+  const { isAuthenticated, loading } = useAuth();
   const subscribers = useRef<((message: any) => void)[]>([]);
-  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
+  const [connected, setConnected] = useState(false);
+  const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
+    if (loading) {
+      // Wait until loading finishes, do nothing for now
+      return;
+    }
     if (!isAuthenticated) {
-      if (socket) {
-        socket.close();
-        setSocket(null);
+      if (socket.current) {
+        socket.current.close();
+        socket.current = null;
       }
       return;
     }
-    const ws = new WebSocket(`ws://${apiUrl}/api/v1/ws`);
     let reconnectInterval: NodeJS.Timeout;
     const connect = () => {
+      if (
+        socket.current &&
+        (socket.current.readyState === WebSocket.OPEN ||
+          socket.current.readyState === WebSocket.CONNECTING)
+      ) {
+        console.log(
+          "WebSocket already connected or connecting. Skipping connect."
+        );
+        return;
+      }
+      const ws = new WebSocket(`ws://${apiUrl}/api/v1/ws`);
+      socket.current = ws;
       ws.onopen = () => {
         console.log("WebSocket connected");
-        setSocket(ws); // set only once connected
+        setConnected(true);
+        // set only once connected
       };
       ws.onmessage = (event) => {
         console.log("Message received:", event.data);
         const message = JSON.parse(event.data);
-        subscribers.current.forEach((cb) => { cb(message); });
+        subscribers.current.forEach((cb) => {
+          cb(message);
+        });
       };
       ws.onclose = () => {
         console.log("WebSocket disconnected");
+        setConnected(false);
         reconnectInterval = setTimeout(connect, 1000);
       };
       ws.onerror = (err) => {
@@ -62,20 +84,29 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     return () => {
       clearTimeout(reconnectInterval);
-      ws?.close();
-      setSocket(null);
+      socket.current?.close();
+      socket.current = null;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loading]);
 
   const subscribe = (callback: (message: any) => void) => {
+    console.log("Adding subscriber");
     subscribers.current.push(callback);
     return () => {
+      console.log("Removing subscriber");
       subscribers.current = subscribers.current.filter((cb) => cb !== callback);
     };
   };
+  const send = (message: Message) => {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      socket.current.send(JSON.stringify(message));
+    } else {
+      console.warn("WebSocket not ready");
+    }
+  };
 
   return (
-    <WebSocketContext.Provider value={{ socket, subscribe }}>
+    <WebSocketContext.Provider value={{ send, subscribe, connected }}>
       {children}
     </WebSocketContext.Provider>
   );
