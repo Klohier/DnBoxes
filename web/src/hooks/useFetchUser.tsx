@@ -7,7 +7,7 @@ const useFetchUser = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { isAuthenticated, token } = useAuth();
-  const apiUrl = import.meta.env.VITE_API_URL || "localhost:8484";
+  const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
 
   useEffect(() => {
     console.log("useEffect triggered:", { isAuthenticated, token });
