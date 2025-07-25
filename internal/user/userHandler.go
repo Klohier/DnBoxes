@@ -85,19 +85,19 @@ func (h *UserHandler) GetMe(c echo.Context) error {
 
 	cookie, err := c.Cookie("DnB-Session")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve Cookie: "+err.Error())
+		return echo.NewHTTPError(http.StatusNotFound, "Failed to Retrieve Cookie: "+err.Error())
 	}
 
 	tokenString := cookie.Value
 
 	userID, err := token.VerifyToken(tokenString)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
+		return echo.NewHTTPError(http.StatusUnauthorized, "Failed to Verify Token: "+err.Error())
 	}
 
 	user, err := h.userService.FindByID(ctx, userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
+		return echo.NewHTTPError(http.StatusNotFound, "Failed to Retrieve User: "+err.Error())
 	}
 
 	UserResponse := NewUserResponse(user)
