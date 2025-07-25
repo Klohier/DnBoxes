@@ -8,6 +8,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 import tanstack from "@tanstack/eslint-plugin-query";
+import pluginRouter from "@tanstack/eslint-plugin-router";
 
 export default [
   { ignores: ["dist"] },
@@ -43,6 +44,7 @@ export default [
       ],
     },
   },
+  ...pluginRouter.configs["flat/recommended"],
   ...storybook.configs["flat/recommended"],
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
