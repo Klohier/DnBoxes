@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "../UserContext";
 import { Player } from "@/types/websocket";
+import { useAuth } from "@/AuthContext";
 
 interface PlayerItemProps {
   player: Player;
@@ -9,7 +10,7 @@ interface PlayerItemProps {
 }
 
 const PlayerItem: React.FC<PlayerItemProps> = ({ player, onClick }) => {
-  const { user } = useUser();
+  const { user } = useAuth();
   const isCurrentUser = player.user_id === user?.userID;
 
   const handleClick = () => {

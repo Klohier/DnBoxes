@@ -1,14 +1,21 @@
 import { createContext, useContext, ReactNode } from "react";
 import axios, { AxiosError } from "axios";
 import type { LoginCredentials } from "./types/auth";
-import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// import { useNavigate } from "react-router-dom";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { User } from "./types/auth";
+import { fetchUser } from "./api/fetchUser";
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
+  user: User | undefined;
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => void;
   loading: boolean;
@@ -28,21 +35,16 @@ export const useAuth = (): AuthContextType => {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const {
     data: user,
     isLoading,
     isError,
-  } = useQuery<User>({
-    queryKey: ["me", apiUrl],
-    queryFn: async () => {
-      const res = await axios.get<User>(`http://${apiUrl}/api/v1/users/me`, {
-        withCredentials: true,
-      });
-      return res.data;
-    },
+  } = useSuspenseQuery<User>({
+    queryKey: ["me"],
+    queryFn: fetchUser,
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -65,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["me"] });
-      void navigate("/home");
+      // void navigate("/home");
     },
   });
 
@@ -77,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["me"] });
-      void navigate("/");
+      // void navigate("/");
     },
   });
 
@@ -93,6 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return (
     <AuthContext.Provider
       value={{
+        user,
         login,
         logout,
         loading:

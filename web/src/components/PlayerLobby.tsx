@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useWebSocket } from "../WebSocketContext";
 import { useUser } from "../UserContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { Message, Player, InvitePayload } from "@/types/websocket";
 import PlayerList from "./PlayerList";
 import SendInviteModal from "./SendInviteModal";
 import IncomingInviteModal from "./IncomingInviteModal";
+import { useAuth } from "@/AuthContext";
 
 const PlayerLobby = () => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -14,7 +15,7 @@ const PlayerLobby = () => {
   const [incomingInvite, setIncomingInvite] = useState<InvitePayload | null>(
     null
   );
-  const { user } = useUser();
+  const { user } = useAuth();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>();
   const { send, subscribe } = useWebSocket();
   const navigate = useNavigate();
@@ -41,7 +42,10 @@ const PlayerLobby = () => {
       }
       if (message.type === "invite:new") setIncomingInvite(message.payload);
       if (message.type === "game:new")
-        void navigate(`/game/${message.payload.gameID}`);
+        void navigate({
+          to: "/game/$gameID",
+          params: { gameID: message.payload.gameID },
+        });
     });
 
     return () => {

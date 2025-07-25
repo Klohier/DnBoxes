@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Message, ChatMessagePayload } from "@/types/websocket";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/AuthContext";
 
 interface ChatboxProps {
   sessionID: number | undefined;
@@ -15,7 +16,7 @@ interface ChatboxProps {
 const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
   // const [messages, setMessages] = useState<ChatMessagePayload[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
-  const { user } = useUser();
+  const { user } = useAuth();
 
   const { send, subscribe, connected } = useWebSocket();
   const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
@@ -97,7 +98,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
     const message: Message = {
       type: "chat:new",
       payload: {
-        userID: Number(user.userID),
+        userID: user.userID,
         username: user.username,
         session_id: sessionID,
         message: newMessage,
@@ -123,7 +124,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
         className="flex-1 overflow-y-auto px-4 py-2 text-sm space-y-1 font-mono"
       >
         {(fetchedMessages ?? []).map((msg, index) => {
-          const isOwn = msg.userID === Number(user?.userID);
+          const isOwn = msg.userID === user?.userID;
           return (
             <div key={index} className="text-foreground">
               <span className="text-muted-foreground mr-1 text-[10px]">
