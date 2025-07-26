@@ -11,7 +11,7 @@ import { Message } from "./types/websocket";
 
 interface WebSocketContextValue {
   send: (message: Message) => void;
-  subscribe: (callback: (message: any) => void) => () => void;
+  subscribe: (callback: (message: Message) => void) => () => void;
   connected: boolean;
 }
 
@@ -26,7 +26,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 }) => {
   const socket = useRef<WebSocket | null>(null);
   const { isAuthenticated, loading } = useAuth();
-  const subscribers = useRef<((message: any) => void)[]>([]);
+  const subscribers = useRef<((message: Message) => void)[]>([]);
   const [connected, setConnected] = useState(false);
   const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
 
@@ -62,9 +62,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         setConnected(true);
         // set only once connected
       };
-      ws.onmessage = (event) => {
+      ws.onmessage = (event: MessageEvent<string>) => {
         console.log("Message received:", event.data);
-        const message = JSON.parse(event.data);
+        const message = JSON.parse(event.data) as Message;
         subscribers.current.forEach((cb) => {
           cb(message);
         });
@@ -89,7 +89,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     };
   }, [isAuthenticated, loading]);
 
-  const subscribe = (callback: (message: any) => void) => {
+  const subscribe = (callback: (message: Message) => void) => {
     console.log("Adding subscriber");
     subscribers.current.push(callback);
     return () => {
