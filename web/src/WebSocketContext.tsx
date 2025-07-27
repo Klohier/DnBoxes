@@ -5,6 +5,7 @@ import {
   useState,
   useRef,
   ReactNode,
+  useMemo,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { Message } from "./types/websocket";
@@ -37,10 +38,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       return;
     }
     if (!isAuthenticated) {
-      if (socket.current) {
+      if (
+        socket.current?.readyState === WebSocket.OPEN ||
+        socket.current?.readyState === WebSocket.CONNECTING
+      ) {
+        console.log("Closing socket due to unauthenticated state");
         socket.current.close();
-        socket.current = null;
       }
+      socket.current = null;
       return;
     }
     let reconnectInterval: NodeJS.Timeout;
@@ -84,7 +89,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     return () => {
       clearTimeout(reconnectInterval);
-      socket.current?.close();
+      if (
+        socket.current &&
+        (socket.current.readyState === WebSocket.OPEN ||
+          socket.current.readyState === WebSocket.CONNECTING)
+      ) {
+        socket.current.close();
+      }
       socket.current = null;
     };
   }, [isAuthenticated, loading]);
@@ -105,8 +116,17 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     }
   };
 
+  const contextValue = useMemo(
+    () => ({
+      send,
+      subscribe,
+      connected,
+    }),
+    [connected]
+  );
+
   return (
-    <WebSocketContext.Provider value={{ send, subscribe, connected }}>
+    <WebSocketContext.Provider value={contextValue}>
       {children}
     </WebSocketContext.Provider>
   );
