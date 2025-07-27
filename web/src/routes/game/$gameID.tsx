@@ -1,5 +1,9 @@
 import { fetchGame } from "@/api/fetchGame";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  useNavigate,
+  useRouteContext,
+} from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "sonner";
@@ -39,6 +43,7 @@ function RouteComponent() {
   const params = Route.useParams();
 
   const { user } = Route.useLoaderData();
+  const { queryClient } = useRouteContext({ from: "/game/$gameID" });
 
   const { data: gameState } = useSuspenseQuery({
     queryKey: ["game", params.gameID],
@@ -46,27 +51,18 @@ function RouteComponent() {
   });
   console.log("gameState", gameState);
   const navigate = useNavigate();
-  const [sessionID, setSessionID] = useState<number>();
   const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
-  const [players, setPlayers] = useState<GamePlayer[]>([]);
   const { send, subscribe, connected } = useWebSocket();
-  const [boxes, setBoxes] = useState<Box[]>([]);
   const [userColors, setUserColors] = useState<Record<string, string>>({});
-  const [boardSize, setBoardSize] = useState<number>(5);
   const [winnerId, setWinnerId] = useState<number | null>(null);
-  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState<
-    number | undefined
-  >();
+
+  const winnerPlayer = gameState?.game?.players.find(
+    (p) => p.user_id === gameState?.game?.winner
+  );
 
   useEffect(() => {
     if (!gameState?.game) return;
     console.log("Setting boxes from gameState:", gameState.grids);
-
-    setBoxes(gameState.grids);
-    setBoardSize(gameState.game.board_size);
-    setCurrentTurnPlayerId(gameState.game.current_turn);
-    setSessionID(gameState.game.session_id);
-    setPlayers(gameState.game.players);
 
     const colors: string[] = [
       "red",
@@ -96,20 +92,13 @@ function RouteComponent() {
 
     const unsubscribe = subscribe((message: Message) => {
       if (message.type === "game:state") {
-        const game = message.payload.game;
-        const players = game.players;
-        setBoxes(message.payload.grids);
-        setCurrentTurnPlayerId(game.current_turn);
-        setSessionID(game.session_id);
-        setBoardSize(game.board_size);
-
-        if (players) {
+        queryClient.setQueryData(["game", params.gameID], message.payload);
+        if (gameState?.game?.players) {
           const colorMap: Record<GamePlayer["user_id"], string> = {};
-          players.forEach((player, index) => {
+          gameState.game.players.forEach((player, index) => {
             colorMap[player.user_id] = colors[index % colors.length];
           });
           setUserColors(colorMap);
-          setPlayers(players);
         }
       }
 
@@ -142,13 +131,13 @@ function RouteComponent() {
   }, [subscribe, gameState, connected]);
 
   const handleQuitGame = () => {
-    if (sessionID && user?.userID) {
+    if (gameState?.game?.session_id && user?.userID) {
       send({
         type: "game:quit",
         payload: {
-          gameId: gameState?.game?.game_id,
+          gameId: gameState.game.game_id,
           playerId: user.userID,
-          session_id: sessionID,
+          session_id: gameState.game.session_id,
         },
       });
     }
@@ -186,11 +175,12 @@ function RouteComponent() {
       <div className="w-full md:w-2/3 flex flex-col items-center">
         <div className="flex justify-between items-center w-full max-w-[700px] px-4 mb-2">
           <p className="text-lg font-medium">
-            {currentTurnPlayerId !== null ? (
+            {gameState?.game?.current_turn !== null ? (
               <>
                 Current Turn:{" "}
-                {players.find((p) => p.turn_order === currentTurnPlayerId)
-                  ?.username ?? `Player ${currentTurnPlayerId}`}
+                {gameState?.game.players.find(
+                  (p) => p.turn_order === gameState.game?.current_turn
+                )?.username ?? `Player ${gameState?.game?.current_turn}`}
               </>
             ) : (
               ""
@@ -199,7 +189,7 @@ function RouteComponent() {
           <div className="mt-2">
             <h3 className="font-semibold mb-1">Scores:</h3>
             <ul className="text-sm space-y-1">
-              {players.map((player) => (
+              {gameState?.game.players.map((player) => (
                 <li key={player.user_id}>
                   {player.username}: {player.score}
                 </li>
@@ -214,9 +204,9 @@ function RouteComponent() {
           {gameState && (
             <Grid
               gameID={gameState.game?.game_id}
-              boxes={boxes}
+              boxes={gameState.grids}
               userColors={userColors}
-              boardSize={boardSize}
+              boardSize={gameState.game?.board_size}
               userID={user.userID}
               handleClick={handleClick}
             />
@@ -230,25 +220,27 @@ function RouteComponent() {
           <PlayerLobby />
         </div>
         <div className="h-64">
-          {sessionID && <Chatbox sessionID={sessionID} />}
+          {gameState?.game?.session_id && (
+            <Chatbox sessionID={gameState.game.session_id} />
+          )}
         </div>
       </div>
-      <Dialog open={winnerId !== null}>
+      <Dialog open={!!gameState?.game?.winner}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
           </DialogHeader>
           <div className="text-center py-4">
             <p className="text-lg font-semibold">
-              {winnerUsername
-                ? `Congratulations to ${winnerUsername}!`
+              {winnerPlayer
+                ? `Congratulations to ${winnerPlayer.username}!`
                 : "We have a winner!"}
             </p>
           </div>
           <div className="mt-4">
             <h4 className="font-semibold mb-2">Final Scores:</h4>
             <ul className="text-sm space-y-1">
-              {players.map((player) => (
+              {gameState?.game?.players.map((player) => (
                 <li key={player.user_id}>
                   {player.username}: {player.score}
                 </li>
