@@ -6,21 +6,18 @@ import {
 
 import Chatbox from "../../components/ChatBox";
 import PlayerLobby from "../../components/PlayerLobby";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Index,
 });
 
 function Index() {
-  const { authentication } = useRouteContext({ from: "/_authenticated/" });
-  // const user = authentication.user;
+  // const { authentication } = useRouteContext({ from: "/_authenticated/" });
   return (
     <>
-      <PlayerLobby></PlayerLobby>
-      <Chatbox sessionID={1}></Chatbox>
-      <button onClick={authentication.logout} style={{ marginTop: "20px" }}>
-        Logout
-      </button>
+      <PlayerLobby />
+      <Chatbox sessionID={1} />
     </>
   );
 }

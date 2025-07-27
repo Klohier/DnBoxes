@@ -1,4 +1,5 @@
-import { StrictMode } from "react";
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { StrictMode, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import "./styles/globals.css";
@@ -17,7 +18,10 @@ const queryClient = new QueryClient();
 // Create a new router instance
 const router = createRouter({
   routeTree,
-  context: { authentication: undefined! },
+  context: {
+    authentication: undefined!,
+    queryClient: undefined!,
+  },
 });
 
 // Register the router instance for type safety
@@ -45,7 +49,9 @@ if (!rootElement.innerHTML) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <WebSocketProvider>
-            <AppRouter />
+            <Suspense fallback={<div>Loading...</div>}>
+              <AppRouter />
+            </Suspense>
           </WebSocketProvider>
         </AuthProvider>
 

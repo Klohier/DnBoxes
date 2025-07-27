@@ -1,16 +1,16 @@
+import { Button } from "@/components/ui/button";
 import {
   createFileRoute,
   Link,
   redirect,
   useRouteContext,
-  useRouter,
 } from "@tanstack/react-router";
 import { Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated")({
   component: RouteComponent,
   beforeLoad: ({ context }) => {
-    const { isAuthenticated, logout } = context.authentication;
+    const { isAuthenticated } = context.authentication;
     // await context.queryClient.invalidateQueries({ queryKey: ["me"] });
 
     if (!isAuthenticated) {
@@ -27,17 +27,19 @@ function RouteComponent() {
 
   return (
     <>
-      <div className="p-2 flex gap-2">
+      {/* <div className="p-2 flex gap-2">
         <Link to="/" className="[&.active]:font-bold">
           Home
         </Link>{" "}
         <Link to="/about" className="[&.active]:font-bold">
           About
         </Link>
-        <button onClick={authentication.logout}>Log Out</button>
+        <Button onClick={authentication.logout} variant={"destructive"}>
+          Logout
+        </Button>
       </div>
-      <hr />
-      <Outlet />;
+      <hr /> */}
+      <Outlet />
     </>
   );
 }
