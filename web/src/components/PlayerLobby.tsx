@@ -17,25 +17,16 @@ const PlayerLobby = () => {
   );
   const { user } = useAuth();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>();
-  const { send, subscribe } = useWebSocket();
+  const { send, subscribe, connected } = useWebSocket();
   const navigate = useNavigate();
 
   useEffect(() => {
-    send({ type: "player:get" });
-  }, []);
-
-  // useEffect(() => {
-  //   if (user?.gameID) {
-  //     navigate(`/game/${user.gameID}`);
-  //   }
-  // }, [user?.gameID, navigate]);
+    if (connected) {
+      send({ type: "player:get" });
+    }
+  }, [connected]);
 
   useEffect(() => {
-    // if (!socket || socket.readyState !== WebSocket.OPEN) {
-    //   console.log("No WebSocket connection available");
-    //   return;
-    // }
-
     const unsubscribe = subscribe((message: Message) => {
       if (message.type === "player:get" && message.payload) {
         setPlayers(message.payload);
