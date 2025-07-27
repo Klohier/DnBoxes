@@ -1,39 +1,62 @@
 import { AuthContextType } from "@/AuthContext";
+import { Button } from "@/components/ui/button";
 import { QueryClient } from "@tanstack/react-query";
-import { WebSocketProvider } from "./WebSocketContext";
 
 import {
-  createRootRoute,
   createRootRouteWithContext,
   Link,
   Outlet,
+  useMatchRoute,
+  useRouteContext,
+  useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-// import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-// import { AuthContext } from "@/hooks/useAuth";
-// const queryClient = new QueryClient();
+import { useEffect } from "react";
 
-type RouterContext = {
+interface RouterContext {
   authentication: AuthContextType;
   queryClient: QueryClient;
-};
+}
 export const Route = createRootRouteWithContext<RouterContext>()({
-  component: () => (
+  component: Root,
+});
+
+function Root() {
+  const router = useRouter();
+  const auth = useRouteContext({ from: "__root__" });
+
+  useEffect(() => {
+    console.log("Auth change", auth.authentication.isAuthenticated);
+    if (!auth.authentication.isAuthenticated) {
+      void router.navigate({ to: "/login" });
+    }
+  }, [auth.authentication.isAuthenticated]);
+
+  return (
     <>
-      {/* <QueryClientProvider client={queryClient}> */}
       <div className="p-2 flex gap-2">
         <Link to="/" className="[&.active]:font-bold">
           Home
-        </Link>{" "}
+        </Link>
         <Link to="/about" className="[&.active]:font-bold">
           About
         </Link>
+
+        {auth.authentication.isAuthenticated && (
+          <>
+            <Button
+              onClick={auth.authentication.logout}
+              variant={"destructive"}
+            >
+              Logout
+            </Button>
+          </>
+        )}
       </div>
       <hr />
       <Outlet />
       <TanStackRouterDevtools />
-      {/* </QueryClientProvider> */}
     </>
-  ),
-});
+  );
+}
