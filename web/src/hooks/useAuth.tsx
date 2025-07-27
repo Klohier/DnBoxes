@@ -30,10 +30,14 @@ export function useAuth() {
       formData.append("username", credentials.username);
       formData.append("password", credentials.password);
 
-      const res = await axios.post(`http://${apiUrl}/api/v1/login`, formData, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        withCredentials: true,
-      });
+      const res = await axios.post<User>(
+        `http://${apiUrl}/api/v1/login`,
+        formData,
+        {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          withCredentials: true,
+        }
+      );
       return res.data;
     },
     onSuccess: async () => {
@@ -63,7 +67,9 @@ export function useAuth() {
       loginMutation.status === "pending" ||
       logoutMutation.status === "pending",
     login: loginMutation.mutateAsync,
-    logout: () => logoutMutation.mutate(),
+    logout: () => {
+      logoutMutation.mutate();
+    },
   };
 }
 
