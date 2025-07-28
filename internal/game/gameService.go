@@ -69,179 +69,95 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 
 func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, row int, col int, edge string) (*GameState, error) {
 
-	//Checks if edge is a valid option
-	if edge != "top_edge" && edge != "right_edge" && edge != "left_edge" && edge != "bottom_edge" {
-		return nil, errors.New("invalid edge : " + edge)
+// 	//Checks if edge is a valid option
+// 	if edge != "top_edge" && edge != "right_edge" && edge != "left_edge" && edge != "bottom_edge" {
+// 		return nil, errors.New("invalid edge : " + edge)
+// 	}
+
+	move := Move{
+		Row: row,
+		Col: col,
+		Edge: edge,
+		UserID: playerId,
 	}
 
-	//Gets Game from ID
-	game, err := s.gameRepo.FindByID(ctx, gameId)
+	gameState, err := s.GetGameState(ctx, gameId)
 	if err != nil {
 		return nil, errors.New("failed to find game: " + err.Error())
 	}
 
-	// Checks if player is part of the game
-	playerTurnOrder := -1
-	found := false
-	for _, p := range game.Players {
-		if p.UserID == playerId {
-			playerTurnOrder = p.TurnOrder
-			found = true
-			break
+	
+	engine := NewEngine(gameState)
+    result, err := engine.ApplyMove(move)
+    if err != nil {
+        return nil, err
+    }
+
+	for r := 0; r < engine.BoardSize; r++ {
+		for c := 0; c < engine.BoardSize; c++ {
+			box := engine.Grid[r][c]
+			// Update only edges that are true in this box
+			if box.TopEdge {
+				if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "top_edge"); err != nil {
+					return nil, err
+				}
+			}
+			if box.RightEdge {
+				if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "right_edge"); err != nil {
+					return nil, err
+				}
+			}
+			if box.BottomEdge {
+				if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "bottom_edge"); err != nil {
+					return nil, err
+				}
+			}
+			if box.LeftEdge {
+				if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "left_edge"); err != nil {
+					return nil, err
+				}
+			}
+
+			
 		}
 	}
 
-	if !found {
-		return nil, errors.New("player is not part of this game")
-	}
 
-	//Check if its player's turn
-	if *game.CurrentTurn != playerTurnOrder {
-		return nil, errors.New("it's not player " + strconv.Itoa(playerId) + " 's turn")
-	}
-
-	//Checks if Selected Edge is a Valid Move (Not already chosen)
-	isEdgeSelected, err := s.gameRepo.IsEdgeSelected(ctx, gameId, row, col, edge)
-	if err != nil {
-		return nil, errors.New("failed to check if edge is already selected: " + err.Error())
-	}
-
-	if isEdgeSelected {
-		return nil, fmt.Errorf("invalid move: edge %s for box at row %d, col %d is already selected", edge, row, col)
-	}
-
-	//Updates Grid
-	boxes, err := s.gameRepo.UpdateGrid(ctx, gameId, row, col, edge)
-	if err != nil {
-		return nil, errors.New("failed to update grid edge: " + err.Error())
-	}
-
-	boxCompleted := false
-	// Check if the box at the current position was completed
-	if completed, err := s.CheckSetCompletion(ctx, gameId, row, col, playerId); err == nil && completed {
-		boxCompleted = true
+	for _, box := range result.ClaimedBoxes {
 		if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
 			slog.Error("failed to increment player score", "error", err)
 		}
+
+		if err := s.gameRepo.SetBoxCompleted(ctx, box.GameId, box.Row, box.Col, playerId); err != nil {
+        slog.Error("failed to set box completed", "error", err)
+        return nil, err
+    }
+	}
+   
+
+	if err := s.gameRepo.UpdateTurn(ctx, gameId, result.NextTurn); err != nil {
+		return nil, fmt.Errorf("failed to update turn: %w", err)
 	}
 
-	//Checks if other boxes also get completed
-	switch edge {
-	case "top_edge":
-		if row > 0 {
-			completed, err := s.CheckSetCompletion(ctx, gameId, row-1, col, playerId)
-			if err == nil && completed {
-				boxCompleted = true
-				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
-					slog.Error("failed to increment player score", "error", err)
-				}
-			}
-		}
-	case "left_edge":
-		if col > 0 {
-			completed, err := s.CheckSetCompletion(ctx, gameId, row, col-1, playerId)
-			if err == nil && completed {
-				boxCompleted = true
-				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
-					slog.Error("failed to increment player score", "error", err)
-				}
-			}
-		}
-	case "right_edge":
-		if col < game.BoardSize-1 {
-			completed, err := s.CheckSetCompletion(ctx, gameId, row, col+1, playerId)
-			if err == nil && completed {
-				boxCompleted = true
-				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
-					slog.Error("failed to increment player score", "error", err)
-				}
-			}
-		}
-	case "bottom_edge":
-		if row < game.BoardSize-1 {
-			completed, err := s.CheckSetCompletion(ctx, gameId, row+1, col, playerId)
-			if err == nil && completed {
-				boxCompleted = true
-				if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
-					slog.Error("failed to increment player score", "error", err)
-				}
-			}
-		}
+	
+
+
+	if result.WinnerID != nil {
+	if err := s.gameRepo.SetWinner(ctx, gameId, result.WinnerID); err != nil {
+		slog.Error("failed to persist winner", "error", err)
+		return nil, err
 	}
 
-	var nextPlayerId int
-	if !boxCompleted {
-		slog.Info("box is not completed, updating turn")
-		nextTurnOrder := (*game.CurrentTurn + 1) % len(game.Players)
-		if err := s.gameRepo.UpdateTurn(ctx, gameId, nextTurnOrder); err != nil {
-			return nil, fmt.Errorf("failed to update turn: %w", err)
-		}
+}
 
-		slog.Info("Updating turn to player:", "nextPlayerId", nextPlayerId)
+	// Reload updated game and grids after persistence
 
-	}
-
-	// Check if there are any more moves left
-	// boxes, err := s.gameRepo.GetGrids(ctx, gameId)
-	// if err != nil {
-	// 	return GameState{}, errors.New("failed to get grids:" + err.Error())
-	// }
-
-	allCompleted := true
-	//Checks if any box has an edge left as false
-	for _, box := range boxes {
-		if !box.TopEdge || !box.LeftEdge || !box.RightEdge || !box.BottomEdge {
-			allCompleted = false
-			break
-		}
-	}
-
-	if allCompleted {
-		playerScores, err := s.gameRepo.GetPlayerScores(ctx, gameId)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get player scores: %w", err)
-		}
-
-		var winnerId *int
-		highestScore := -1
-		tie := false
-
-		for userId, score := range playerScores {
-			if score > highestScore {
-				highestScore = score
-				winnerId = &userId
-				tie = false
-			} else if score == highestScore {
-				tie = true
-			}
-		}
-
-		// If there's a tie, set winnerId to nil
-		if tie {
-			winnerId = nil
-		}
-
-		if err := s.SetWinner(ctx, gameId, winnerId); err != nil {
-			return nil, fmt.Errorf("failed to set winner: %w", err)
-		}
-	}
-
-	// Reload updated game state
-	updatedGame, err := s.gameRepo.FindByID(ctx, gameId)
-	if err != nil {
-		return nil, errors.New("failed to reload game after move: " + err.Error())
-	}
-
-	// Grab Most Latest Board to Send
-	updatedGrids, err := s.gameRepo.GetGrids(ctx, gameId)
+	updatedGameState, err := s.GetGameState(ctx, gameId)
 	if err != nil {
 		return nil, errors.New("failed to get grids after move: " + err.Error())
 	}
 
-	return &GameState{
-    Game:  updatedGame,
-    Grids: updatedGrids,
-}, nil
+	return updatedGameState, nil
 
 }
 
