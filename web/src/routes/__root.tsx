@@ -12,7 +12,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface RouterContext {
   authentication: AuthContextType;
@@ -25,6 +25,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function Root() {
   const router = useRouter();
   const auth = useRouteContext({ from: "__root__" });
+  const [loading, setLoading] = useState<any>();
+  const apiUrl =
+    (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
 
   useEffect(() => {
     console.log("Auth change", auth.authentication.isAuthenticated);
@@ -32,6 +35,45 @@ function Root() {
       void router.navigate({ to: "/login" });
     }
   }, [auth.authentication.isAuthenticated]);
+
+  async function handleCreateBotGame() {
+    if (!auth.authentication.isAuthenticated) {
+      alert("User not authenticated");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `http://${apiUrl}/api/v1/games/create-bot-game`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            human_player_id: auth.authentication.user?.userID,
+            board_size: 5,
+            session_id: Date.now() - Math.floor(Math.random() * 100000),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        alert("Failed to create bot game: " + (err.error || "Unknown error"));
+        setLoading(false);
+        return;
+      }
+
+      const game = await response.json();
+      void router.navigate({
+        to: "/game/$gameId",
+        params: { gameId: game.game.game_id },
+      });
+    } catch (error) {
+      alert("Error creating bot game: " + error);
+      setLoading(false);
+    }
+  }
 
   return (
     <>
@@ -50,6 +92,12 @@ function Root() {
               variant={"destructive"}
             >
               Logout
+            </Button>
+            <Button
+              onClick={() => void handleCreateBotGame()}
+              disabled={loading}
+            >
+              {loading ? "Creating Game..." : "Create Bot Game"}
             </Button>
           </>
         )}

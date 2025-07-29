@@ -138,6 +138,8 @@ func main() {
 	api.GET("/games", nil)
 	api.GET("/games/:gameId/state", gameHandler.GetGameState)
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
+	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
+
 
 	//Chat
 	api.GET("/chat", chatHandler.GetAllMessageFromSession)

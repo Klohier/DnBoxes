@@ -16,16 +16,16 @@ Players []Player
 type Move struct {
     UserID int 
     Row      int    
-    Col      int   
+    Col      int    
     Edge     string 
 }
 
 type MoveResult struct {
-    Move          Move      
-    BoxCompleted  bool      
+    Move          Move       
+    BoxCompleted  bool       
     ClaimedBoxes  []Box 
-    NewScores     map[int]int
-    NextTurn      int       
+    NewScores     map[int]int 
+    NextTurn      int        
 	WinnerID *int
 }
 
@@ -68,20 +68,30 @@ func (e *Engine) ApplyMove(move Move) (MoveResult, error) {
 
 	 var result MoveResult
 	 result.Move = move
+
+	 if e.CurrentTurn < 0 || e.CurrentTurn >= len(e.Players) {
+    return result, fmt.Errorf("invalid current turn index: %d", e.CurrentTurn)
+}
   if e.Players[e.CurrentTurn].UserID != move.UserID {
         return result, fmt.Errorf("it's not player %d's turn", move.UserID)
     }
 
 
 
-	// Validate edge
+
+
+	
  if err := e.SetEdge(move.Row, move.Col, move.Edge); err != nil {
         return result, err
     }
 
-    
-
+   
   
+
+    // Validate coordinates
+    if move.Row < 0 || move.Row >= e.BoardSize || move.Col < 0 || move.Col >= e.BoardSize {
+        return result, fmt.Errorf("move out of bounds")
+    }
 
     
 
@@ -193,6 +203,8 @@ func (e *Engine) CheckAndScoreBox(row, col int, userID int) (bool, *Box ){
 
     // Assign ownership and increment score
     box.Completed_by = &userID
+	completed := true
+	box.Completed = &completed
     e.Scores[userID]++
 
 	
@@ -200,7 +212,24 @@ func (e *Engine) CheckAndScoreBox(row, col int, userID int) (bool, *Box ){
     return true, box
 }
 
-
+func (e *Engine) GenerateBotMove(botId int) *Move {
+	for row := 0; row < e.BoardSize; row++ {
+		for col := 0; col < e.BoardSize; col++ {
+			edges := []string{"top_edge", "right_edge", "bottom_edge", "left_edge"}
+			for _, edge := range edges {
+				if e.isEdgeAvailable(row, col, edge) {
+					return &Move{
+						Row:    row,
+						Col:    col,
+						Edge:   edge,
+						UserID: botId,
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
 
 
 
@@ -259,3 +288,7 @@ func (e *Engine) edgeTaken(row, col int, edge string) (bool, error) {
     }
 }
 
+func (e *Engine) isEdgeAvailable(row, col int, edge string) bool {
+   taken, err := e.edgeTaken(row, col, edge)
+    return err == nil && !taken
+}
