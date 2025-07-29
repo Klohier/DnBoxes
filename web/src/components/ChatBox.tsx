@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
-import { useUser } from "../UserContext";
 import { useWebSocket } from "../WebSocketContext";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,6 @@ interface ChatboxProps {
 }
 
 const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
-  // const [messages, setMessages] = useState<ChatMessagePayload[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
   const { user } = useAuth();
 
@@ -22,8 +20,6 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
   const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
   const scrollRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  // useEffect(() => {
-  //   if (!sessionID) return;
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: Message) => {
