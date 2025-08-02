@@ -130,6 +130,20 @@ function RouteComponent() {
     };
   }, [subscribe, gameState, connected]);
 
+  useEffect(() => {
+    send({
+      type: "page:join",
+      payload: { topic: `game:${params.gameID}` },
+    });
+
+    return () => {
+      send({
+        type: "page:leave",
+        payload: { topic: `game:${params.gameID}` },
+      });
+    };
+  }, [send]);
+
   const handleQuitGame = () => {
     if (gameState?.game?.session_id && user?.userID) {
       send({
@@ -200,7 +214,7 @@ function RouteComponent() {
             Quit Game
           </Button>
         </div>
-        <div className="w-full max-w-[500px] md:max-w-[700px] lg:max-w-[900px]">
+        <div className="w-full max-w-[500px] md:max-w-[700px] lg:max-w-[650px]">
           {gameState && (
             <Grid
               gameID={gameState.game?.game_id}
@@ -219,7 +233,7 @@ function RouteComponent() {
         <div className="flex-1 overflow-y-auto">
           <PlayerLobby />
         </div>
-        <div className="h-64">
+        <div className="h-150">
           {gameState?.game?.session_id && (
             <Chatbox sessionID={gameState.game.session_id} />
           )}

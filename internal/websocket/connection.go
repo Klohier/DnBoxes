@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"log/slog"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -24,18 +26,18 @@ type Connection struct {
 	egress    chan Event
 	userID    int
 	username  string
-	sessionID int
+	// sessionID int
 }
 
 // NewConnection creates a new WebSocket connection.
-func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string, sessionID int) *Connection {
+func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string) *Connection {
 	return &Connection{
 		ws:        ws,
 		manager:   manager,
 		egress:    make(chan Event, 100),
 		userID:    userID,
 		username:  username,
-		sessionID: sessionID,
+		// sessionID: sessionID,
 	}
 }
 
@@ -73,7 +75,7 @@ func (c *Connection) readMessage() {
 
 		}
 
-		log.Println("got message", string(payload))
+		slog.Info("got message", "message", string(payload))
 		// Route the Event
 
 		if err := c.manager.routeEvent(request, c); err != nil {
@@ -114,9 +116,9 @@ func (c *Connection) writeMessage() {
 			if err := c.ws.WriteMessage(websocket.TextMessage, data); err != nil {
 				log.Println(err)
 			}
-			log.Println("sent message", string(data))
+			slog.Info("sent message", "message", string(data))
 		case <-ticker.C:
-			log.Println("ping")
+			slog.Debug("ping")
 			if err := c.ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				log.Println("writemsg: ", err)
 				return // return to break this goroutine triggeing cleanup
@@ -128,6 +130,6 @@ func (c *Connection) writeMessage() {
 
 func (c *Connection) pongHandler(pongMsg string) error {
 	// Current time + Pong Wait time
-	log.Println("pong")
+	slog.Debug("pong")
 	return c.ws.SetReadDeadline(time.Now().Add(pongWait))
 }

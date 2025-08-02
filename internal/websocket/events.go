@@ -2,7 +2,7 @@ package websocket
 
 import (
 	"context"
-	"dango/internal/chat"
+	"dango/internal/events"
 	"dango/internal/game"
 	"encoding/json"
 	"errors"
@@ -35,6 +35,8 @@ const (
 	EventMakeMove      = "game:move"
 	EventGetPlayers    = "player:get"
 	EventNewPlayers    = "player:new"
+	EventJoinPage = "page:join"
+  EventLeavePage = "page:leave"
 )
 
 type Message struct {
@@ -114,100 +116,58 @@ type Player struct {
 
 // GetPlayersHandler will send a list of all currently connected players
 func PlayerHandler(event Event, c *Connection) error {
-	var players []Player
 
-	sessionID := c.sessionID
-
-	c.manager.RLock()
-	conns, ok := c.manager.rooms[sessionID]
-	c.manager.RUnlock()
-	if !ok {
-		return fmt.Errorf("session room %d does not exist", sessionID)
+	var topic string
+	if err := json.Unmarshal(event.Payload, &topic); err != nil {
+		return fmt.Errorf("invalid topic payload: %w", err)
 	}
 
-	// Collect players in this session room
-	for client := range conns {
+	c.manager.RLock()
+	conns, ok := c.manager.subscriptions[topic]
+	c.manager.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	
+	var players []Player
+	for conn := range conns {
 		players = append(players, Player{
-			UserID:   client.userID,
-			Username: client.username,
+			UserID:   conn.userID,
+			Username: conn.username,
 		})
 	}
 
-	responsePayload, err := json.Marshal(players)
-	if err != nil {
-		return errors.New("failed to marshal players response: " + err.Error())
-	}
+	c.manager.broadcast(topic, EventGetPlayers, players)
+
 	slog.Info("Sending player list:", slog.Any("players", players))
-
-	responseEvent := Event{
-		Type:    EventGetPlayers,
-		Payload: responsePayload,
-	}
-
-	for client := range conns {
-		client.egress <- responseEvent
-	}
 
 	return nil
 }
 
 // SendMessageHandler will send out a message to all other participants in the chat
-func MessageHandler(event Event, c *Connection) error {
-	var chatevent MessageEvent
-	if err := json.Unmarshal(event.Payload, &chatevent); err != nil {
+func MessageHandler(event Event, c *Connection, deps *HandlerDeps) error {
+
+	var Message events.Message
+	ctx := context.Background()
+
+	if err := json.Unmarshal(event.Payload, &Message); err != nil {
 		return fmt.Errorf("bad payload in request: %v", err)
 	}
+	
+	channel := "lobby" 
 
-	// Prepare an Outgoing Message to others
-	var Message MessageEvent
-
-	Message.Message = chatevent.Message
-	Message.Username = chatevent.Username
-	Message.UserID = chatevent.UserID
-	Message.SessionID = chatevent.SessionID
-	Message.Timestamp = chatevent.Timestamp
-
-	data, err := json.Marshal(Message)
-	if err != nil {
-		return errors.New("failed to marshal broadcast message: " + err.Error())
-	}
-
-	var outgoingEvent Event
-
-	outgoingEvent.Payload = data
-	outgoingEvent.Type = EventMessage
-
-	c.manager.RLock()
-	defer c.manager.RUnlock()
-
-	conns, ok := c.manager.rooms[chatevent.SessionID]
-	if !ok {
-		return fmt.Errorf("session room %d does not exist", chatevent.SessionID)
-	}
-
-	for conn := range conns {
-		conn.egress <- outgoingEvent
-	}
-
-	msg := chat.Message{
-		UserID:    chatevent.UserID,
-		Username:  chatevent.Username,
-		SessionID: chatevent.SessionID,
-		Message:   chatevent.Message,
-		TimeStamp: chatevent.Timestamp,
-	}
-
-	ctx := context.Background()
-	err = c.manager.chatService.SaveMessage(ctx, msg)
+	err := deps.ChatService.SaveMessage(ctx, Message, channel)
 	if err != nil {
 		return errors.New("failed to save message: " + err.Error())
 	}
+
 
 	return nil
 
 }
 
-func GameStateHandler(event Event, c *Connection) error {
+func GameStateHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	var payload struct {
 		GameID int `json:"gameID"`
 	}
@@ -217,7 +177,7 @@ func GameStateHandler(event Event, c *Connection) error {
 
 	ctx := context.Background()
 
-	gameState, err := c.manager.gameService.GetGameState(ctx, payload.GameID)
+	gameState, err := deps.GameService.GetGameState(ctx, payload.GameID)
 	if err != nil {
 		return fmt.Errorf("failed to get game state for gameID %d: %v", payload.GameID, err)
 	}
@@ -283,7 +243,7 @@ slog.Info("Sending invite",
 }
 
 // AcceptInviteHandler handles accepting a game invite and creates a game with both players.
-func AcceptInviteHandler(event Event, c *Connection) error {
+func AcceptInviteHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	var acceptInviteEvent AcceptInviteEvent
 	if err := json.Unmarshal(event.Payload, &acceptInviteEvent); err != nil {
 		return errors.New("bad payload in accept_invite request: " + err.Error())
@@ -310,14 +270,14 @@ func AcceptInviteHandler(event Event, c *Connection) error {
 	}
 
 	// Create a new game with both players
-	game, err := c.manager.gameService.CreateGame(ctx, playerIDs, boardSize, session.SessionID)
+	game, err := deps.GameService.CreateGame(ctx, playerIDs, boardSize, session.SessionID)
 	if err != nil {
 		return errors.New("failed to create game: " + err.Error())
 	}
 
-	c.manager.JoinRoom(c, session.SessionID)
+	// c.manager.JoinRoom(c, session.SessionID)
 
-	inviterConnection.manager.JoinRoom(inviterConnection, session.SessionID)
+	// inviterConnection.manager.JoinRoom(inviterConnection, session.SessionID)
 
 	// Notify both players of the accepted invite and game creation
 	gameCreatedEvent := Event{
@@ -341,12 +301,12 @@ func AcceptInviteHandler(event Event, c *Connection) error {
 	c.egress <- gameCreatedEvent
 	inviterConnection.egress <- gameCreatedEvent
 
-	c.manager.BroadcastPlayerListToRoom(session.SessionID)
+	// c.manager.BroadcastPlayerListToRoom(session.SessionID)
 
 	return nil
 }
 
-func MoveHandler(event Event, c *Connection) error {
+func MoveHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	type MakeMovePayload struct {
 		GameID   int    `json:"gameID"`
 		PlayerID int    `json:"playerID"`
@@ -361,7 +321,8 @@ func MoveHandler(event Event, c *Connection) error {
 	}
 
 	ctx := context.Background()
-	gameState, err := c.manager.gameService.MakeMove(ctx, payload.GameID, payload.PlayerID, payload.Row, payload.Col, payload.Edge)
+
+	gameState, err := deps.GameService.MakeMove(ctx, payload.GameID, payload.PlayerID, payload.Row, payload.Col, payload.Edge)
 	if err != nil {
 
 		invalidMoveEvent := Event{
@@ -373,49 +334,52 @@ func MoveHandler(event Event, c *Connection) error {
 		return fmt.Errorf("failed to make moves for game ID %d: %v", payload.GameID, err)
 	}
 
+	topic := fmt.Sprintf("game:%d", payload.GameID)
+	c.manager.broadcast(topic, "game:state", gameState)
+
 	// Marshal the response payload
-	responsePayload, err := json.Marshal(gameState)
-	if err != nil {
-		return errors.New("failed to marshal grids response: " + err.Error())
-	}
+	// responsePayload, err := json.Marshal(gameState)
+	// if err != nil {
+	// 	return errors.New("failed to marshal grids response: " + err.Error())
+	// }
 
 	// Send the response to the client
-	responseEvent := Event{
-		Type:    EventGameState,
-		Payload: responsePayload,
-	}
+	// responseEvent := Event{
+	// 	Type:    EventGameState,
+	// 	Payload: responsePayload,
+	// }
 
-	for client := range c.manager.connections {
-		if client.sessionID == c.sessionID {
-			client.egress <- responseEvent
-		}
-	}
+	// for client := range c.manager.connections {
+	// 	if client.sessionID == c.sessionID {
+	// 		client.egress <- responseEvent
+	// 	}
+	// }
 	
-if gameState.Game.WinnerId != nil {
-	// Broadcast winner
-if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
-	slog.Error("failed to marshal winner_set payload", "error", err)
-}
+// if gameState.Game.WinnerId != nil {
+// 	// Broadcast winner
+// if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
+// 	slog.Error("failed to marshal winner_set payload", "error", err)
+// }
 
-	// Move all players back to the main lobby
-	if err := c.manager.movePlayersToMainLobby(c.sessionID); err != nil {
-		slog.Error("failed to move players to main lobby", "error", err)
-	}
-}
+// 	// // Move all players back to the main lobby
+// 	// if err := c.manager.movePlayersToMainLobby(c.sessionID); err != nil {
+// 	// 	slog.Error("failed to move players to main lobby", "error", err)
+// 	// }
+// }
 
 
 	return nil
 }
 
-func QuitGameHandler(event Event, c *Connection) error {
+func QuitGameHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	var quitGameEvent QuitGameEvent
 	if err := json.Unmarshal(event.Payload, &quitGameEvent); err != nil {
 		return errors.New("invalid payload for quit_game: " + err.Error())
 	}
 
-	quitEvent := Event{
-		Type: EventQuitGame,
-	}
+	// quitEvent := Event{
+	// 	Type: EventQuitGame,
+	// }
 
 	mainLobbyID := 1
 
@@ -423,37 +387,37 @@ func QuitGameHandler(event Event, c *Connection) error {
 		return err
 	}
 
-	c.sessionID = mainLobbyID
+	// c.sessionID = mainLobbyID
 
 	winnerSet := false
 
 	// Notify other players in the same session (the old game session)
-	for client := range c.manager.connections {
-		if client.sessionID == quitGameEvent.SessionID {
-			if client.userID != quitGameEvent.PlayerID {
-				// Send quit event to other players
-				client.egress <- quitEvent
+	// for client := range c.manager.connections {
+	// 	if client.sessionID == quitGameEvent.SessionID {
+	// 		if client.userID != quitGameEvent.PlayerID {
+	// 			// Send quit event to other players
+	// 			client.egress <- quitEvent
 
-				// Move them to main lobby
-				if err := client.manager.sessionService.AddUserToSession(context.Background(), mainLobbyID, client.userID); err != nil {
-					return err
-				}
-				client.sessionID = mainLobbyID
+	// 			// Move them to main lobby
+	// 			if err := client.manager.sessionService.AddUserToSession(context.Background(), mainLobbyID, client.userID); err != nil {
+	// 				return err
+	// 			}
+	// 			client.sessionID = mainLobbyID
 
-				// Set first remaining player as winner
-				if !winnerSet {
-					if err := client.manager.gameService.SetWinner(context.Background(), quitGameEvent.GameID, &client.userID); err != nil {
-						return err
-					}
-					winnerSet = true
-				}
-			}
-		}
+	// 			// Set first remaining player as winner
+	// 			if !winnerSet {
+	// 				if err := client.manager.gameService.SetWinner(context.Background(), quitGameEvent.GameID, &client.userID); err != nil {
+	// 					return err
+	// 				}
+	// 				winnerSet = true
+	// 			}
+	// 		}
+	// 	}
 		
-	}
+	// }
 
 	if winnerSet  {
-	gameState, err := c.manager.gameService.GetGameState(context.Background(), quitGameEvent.GameID)
+	gameState, err := deps.GameService.GetGameState(context.Background(), quitGameEvent.GameID)
 	if err != nil {
 		return fmt.Errorf("failed to get game state: %w", err)
 	}
@@ -474,25 +438,86 @@ func  broadcastWinnerEvent(c *Connection, gameState *game.GameState, gameID int)
 		playerMap[player.UserID] = player.Username
 	}
 
-	winnerPayload, err := json.Marshal(map[string]interface{}{
-		"gameId":         gameID,
-		"winnerId":       *gameState.Game.WinnerId,
-		"winnerUsername": playerMap[*gameState.Game.WinnerId],
-	})
-	if err != nil {
-		return fmt.Errorf("failed to marshal winner_set payload: %v", err)
-	}
+	// winnerPayload, err := json.Marshal(map[string]interface{}{
+	// 	"gameId":         gameID,
+	// 	"winnerId":       *gameState.Game.WinnerId,
+	// 	"winnerUsername": playerMap[*gameState.Game.WinnerId],
+	// })
+	// if err != nil {
+	// 	return fmt.Errorf("failed to marshal winner_set payload: %v", err)
+	// }
 
-	winnerEvent := Event{
-		Type:    "winner_set",
-		Payload: winnerPayload,
-	}
+	// winnerEvent := Event{
+	// 	Type:    "winner_set",
+	// 	Payload: winnerPayload,
+	// }
 
-	for client := range c.manager.connections {
-		if client.sessionID == c.sessionID {
-			client.egress <- winnerEvent
-		}
-	}
+	// for client := range c.manager.connections {
+	// 	if client.sessionID == c.sessionID {
+	// 		client.egress <- winnerEvent
+	// 	}
+	// }
 
 	return nil
 }
+
+type PageEventPayload struct {
+  Topic string `json:"topic"`
+}
+
+func HandlePageJoin(event Event, c *Connection) error {
+  var payload PageEventPayload
+  if err := json.Unmarshal(event.Payload, &payload); err != nil {
+    return err
+  }
+
+
+  c.manager.Lock()
+  if c.manager.subscriptions[payload.Topic] == nil {
+    c.manager.subscriptions[payload.Topic] = make(map[*Connection]bool)
+  }
+  c.manager.subscriptions[payload.Topic][c] = true
+
+conns := c.manager.subscriptions[payload.Topic]
+	usernames := make([]string, 0, len(conns))
+	for conn := range conns {
+		usernames = append(usernames, conn.username)
+	}
+  
+  c.manager.Unlock()
+ c.manager.broadcastPlayers(payload.Topic) 
+
+slog.Info("Room members updated", "topic", payload.Topic, "members", usernames)
+
+
+  return nil
+}
+
+func HandlePageLeave(event Event, c *Connection) error {
+  var payload PageEventPayload
+  if err := json.Unmarshal(event.Payload, &payload); err != nil {
+    return err
+  }
+
+  
+  c.manager.Lock()
+  delete(c.manager.subscriptions[payload.Topic], c)
+  if len(c.manager.subscriptions[payload.Topic]) == 0 {
+    delete(c.manager.subscriptions, payload.Topic)
+  }
+
+
+  usernames := make([]string, 0, len(c.manager.subscriptions[payload.Topic]))
+	for conn := range c.manager.subscriptions[payload.Topic] {
+		usernames = append(usernames, conn.username)
+	}
+  c.manager.Unlock()
+
+  c.manager.broadcastPlayers(payload.Topic)
+
+  slog.Info("Room members updated after leave", "topic", payload.Topic, "members", usernames)
+
+
+  return nil
+}
+

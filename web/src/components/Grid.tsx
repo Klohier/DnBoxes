@@ -29,7 +29,7 @@ const Grid = ({
   userID,
   handleClick,
 }: GridProps) => {
-  const boxSize = 50;
+  const boxSize = 70;
   return (
     <div>
       <div className="w-full aspect-square border rounded-lg">

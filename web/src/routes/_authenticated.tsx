@@ -1,9 +1,9 @@
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import {
   createFileRoute,
-  Link,
+  //   Link,
   redirect,
-  useRouteContext,
+  //   useRouteContext,
 } from "@tanstack/react-router";
 import { Outlet } from "@tanstack/react-router";
 
@@ -23,23 +23,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function RouteComponent() {
-  const { authentication } = useRouteContext({ from: "/_authenticated" });
+  //   const { authentication } = useRouteContext({ from: "/_authenticated" });
 
-  return (
-    <>
-      {/* <div className="p-2 flex gap-2">
-        <Link to="/" className="[&.active]:font-bold">
-          Home
-        </Link>{" "}
-        <Link to="/about" className="[&.active]:font-bold">
-          About
-        </Link>
-        <Button onClick={authentication.logout} variant={"destructive"}>
-          Logout
-        </Button>
-      </div>
-      <hr /> */}
-      <Outlet />
-    </>
-  );
+  return <Outlet />;
 }

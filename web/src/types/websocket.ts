@@ -101,7 +101,7 @@ export type Message =
   | { type: "invalid_move" }
   | { type: "game:quit"; payload: GameQuitPayload }
   | { type: "invite:new"; payload: InvitePayload }
-  | { type: "player:get"; payload?: Player[] }
+  | { type: "player:get"; payload?: string | Player[] }
   | { type: "game:new"; payload: GameStartPayload }
   | { type: "invite:accept"; payload: AcceptInvitePayload }
   | { type: "invite:decline"; payload: DeclineInvitePayload };

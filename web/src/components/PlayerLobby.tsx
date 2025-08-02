@@ -22,14 +22,14 @@ const PlayerLobby = () => {
 
   useEffect(() => {
     if (connected) {
-      send({ type: "player:get" });
+      send({ type: "player:get", payload: "lobby" });
     }
   }, [connected]);
 
   useEffect(() => {
     const unsubscribe = subscribe((message: Message) => {
       if (message.type === "player:get" && message.payload) {
-        setPlayers(message.payload);
+        setPlayers(message.payload as Player[]);
       }
       if (message.type === "invite:new") setIncomingInvite(message.payload);
       if (message.type === "game:new")

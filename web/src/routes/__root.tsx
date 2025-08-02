@@ -65,12 +65,13 @@ function Root() {
       }
 
       const game = await response.json();
-      void router.navigate({
+      await router.navigate({
         to: "/game/$gameId",
         params: { gameId: game.game.game_id },
       });
     } catch (error) {
       alert("Error creating bot game: " + error);
+    } finally {
       setLoading(false);
     }
   }

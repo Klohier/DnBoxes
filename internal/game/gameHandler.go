@@ -134,8 +134,8 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
     if req.HumanPlayerID == 0 {
         return c.JSON(http.StatusBadRequest, map[string]string{"error": "human_player_id is required"})
     }
-    if req.BoardSize <= 4 || req.BoardSize >= 11 {
-        return c.JSON(http.StatusBadRequest, map[string]string{"error": "board_size must be >4 and <11"})
+    if req.BoardSize <= 4 || req.BoardSize >= 20 {
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "board_size must be >4 and <20"})
     }
 
 	// -1 meaning bot id 

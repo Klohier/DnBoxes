@@ -2,26 +2,31 @@ package game
 
 import (
 	"context"
+	"dango/internal/events"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type GameService struct {
 	gameRepo GameRepository
 	mu       sync.RWMutex
 	botGames map[int]*GameState 
+	redisClient *redis.Client
 	nextID   int           
 }
 
-func NewGameService(gameRepo GameRepository) *GameService {
+func NewGameService(gameRepo GameRepository, redisClient *redis.Client) *GameService {
 	return &GameService{
 		gameRepo: gameRepo,
 		botGames: make(map[int]*GameState),
 		nextID:   10000,
+		redisClient: redisClient,
 	}
 }
 
@@ -37,8 +42,8 @@ func (s *GameService) GetBotGameState(gameID int) (*GameState, error) {
 }
 
 func (s *GameService) CreateBotGameInMemory(ctx context.Context, playerIDs []int, boardSize int, sessionId int) (*GameState, error) {
-	if boardSize <= 4 || boardSize >= 11 {
-		return nil, errors.New("invalid board size: must be >4 and <11")
+	if boardSize <= 4 || boardSize >= 20 {
+		return nil, errors.New("invalid board size: must be >4 and <20")
 	}
 	
 	s.mu.Lock()
@@ -178,6 +183,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, ro
 
 var gameState *GameState
 var err error
+channel := fmt.Sprintf("game:%d", gameId)
 
 	//Checks if edge is a valid option
 	if edge != "top_edge" && edge != "right_edge" && edge != "left_edge" && edge != "bottom_edge" {
@@ -196,11 +202,13 @@ var err error
 // s.mu.Lock() 
     // defer s.mu.Unlock()
 s.mu.RLock()
-	if inMemGame, exists := s.botGames[gameId]; exists {
-		slog.Info("Detected bot game: using in-memory state")
-		gameState = inMemGame
+inMemGame, exists := s.botGames[gameId]
+s.mu.RUnlock()
+if exists {
+	slog.Info("Detected bot game: using in-memory state")
+	gameState = inMemGame
 	} else {
-		s.mu.RUnlock()
+		// s.mu.RUnlock()
 		gameState, err = s.GetGameState(ctx, gameId)
 		if err != nil {
 			return nil, errors.New("failed to find game: " + err.Error())
@@ -304,18 +312,28 @@ if isBot(nextPlayerID) {
 	slog.Info("Triggering bot move")
 	
 	//TODO: Causes race condition
-	go func() {
+	// go func() {
             if _, err := s.makeBotMoves(ctx, gameId, nextPlayerID); err != nil {
                 slog.Error("Bot move error", "err", err)
             }
-        }()
+        // }()
 }
 
 
 	if result.WinnerID != nil {
-	if err := s.gameRepo.SetWinner(ctx, gameId, result.WinnerID); err != nil {
-		slog.Error("failed to persist winner", "error", err)
-		return nil, err
+	if !s.isBotGame(gameState.Game) {
+		if err := s.gameRepo.SetWinner(ctx, gameId, result.WinnerID); err != nil {
+			slog.Error("failed to persist winner", "error", err)
+			return nil, err
+		}
+	} else {
+		slog.Info("Bot game finished", "gameId", gameId, "winnerId", *result.WinnerID)
+	}
+	if s.isBotGame(gameState.Game) {
+		s.mu.Lock()
+		delete(s.botGames, gameId)
+		s.mu.Unlock()
+		slog.Info("Deleted finished bot game from memory", "gameId", gameId)
 	}
 
 }
@@ -327,8 +345,22 @@ if isBot(nextPlayerID) {
     if err != nil {
         return nil, errors.New("failed to get grids after move: " + err.Error())
     }
+
+if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
+		 slog.Error("failed to publish message:", "error", err)
+	}	
     return updatedGameState, nil
+
+	
 }
+
+
+
+
+
+if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
+		 slog.Error("failed to publish message:", "error", err)
+	}
 	return gameState, nil
 
 }
@@ -366,7 +398,11 @@ func (s *GameService) makeBotMoves(ctx context.Context, gameId int, botId int) (
 			return nil, err
 		}
 
-		time.Sleep(10 * time.Millisecond)
+
+		currentPlayer := gameState.Game.Players[*gameState.Game.CurrentTurn]
+		slog.Info("Current Turn", "turn", currentPlayer)
+
+		// time.Sleep(1000 * time.Millisecond)
 
 		// Stop if bot no longer gets a second move (i.e., didn't close a box)
 		if gameState.Game.CurrentTurn == nil || *gameState.Game.CurrentTurn != botId {

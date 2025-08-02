@@ -5,14 +5,15 @@ import (
 	"dango/internal/auth"
 	"dango/internal/chat"
 
-	"dango/internal/websocket"
-	"fmt"
-
 	"dango/internal/game"
 	"dango/internal/session"
 	"dango/internal/user"
+	"dango/internal/websocket"
+	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+
+	"github.com/redis/go-redis/v9"
 
 	// "dango/web"
 	"log"
@@ -59,6 +60,13 @@ func main() {
 	}
 
 	app := echo.New()
+
+
+	rdb := redis.NewClient(&redis.Options{
+	Addr:	  "localhost:6379",
+	Password: "", 
+	DB:		  0,  
+})
 
 	// SETUP for embeded react app into go binary
 
@@ -108,16 +116,24 @@ func main() {
 	loginService := auth.NewLoginService(userRepo)
 	loginHandler := auth.NewLoginHandler(loginService)
 	chatRepo := chat.NewPgChatRepository(db)
-	chatService := chat.NewChatService(chatRepo)
+	chatService := chat.NewChatService(chatRepo, rdb)
+
 	chatHandler := chat.NewChatHandler(chatService)
 	gameRepo := game.NewPgGameRepository(db)
-	gameService := game.NewGameService(gameRepo)
+	gameService := game.NewGameService(gameRepo, rdb)
 	gameHandler := game.NewGameHandler(gameService)
 	sessionRepo := session.NewPgSessionRepository(db)
 	sessionService := session.NewSessionService(sessionRepo)
 	sessionHandler := session.NewSessionHandler(sessionService)
+	
 
-	manager := websocket.NewManager(gameService, userService, chatService, sessionService)
+	handlerDeps := &websocket.HandlerDeps{
+	ChatService: chatService,
+	GameService: gameService,
+	
+}
+
+	manager := websocket.NewManager(userService, sessionService, rdb, handlerDeps)
 
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")
@@ -159,6 +175,13 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+
+
+
+
+
+
+	
 
 	app.Start(fmt.Sprintf("0.0.0.0:%s", port))
 	logger.Info("Server Started")
