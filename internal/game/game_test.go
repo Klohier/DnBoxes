@@ -9,6 +9,9 @@ func mockGameState(boardSize int) *GameState {
     players := []Player{
         {UserID: 1, Username: "Alice"},
         {UserID: 2, Username: "Bob"},
+		{UserID: 3, Username: "John"},
+		{UserID: 4, Username: "Tan"},
+
     }
 
     currentTurn := 0
@@ -95,7 +98,7 @@ func TestGameOverAndWinner(t *testing.T) {
     gs := mockGameState(3)
     engine := NewEngine(gs)
 
-    playerIDs := []int{1, 2}
+    playerIDs := []int{1, 2,3, 4}
     playerIndex := 0
 
     boardSize := gs.Game.BoardSize
@@ -156,7 +159,7 @@ func TestGameOverAndWinner(t *testing.T) {
                 printGridState(engine)
 
 				if !result.BoxCompleted {
-                playerIndex = 1 - playerIndex
+                playerIndex = (playerIndex + 1) % len(playerIDs)
             } else {
                 fmt.Printf("Boxes claimed: %+v\n", result.ClaimedBoxes)
                 fmt.Printf("Updated scores: %+v\n", result.NewScores)
