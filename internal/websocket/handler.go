@@ -35,10 +35,9 @@ type Manager struct {
 	userService    *user.UserService
 	sessionService *session.SessionService
 	handlers       map[string]EventHandler
-	redisClient *redis.Client
-	deps *HandlerDeps
-	subscriptions map[string]map[*Connection]bool
-
+	redisClient    *redis.Client
+	deps           *HandlerDeps
+	subscriptions  map[string]map[*Connection]bool
 }
 
 func NewManager(UserService *user.UserService, SessionService *session.SessionService, RedisClient *redis.Client, deps *HandlerDeps) *Manager {
@@ -48,10 +47,8 @@ func NewManager(UserService *user.UserService, SessionService *session.SessionSe
 		handlers:       make(map[string]EventHandler),
 		userService:    UserService,
 		sessionService: SessionService,
-		redisClient: RedisClient,
-		deps: deps,
-		
-
+		redisClient:    RedisClient,
+		deps:           deps,
 	}
 	m.setupEventHandlers(deps)
 	return m
@@ -60,23 +57,23 @@ func NewManager(UserService *user.UserService, SessionService *session.SessionSe
 // setupEventHandlers is where we add different Events
 func (m *Manager) setupEventHandlers(deps *HandlerDeps) {
 	m.handlers[EventMessage] = func(e Event, c *Connection) error {
-	return MessageHandler(e, c, deps)
-}
+		return MessageHandler(e, c, deps)
+	}
 
-m.handlers[EventGameState] = func(e Event, c *Connection) error {
-	return GameStateHandler(e, c, deps)
-}
+	m.handlers[EventGameState] = func(e Event, c *Connection) error {
+		return GameStateHandler(e, c, deps)
+	}
 
 	m.handlers[EventMakeMove] = func(e Event, c *Connection) error {
-	return MoveHandler(e, c, deps)
-}
+		return MoveHandler(e, c, deps)
+	}
 
-m.handlers[EventQuitGame] = func(e Event, c *Connection) error {
-	return QuitGameHandler(e, c, deps)
-}
-m.handlers[EventAcceptInvite] = func(e Event, c *Connection) error {
-	return AcceptInviteHandler(e, c, deps)
-}
+	m.handlers[EventQuitGame] = func(e Event, c *Connection) error {
+		return QuitGameHandler(e, c, deps)
+	}
+	m.handlers[EventAcceptInvite] = func(e Event, c *Connection) error {
+		return AcceptInviteHandler(e, c, deps)
+	}
 
 	m.handlers[EventGetPlayers] = PlayerHandler
 	m.handlers[EventSendInvite] = InviteHandler
@@ -126,7 +123,7 @@ func (m *Manager) ServeWs(c echo.Context) error {
 	}
 	// creates new connection with user info
 	connection := NewConnection(ws, m, userID, user.Username)
-	slog.Info("WebSocket connection established for UserID:","userID" , userID)
+	slog.Info("WebSocket connection established for UserID:", "userID", userID)
 	m.addConnection(connection)
 	slog.Info("Connection added to manager")
 
@@ -155,7 +152,6 @@ func (m *Manager) ServeWs(c echo.Context) error {
 
 func (m *Manager) Subscribe(topic string, conn *Connection) {
 	m.Lock()
- 
 
 	// Init the map if needed
 	if m.subscriptions == nil {
@@ -165,18 +161,17 @@ func (m *Manager) Subscribe(topic string, conn *Connection) {
 	if m.subscriptions[topic] == nil {
 		m.subscriptions[topic] = make(map[*Connection]bool)
 
-		// Start Redis listener for topic 
+		// Start Redis listener for topic
 		go m.SubscribeToRedis(topic)
 	}
 
 	m.subscriptions[topic][conn] = true
-m.Unlock()
-	
+	m.Unlock()
+
 }
 
 func (m *Manager) Unsubscribe(topic string, conn *Connection) {
 	m.Lock()
-	
 
 	if conns, ok := m.subscriptions[topic]; ok {
 		delete(conns, conn)
@@ -184,10 +179,10 @@ func (m *Manager) Unsubscribe(topic string, conn *Connection) {
 		}
 	}
 	m.Unlock()
-	
+
 }
 
-//TODO: Remove Soon
+// TODO: Remove Soon
 func (m *Manager) broadcastPlayers(topic string) {
 	m.RLock()
 	conns, ok := m.subscriptions[topic]
@@ -252,11 +247,9 @@ func (m *Manager) broadcast(topic string, eventType string, data any) {
 	}
 }
 
-
 // cleanupConnection closes websocket connection and removes from manager
 func (m *Manager) cleanupConnection(connection *Connection) {
 	slog.Info("Closing WebSocket connection")
-
 
 	m.removeConnection(connection)
 
@@ -264,6 +257,7 @@ func (m *Manager) cleanupConnection(connection *Connection) {
 
 	slog.Info("WebSocket connection closed", "userID", connection.userID)
 }
+
 // addConnection adds new connection and broadcast updated connections to connected clients
 func (m *Manager) addConnection(connection *Connection) {
 	m.Lock()
@@ -308,44 +302,40 @@ func findConnectionByUserID(m *Manager, userID int) *Connection {
 
 func (m *Manager) SubscribeToRedis(topic string) {
 	ctx := context.Background()
-	slog.Info("Started Redis subscription for topic:", "topic" , topic)
+	slog.Info("Started Redis subscription for topic:", "topic", topic)
 
-		pubsub := m.redisClient.Subscribe(ctx, topic) 
-		ch := pubsub.Channel()
+	pubsub := m.redisClient.Subscribe(ctx, topic)
+	ch := pubsub.Channel()
 
-		for msg := range ch {
-			
+	for msg := range ch {
 
-
-			var event Event
-			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
-				slog.Error("Failed to unmarshal Redis event:" , "error ", err)
-				continue
-			}
-
-			m.RLock()
-			conns := m.subscriptions[topic]
-			for conn := range conns {
-    			select {
-    				case conn.egress <- event:
-   				 default:
-        			slog.Warn("Egress full, dropping event for user:", "userID", conn.userID)
-   				 }
-			}
-			m.RUnlock()
-			
-
-		
+		var event Event
+		if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
+			slog.Error("Failed to unmarshal Redis event:", "error ", err)
+			continue
 		}
+
+		m.RLock()
+		conns := m.subscriptions[topic]
+		for conn := range conns {
+			select {
+			case conn.egress <- event:
+			default:
+				slog.Warn("Egress full, dropping event for user:", "userID", conn.userID)
+			}
+		}
+		m.RUnlock()
+
+	}
 }
 
 func (m *Manager) UnsubscribeAll(c *Connection) {
 
-  for topic, conns := range m.subscriptions {
-    delete(conns, c)
-    if len(conns) == 0 {
-      delete(m.subscriptions, topic)
-    }
-  }
+	for topic, conns := range m.subscriptions {
+		delete(conns, c)
+		if len(conns) == 0 {
+			delete(m.subscriptions, topic)
+		}
+	}
 
 }

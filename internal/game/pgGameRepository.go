@@ -61,7 +61,7 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch players for game %d: %w", gameID, err)
 	}
-	game.Players= players
+	game.Players = players
 
 	return &game, nil
 }

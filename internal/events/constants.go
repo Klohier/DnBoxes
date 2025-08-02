@@ -11,6 +11,6 @@ const (
 	EventMakeMove      = "game:move"
 	EventGetPlayers    = "player:get"
 	EventNewPlayers    = "player:new"
-	EventJoinPage = "page:join"
-  EventLeavePage = "page:leave"
+	EventJoinPage      = "page:join"
+	EventLeavePage     = "page:leave"
 )

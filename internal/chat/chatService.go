@@ -15,26 +15,26 @@ import (
 )
 
 type ChatService struct {
-	chatRepo ChatRepository
+	chatRepo    ChatRepository
 	redisClient *redis.Client
 }
 
-func NewChatService(chatRepo ChatRepository,  RedisClient *redis.Client) *ChatService {
+func NewChatService(chatRepo ChatRepository, RedisClient *redis.Client) *ChatService {
 	return &ChatService{
-		chatRepo: chatRepo,
+		chatRepo:    chatRepo,
 		redisClient: RedisClient,
 	}
 }
 
 func (s *ChatService) SaveMessage(ctx context.Context, msg events.Message, channel string) error {
 	if err := s.chatRepo.SaveMessage(ctx, msg.UserID, msg.Message, msg.TimeStamp, msg.SessionID); err != nil {
-		 slog.Error("failed to send message:", "error", err)
+		slog.Error("failed to send message:", "error", err)
 	}
 
 	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, msg); err != nil {
-		 slog.Error("failed to publish message:", "error", err)
+		slog.Error("failed to publish message:", "error", err)
 	}
-	
+
 	return nil
 }
 

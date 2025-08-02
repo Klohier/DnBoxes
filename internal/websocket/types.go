@@ -8,6 +8,4 @@ import (
 type HandlerDeps struct {
 	ChatService *chat.ChatService
 	GameService *game.GameService
-
 }
-

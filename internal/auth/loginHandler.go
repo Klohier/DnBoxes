@@ -61,15 +61,15 @@ func (h *LoginHandler) Login(c echo.Context) error {
 
 }
 func (h *LoginHandler) Logout(c echo.Context) error {
-    // Clear the HttpOnly cookie by setting MaxAge to -1
-    cookie := new(http.Cookie)
-    cookie.Name = "DnB-Session"
-    cookie.Value = ""
-    cookie.Path = "/"
-    cookie.HttpOnly = true
-    cookie.MaxAge = -1    // Expire immediately
+	// Clear the HttpOnly cookie by setting MaxAge to -1
+	cookie := new(http.Cookie)
+	cookie.Name = "DnB-Session"
+	cookie.Value = ""
+	cookie.Path = "/"
+	cookie.HttpOnly = true
+	cookie.MaxAge = -1 // Expire immediately
 
-    c.SetCookie(cookie)
+	c.SetCookie(cookie)
 
-    return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusOK)
 }

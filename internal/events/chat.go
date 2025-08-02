@@ -9,8 +9,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-
-
 type Message struct {
 	UserID    int       `json:"userID"`
 	Username  string    `json:"username"`
@@ -19,7 +17,6 @@ type Message struct {
 	TimeStamp time.Time `json:"timestamp"`
 }
 
-
 type Event struct {
 	// Type is the message type sent
 	Type string `json:"type"`
@@ -27,11 +24,10 @@ type Event struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
-
 func PublishEvent(ctx context.Context, rdb *redis.Client, topic, eventType string, payload any) error {
 	rawPayload, err := json.Marshal(payload)
 	if err != nil {
-		slog.Error("failed to marshal event payload:", "error" , err)
+		slog.Error("failed to marshal event payload:", "error", err)
 	}
 
 	event := Event{
@@ -41,7 +37,7 @@ func PublishEvent(ctx context.Context, rdb *redis.Client, topic, eventType strin
 
 	eventBytes, err := json.Marshal(event)
 	if err != nil {
-		 slog.Error("failed to marshal event:","error", err)
+		slog.Error("failed to marshal event:", "error", err)
 	}
 
 	slog.Info("Publishing event", "topic", topic, "type", eventType, "message", string(eventBytes))

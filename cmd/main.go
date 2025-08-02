@@ -43,9 +43,7 @@ func main() {
 	dbPort := os.Getenv("DATABASEPORT")
 	port := os.Getenv("PORT")
 
-
 	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbName, dbUser, dbPass, dbHost, dbPort, dbType)
-
 
 	db, err := pgxpool.New(context.Background(), connStr)
 
@@ -61,12 +59,11 @@ func main() {
 
 	app := echo.New()
 
-
 	rdb := redis.NewClient(&redis.Options{
-	Addr:	  "localhost:6379",
-	Password: "", 
-	DB:		  0,  
-})
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
 
 	// SETUP for embeded react app into go binary
 
@@ -125,13 +122,11 @@ func main() {
 	sessionRepo := session.NewPgSessionRepository(db)
 	sessionService := session.NewSessionService(sessionRepo)
 	sessionHandler := session.NewSessionHandler(sessionService)
-	
 
 	handlerDeps := &websocket.HandlerDeps{
-	ChatService: chatService,
-	GameService: gameService,
-	
-}
+		ChatService: chatService,
+		GameService: gameService,
+	}
 
 	manager := websocket.NewManager(userService, sessionService, rdb, handlerDeps)
 
@@ -156,7 +151,6 @@ func main() {
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
 	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
 
-
 	//Chat
 	api.GET("/chat", chatHandler.GetAllMessageFromSession)
 	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
@@ -175,13 +169,6 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
-
-
-
-
-
-
-	
 
 	app.Start(fmt.Sprintf("0.0.0.0:%s", port))
 	logger.Info("Server Started")

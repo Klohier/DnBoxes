@@ -35,8 +35,8 @@ const (
 	EventMakeMove      = "game:move"
 	EventGetPlayers    = "player:get"
 	EventNewPlayers    = "player:new"
-	EventJoinPage = "page:join"
-  EventLeavePage = "page:leave"
+	EventJoinPage      = "page:join"
+	EventLeavePage     = "page:leave"
 )
 
 type Message struct {
@@ -129,7 +129,6 @@ func PlayerHandler(event Event, c *Connection) error {
 		return nil
 	}
 
-	
 	var players []Player
 	for conn := range conns {
 		players = append(players, Player{
@@ -154,14 +153,13 @@ func MessageHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	if err := json.Unmarshal(event.Payload, &Message); err != nil {
 		return fmt.Errorf("bad payload in request: %v", err)
 	}
-	
-	channel := "lobby" 
+
+	channel := "lobby"
 
 	err := deps.ChatService.SaveMessage(ctx, Message, channel)
 	if err != nil {
 		return errors.New("failed to save message: " + err.Error())
 	}
-
 
 	return nil
 
@@ -195,12 +193,11 @@ func GameStateHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	c.egress <- responseEvent
 
 	if gameState.Game.WinnerId != nil {
-	if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
-	slog.Error("failed to broadcast winner", "error", err)
-}
+		if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
+			slog.Error("failed to broadcast winner", "error", err)
+		}
 
 	}
-
 
 	return nil
 }
@@ -229,13 +226,13 @@ func InviteHandler(event Event, c *Connection) error {
 	// Find the receiver's connection
 	client := findConnectionByUserID(c.manager, inviteEvent.ReceiverID)
 	if client == nil {
-    return fmt.Errorf("could not find connection for receiver ID %d", inviteEvent.ReceiverID)
-}
+		return fmt.Errorf("could not find connection for receiver ID %d", inviteEvent.ReceiverID)
+	}
 
-slog.Info("Sending invite",
-  "sender_id", inviteEvent.SenderID,
-  "receiver_id", inviteEvent.ReceiverID,
-)
+	slog.Info("Sending invite",
+		"sender_id", inviteEvent.SenderID,
+		"receiver_id", inviteEvent.ReceiverID,
+	)
 
 	client.egress <- outgoingEvent
 
@@ -354,19 +351,18 @@ func MoveHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	// 		client.egress <- responseEvent
 	// 	}
 	// }
-	
-// if gameState.Game.WinnerId != nil {
-// 	// Broadcast winner
-// if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
-// 	slog.Error("failed to marshal winner_set payload", "error", err)
-// }
 
-// 	// // Move all players back to the main lobby
-// 	// if err := c.manager.movePlayersToMainLobby(c.sessionID); err != nil {
-// 	// 	slog.Error("failed to move players to main lobby", "error", err)
-// 	// }
-// }
+	// if gameState.Game.WinnerId != nil {
+	// 	// Broadcast winner
+	// if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
+	// 	slog.Error("failed to marshal winner_set payload", "error", err)
+	// }
 
+	// 	// // Move all players back to the main lobby
+	// 	// if err := c.manager.movePlayersToMainLobby(c.sessionID); err != nil {
+	// 	// 	slog.Error("failed to move players to main lobby", "error", err)
+	// 	// }
+	// }
 
 	return nil
 }
@@ -413,22 +409,22 @@ func QuitGameHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	// 			}
 	// 		}
 	// 	}
-		
+
 	// }
 
-	if winnerSet  {
-	gameState, err := deps.GameService.GetGameState(context.Background(), quitGameEvent.GameID)
-	if err != nil {
-		return fmt.Errorf("failed to get game state: %w", err)
-	}
+	if winnerSet {
+		gameState, err := deps.GameService.GetGameState(context.Background(), quitGameEvent.GameID)
+		if err != nil {
+			return fmt.Errorf("failed to get game state: %w", err)
+		}
 
-	if err := broadcastWinnerEvent(c, gameState, quitGameEvent.GameID); err != nil {
-		return fmt.Errorf("failed to broadcast winner: %w", err)
+		if err := broadcastWinnerEvent(c, gameState, quitGameEvent.GameID); err != nil {
+			return fmt.Errorf("failed to broadcast winner: %w", err)
+		}
 	}
-}    
-return nil
+	return nil
 }
-func  broadcastWinnerEvent(c *Connection, gameState *game.GameState, gameID int) error {
+func broadcastWinnerEvent(c *Connection, gameState *game.GameState, gameID int) error {
 	if gameState.Game.WinnerId == nil {
 		return nil
 	}
@@ -462,62 +458,56 @@ func  broadcastWinnerEvent(c *Connection, gameState *game.GameState, gameID int)
 }
 
 type PageEventPayload struct {
-  Topic string `json:"topic"`
+	Topic string `json:"topic"`
 }
 
 func HandlePageJoin(event Event, c *Connection) error {
-  var payload PageEventPayload
-  if err := json.Unmarshal(event.Payload, &payload); err != nil {
-    return err
-  }
+	var payload PageEventPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return err
+	}
 
+	c.manager.Lock()
+	if c.manager.subscriptions[payload.Topic] == nil {
+		c.manager.subscriptions[payload.Topic] = make(map[*Connection]bool)
+	}
+	c.manager.subscriptions[payload.Topic][c] = true
 
-  c.manager.Lock()
-  if c.manager.subscriptions[payload.Topic] == nil {
-    c.manager.subscriptions[payload.Topic] = make(map[*Connection]bool)
-  }
-  c.manager.subscriptions[payload.Topic][c] = true
-
-conns := c.manager.subscriptions[payload.Topic]
+	conns := c.manager.subscriptions[payload.Topic]
 	usernames := make([]string, 0, len(conns))
 	for conn := range conns {
 		usernames = append(usernames, conn.username)
 	}
-  
-  c.manager.Unlock()
- c.manager.broadcastPlayers(payload.Topic) 
 
-slog.Info("Room members updated", "topic", payload.Topic, "members", usernames)
+	c.manager.Unlock()
+	c.manager.broadcastPlayers(payload.Topic)
 
+	slog.Info("Room members updated", "topic", payload.Topic, "members", usernames)
 
-  return nil
+	return nil
 }
 
 func HandlePageLeave(event Event, c *Connection) error {
-  var payload PageEventPayload
-  if err := json.Unmarshal(event.Payload, &payload); err != nil {
-    return err
-  }
+	var payload PageEventPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return err
+	}
 
-  
-  c.manager.Lock()
-  delete(c.manager.subscriptions[payload.Topic], c)
-  if len(c.manager.subscriptions[payload.Topic]) == 0 {
-    delete(c.manager.subscriptions, payload.Topic)
-  }
+	c.manager.Lock()
+	delete(c.manager.subscriptions[payload.Topic], c)
+	if len(c.manager.subscriptions[payload.Topic]) == 0 {
+		delete(c.manager.subscriptions, payload.Topic)
+	}
 
-
-  usernames := make([]string, 0, len(c.manager.subscriptions[payload.Topic]))
+	usernames := make([]string, 0, len(c.manager.subscriptions[payload.Topic]))
 	for conn := range c.manager.subscriptions[payload.Topic] {
 		usernames = append(usernames, conn.username)
 	}
-  c.manager.Unlock()
+	c.manager.Unlock()
 
-  c.manager.broadcastPlayers(payload.Topic)
+	c.manager.broadcastPlayers(payload.Topic)
 
-  slog.Info("Room members updated after leave", "topic", payload.Topic, "members", usernames)
+	slog.Info("Room members updated after leave", "topic", payload.Topic, "members", usernames)
 
-
-  return nil
+	return nil
 }
-

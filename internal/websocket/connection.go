@@ -21,22 +21,22 @@ type ConnectionList map[*Connection]bool
 
 // Connection for a single websocket user
 type Connection struct {
-	ws        *websocket.Conn
-	manager   *Manager
-	egress    chan Event
-	userID    int
-	username  string
+	ws       *websocket.Conn
+	manager  *Manager
+	egress   chan Event
+	userID   int
+	username string
 	// sessionID int
 }
 
 // NewConnection creates a new WebSocket connection.
 func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string) *Connection {
 	return &Connection{
-		ws:        ws,
-		manager:   manager,
-		egress:    make(chan Event, 100),
-		userID:    userID,
-		username:  username,
+		ws:       ws,
+		manager:  manager,
+		egress:   make(chan Event, 100),
+		userID:   userID,
+		username: username,
 		// sessionID: sessionID,
 	}
 }

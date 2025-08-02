@@ -57,8 +57,6 @@ func (h *GameHandler) GetGameState(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "error: gameId is required")
 	}
 
-	
-
 	gameIDInt, err := strconv.Atoi(gameId)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, "error: invalid gameId")
@@ -117,40 +115,38 @@ func (h *GameHandler) MakeMove(c echo.Context) error {
 }
 
 func (h *GameHandler) CreateBotGame(c echo.Context) error {
-    var req struct {
-        HumanPlayerID int `json:"human_player_id"`
-        BoardSize     int `json:"board_size"`
-        SessionID     int `json:"session_id"`
-    }
+	var req struct {
+		HumanPlayerID int `json:"human_player_id"`
+		BoardSize     int `json:"board_size"`
+		SessionID     int `json:"session_id"`
+	}
 
-	
-
-    if err := c.Bind(&req); err != nil {
-        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
-    }
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
 
 	slog.Info("CreateBotGame called", "req", req)
 
-    if req.HumanPlayerID == 0 {
-        return c.JSON(http.StatusBadRequest, map[string]string{"error": "human_player_id is required"})
-    }
-    if req.BoardSize <= 4 || req.BoardSize >= 20 {
-        return c.JSON(http.StatusBadRequest, map[string]string{"error": "board_size must be >4 and <20"})
-    }
+	if req.HumanPlayerID == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "human_player_id is required"})
+	}
+	if req.BoardSize <= 4 || req.BoardSize >= 20 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "board_size must be >4 and <20"})
+	}
 
-	// -1 meaning bot id 
-    playerIDs := []int{req.HumanPlayerID, -1} 
+	// -1 meaning bot id
+	playerIDs := []int{req.HumanPlayerID, -1}
 
-    game, err := h.gameService.CreateBotGameInMemory(c.Request().Context(), playerIDs, req.BoardSize, req.SessionID)
-    if err != nil {
-        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
-    }
+	game, err := h.gameService.CreateBotGameInMemory(c.Request().Context(), playerIDs, req.BoardSize, req.SessionID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
+	}
 
 	gameState, err := h.gameService.GetBotGameState(*game.Game.GameId)
-    if err != nil {
-        slog.Error("Failed to fetch bot game state", "game_id", *game.Game.GameId, "error", err)
-        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch game state"})
-    }
+	if err != nil {
+		slog.Error("Failed to fetch bot game state", "game_id", *game.Game.GameId, "error", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch game state"})
+	}
 
-    return c.JSON(http.StatusOK, gameState)
+	return c.JSON(http.StatusOK, gameState)
 }
