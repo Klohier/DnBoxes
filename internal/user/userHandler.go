@@ -1,7 +1,7 @@
 package user
 
 import (
-	"dango/internal/token"
+	"dango/internal/auth/token"
 	"errors"
 	"log/slog"
 	"net/http"

@@ -4,7 +4,7 @@ import (
 	// "errors"
 	// "dango/internal/auth"
 	// "log"
-	"dango/internal/token"
+	"dango/internal/auth/token"
 	"log/slog"
 	"net/http"
 	"time"
