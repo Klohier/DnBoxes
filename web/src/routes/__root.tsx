@@ -1,17 +1,19 @@
 import { AuthContextType } from "@/AuthContext";
 import { Button } from "@/components/ui/button";
+import { GameStatePayload } from "@/types/websocket";
 import { QueryClient } from "@tanstack/react-query";
 
 import {
   createRootRouteWithContext,
   Link,
   Outlet,
-  useMatchRoute,
+  // useMatchRoute,
   useRouteContext,
   useRouter,
-  useRouterState,
+  // useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import axios from "axios";
 import { useEffect, useState } from "react";
 
 interface RouterContext {
@@ -25,9 +27,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function Root() {
   const router = useRouter();
   const auth = useRouteContext({ from: "__root__" });
-  const [loading, setLoading] = useState<any>();
-  const apiUrl =
-    (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
+  const [loading, setLoading] = useState<boolean>();
+  // const apiUrl =
+  //   (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
 
   useEffect(() => {
     console.log("Auth change", auth.authentication.isAuthenticated);
@@ -44,33 +46,25 @@ function Root() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `http://${apiUrl}/api/v1/games/create-bot-game`,
+      const response = await axios.post<GameStatePayload>(
+        `/api/v1/games/create-bot-game`,
         {
-          method: "POST",
+          human_player_id: auth.authentication.user?.userID,
+          board_size: 5,
+          session_id: Date.now() - Math.floor(Math.random() * 100000),
+        },
+        {
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            human_player_id: auth.authentication.user?.userID,
-            board_size: 5,
-            session_id: Date.now() - Math.floor(Math.random() * 100000),
-          }),
         }
       );
 
-      if (!response.ok) {
-        const err = await response.json();
-        alert("Failed to create bot game: " + (err.error || "Unknown error"));
-        setLoading(false);
-        return;
-      }
-
-      const game = await response.json();
+      const game = response.data;
       await router.navigate({
-        to: "/game/$gameId",
-        params: { gameId: game.game.game_id },
+        to: "/game/$gameID",
+        params: { gameID: String(game.game.game_id) },
       });
     } catch (error) {
-      alert("Error creating bot game: " + error);
+      alert("Error creating bot game: " + String(error));
     } finally {
       setLoading(false);
     }

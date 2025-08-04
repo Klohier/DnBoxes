@@ -42,7 +42,8 @@ func (h *LoginHandler) Login(c echo.Context) error {
 	cookie.HttpOnly = true
 	cookie.Expires = time.Now().Add(24 * time.Hour)
 	cookie.Path = "/"
-
+	cookie.SameSite = http.SameSiteNoneMode
+	cookie.Secure = true
 	sessionToken, nil := token.GenerateToken(user.UserID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate session token: ")

@@ -1,24 +1,26 @@
 import { createContext, useContext, ReactNode, useMemo } from "react";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import type { LoginCredentials } from "./types/auth";
 // import { useNavigate } from "react-router-dom";
 import {
   useMutation,
   useQuery,
+  // useQuery,
   useQueryClient,
-  useSuspenseQuery,
+  // useSuspenseQuery,
 } from "@tanstack/react-query";
 import { User } from "./types/auth";
 import { fetchUser } from "./api/fetchUser";
-import { useNavigate, useRouter } from "@tanstack/react-router";
+// import { useNavigate, useRouter } from "@tanstack/react-router";
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export interface AuthContextType {
-  user: User | null;
+  user: User | undefined;
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => void;
+  register: (credentials: LoginCredentials) => Promise<User>;
   loading: boolean;
   isAuthenticated: boolean;
   // error: AxiosError | null;
@@ -43,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     data: user,
     isLoading,
     isError,
-  } = useSuspenseQuery<User>({
+  } = useQuery<User>({
     queryKey: ["me"],
     queryFn: fetchUser,
     retry: false,
@@ -56,14 +58,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       formData.append("username", credentials.username);
       formData.append("password", credentials.password);
 
-      const response = await axios.post<User>(
-        `http://${apiUrl}/api/v1/login`,
-        formData,
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          withCredentials: true,
-        }
-      );
+      const response = await axios.post<User>(`/api/v1/login`, formData, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        withCredentials: true,
+      });
       return response.data;
     },
     onSuccess: async () => {
@@ -74,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logoutMutation = useMutation<undefined>({
     mutationFn: async () => {
-      await axios.post(`http://${apiUrl}/api/v1/logout`, null, {
+      await axios.post(`/api/v1/logout`, null, {
         withCredentials: true,
       });
     },
@@ -91,7 +89,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logoutMutation.mutate();
   };
 
-  const isAuthenticated = user && !isError;
+  const registerMutation = useMutation<User, Error, LoginCredentials>({
+    mutationFn: async (credentials: LoginCredentials) => {
+      const formData = new URLSearchParams();
+      formData.append("username", credentials.username);
+      formData.append("password", credentials.password);
+
+      const response = await axios.post<User>(
+        `/api/v1/users`, // 👈 your registration endpoint
+        formData,
+        {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          withCredentials: true,
+        }
+      );
+      return response.data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      // Optionally navigate or do other actions
+    },
+  });
+
+  const register = (credentials: LoginCredentials) =>
+    registerMutation.mutateAsync(credentials);
+
+  const isAuthenticated = !isError;
   const loading =
     isLoading ||
     loginMutation.status === "pending" ||
@@ -102,6 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       user,
       login,
       logout,
+      register,
       loading,
       isAuthenticated,
     }),

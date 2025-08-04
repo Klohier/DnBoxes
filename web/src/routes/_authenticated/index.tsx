@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import Chatbox from "../../components/ChatBox";
 import PlayerLobby from "../../components/PlayerLobby";
-import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 import { useWebSocket } from "@/WebSocketContext";
 

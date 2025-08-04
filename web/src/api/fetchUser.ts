@@ -1,17 +1,17 @@
 import { User } from "@/types/auth";
 import axios from "axios";
-export async function fetchUser(): Promise<User | null> {
-  const apiUrl =
-    (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
+export async function fetchUser(): Promise<User> {
+  // const apiUrl =
+  //   (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
 
   try {
-    const response = await axios.get<User>(`http://${apiUrl}/api/v1/users/me`, {
+    const response = await axios.get<User>(`/api/v1/users/me`, {
       withCredentials: true,
     });
     return response.data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (axios.isAxiosError(err) && err.response?.status === 404) {
-      return null; // not logged in
+      throw new Error("User not logged in"); // not logged in
     }
     throw err; // still throw unexpected errors
   }

@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
+	// "github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -30,12 +30,12 @@ type DB struct{}
 
 func main() {
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatal("Error loading .env file")
+	// }
 
-	dbName := os.Getenv("DATABASENAME")
+	dbName := os.Getenv("POSTGRES_DB")
 	dbPass := os.Getenv("DATABASEPASSWORD")
 	dbUser := os.Getenv("DATABASEUSER")
 	dbType := os.Getenv("DATABASETYPE")
@@ -43,9 +43,14 @@ func main() {
 	dbPort := os.Getenv("DATABASEPORT")
 	port := os.Getenv("PORT")
 
-	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbName, dbUser, dbPass, dbHost, dbPort, dbType)
+	connStr := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", dbType, dbUser, dbPass, dbHost, dbPort, dbName)
 
 	db, err := pgxpool.New(context.Background(), connStr)
+
+	slog.Info("Connecting to DB with:", "connection" , connStr)
+
+
+
 
 	if err != nil {
 		log.Fatal((err))
@@ -60,7 +65,7 @@ func main() {
 	app := echo.New()
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     "redis:6379",
 		Password: "",
 		DB:       0,
 	})
@@ -101,7 +106,7 @@ func main() {
 	}
 
 	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{clientOrigin},
+		AllowOrigins:     []string{clientOrigin, "https://localhost:4173"},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
 		AllowCredentials: true,
 	}))

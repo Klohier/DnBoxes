@@ -35,9 +35,9 @@ const Grid = ({
       <div className="w-full aspect-square border rounded-lg">
         <svg
           className="w-full h-full"
-          viewBox={`-5 -5 ${boxSize * boardSize + 10} ${
+          viewBox={`-5 -5 ${String(boxSize * boardSize + 10)} ${String(
             boxSize * boardSize + 10
-          }`}
+          )}`}
           preserveAspectRatio="xMidYMid meet"
         >
           {boxes.map((box) => (

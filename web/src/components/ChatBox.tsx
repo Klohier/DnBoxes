@@ -3,7 +3,7 @@ import { useWebSocket } from "../WebSocketContext";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Message, ChatMessagePayload } from "@/types/websocket";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
@@ -22,33 +22,23 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
   const queryClient = useQueryClient();
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (message: Message) => {
+    mutationFn: (message: Message) => {
       // Send via WebSocket here
       send(message);
-      return message;
-    },
-
-    onError: (_err, _newMessage, context) => {
-      // Roll back optimistic update on error
-      if (context?.previousMessages) {
-        queryClient.setQueryData(
-          ["chatMessages", sessionID, apiUrl],
-          context.previousMessages
-        );
-      }
+      return Promise.resolve(message);
     },
   });
 
   const {
     data: fetchedMessages,
-    isLoading,
-    isError,
-    error,
+    // isLoading,
+    // isError,
+    // error,
   } = useQuery<ChatMessagePayload[]>({
     queryKey: ["chatMessages", sessionID, apiUrl],
     queryFn: async () => {
       if (!sessionID) return [];
-      const endpoint = `http://${apiUrl}/api/v1/chat?sessionID=${sessionID}`;
+      const endpoint = `/api/v1/chat?sessionID=${String(sessionID)}`;
       const response = await axios.get<ChatMessagePayload[]>(endpoint);
       return response.data;
     },

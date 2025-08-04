@@ -1,0 +1,82 @@
+services:
+  db:
+    image: postgres:17.5
+    container_name: dnb_pg
+    environment:
+      POSTGRES_USER: ${DATABASEUSER}
+      POSTGRES_PASSWORD: ${DATABASEPASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d
+
+  backend1:
+    build: .
+    expose:
+      - "8484"
+    env_file:
+      - .env
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    restart: on-failure
+  backend2:
+    build: .
+    expose:
+      - "8484"
+    env_file:
+      - .env
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    restart: on-failure
+
+  redis:
+    image: "redis:latest"
+    container_name: dnb-redis-pubsub
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: dnb-frontend-react-vite
+    expose:
+      - 80
+  caddy:
+    image: caddy:2
+    container_name: dnb-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend1
+      - backend2
+
+volumes:
+  caddy_data:
+  caddy_config:

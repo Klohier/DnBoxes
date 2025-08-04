@@ -29,7 +29,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const { isAuthenticated, loading } = useAuth();
   const subscribers = useRef<((message: Message) => void)[]>([]);
   const [connected, setConnected] = useState(false);
-  const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
+  const apiUrl = "localhost";
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
@@ -60,7 +60,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         );
         return;
       }
-      const ws = new WebSocket(`ws://${apiUrl}/api/v1/ws`);
+      const ws = new WebSocket(`wss://${apiUrl}/api/v1/ws`);
       socket.current = ws;
       ws.onopen = () => {
         console.log("WebSocket connected");

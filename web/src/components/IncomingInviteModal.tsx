@@ -1,6 +1,13 @@
-/* eslint-disable react/prop-types */
+import { InvitePayload } from "@/types/websocket";
 import styles from "./IncomingInviteModal.module.css";
-const IncomingInviteModal = ({
+
+interface IncomingInviteModalProps {
+  incomingInvite: InvitePayload | null;
+  onAccept: () => void;
+  onDecline: () => void;
+  onClose: () => void;
+}
+const IncomingInviteModal: React.FC<IncomingInviteModalProps> = ({
   incomingInvite,
   onAccept,
   onDecline,

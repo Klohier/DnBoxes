@@ -20,7 +20,7 @@ export interface Game {
   board_size: number;
   winner?: number;
   created_at: Date;
-  current_turn?: number;
+  current_turn: number;
 }
 
 export interface Box {
@@ -37,9 +37,9 @@ export interface Box {
 }
 
 export interface GameStatePayload {
-  gameID?: number;
-  game?: Game;
-  grids?: Box[];
+  // gameID?: number;
+  game: Game;
+  grids: Box[];
 }
 
 export interface WinnerPayload {
@@ -104,4 +104,6 @@ export type Message =
   | { type: "player:get"; payload?: string | Player[] }
   | { type: "game:new"; payload: GameStartPayload }
   | { type: "invite:accept"; payload: AcceptInvitePayload }
-  | { type: "invite:decline"; payload: DeclineInvitePayload };
+  | { type: "invite:decline"; payload: DeclineInvitePayload }
+  | { type: "page:join"; payload: unknown }
+  | { type: "page:leave"; payload: unknown };

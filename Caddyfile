@@ -1,0 +1,20 @@
+localhost {
+    encode gzip
+
+    # Reverse proxy API
+    reverse_proxy /api/v1/* backend1:8484 backend2:8484
+
+    # Reverse proxy WebSocket
+    reverse_proxy /ws/* backend1:8484 backend2:8484
+
+
+    # Reverse proxy frontend
+    reverse_proxy frontend:80
+
+    header {
+        # Required for secure cookies to work properly
+        X-Forwarded-Proto {scheme}
+        X-Real-IP {remote_host}
+        X-Forwarded-For {remote_host}
+    }
+}

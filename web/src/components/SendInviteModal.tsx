@@ -1,6 +1,14 @@
-/* eslint-disable react/prop-types */
+import { Player } from "@/types/websocket";
 import styles from "./SendInviteModal.module.css";
-const SendInviteModal = ({
+
+interface SendInviteModalProps {
+  selectedPlayer: Player | undefined;
+  boardSize: number;
+  onBoardSizeChange: (size: number) => void;
+  onSendInvite: () => void;
+  onClose: () => void;
+}
+const SendInviteModal: React.FC<SendInviteModalProps> = ({
   selectedPlayer,
   boardSize,
   onBoardSizeChange,
@@ -23,7 +31,9 @@ const SendInviteModal = ({
             type="number"
             id="boardSize"
             value={boardSize}
-            onChange={(e) => onBoardSizeChange(parseInt(e.target.value))}
+            onChange={(e) => {
+              onBoardSizeChange(parseInt(e.target.value));
+            }}
             min="1"
             max="100"
             style={{ marginLeft: "10px", width: "50px" }}

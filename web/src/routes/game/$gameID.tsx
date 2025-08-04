@@ -2,7 +2,7 @@ import { fetchGame } from "@/api/fetchGame";
 import {
   createFileRoute,
   useNavigate,
-  useRouteContext,
+  // useRouteContext,
 } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -11,30 +11,40 @@ import Grid from "../../components/Grid";
 import { useWebSocket } from "@/WebSocketContext";
 import {
   Dialog,
-  DialogTrigger,
+  // DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Box, GamePlayer, Message } from "@/types/websocket";
+import { GamePlayer, GameStatePayload, Message } from "@/types/websocket";
 import PlayerLobby from "@/components/PlayerLobby";
 import Chatbox from "@/components/ChatBox";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+// import { User } from "@/types/auth";
+import { useAuth } from "@/AuthContext";
+
+export const gameDetailQuery = (id: string) => ({
+  queryKey: ["game", id],
+  queryFn: () => fetchGame(id),
+});
+
+interface LoaderData {
+  gameState: GameStatePayload | undefined;
+}
 
 export const Route = createFileRoute("/game/$gameID")({
   component: RouteComponent,
 
-  loader: ({ params, context }) => {
-    const gameState = context.queryClient.ensureQueryData({
-      queryKey: ["game", params.gameID],
-      queryFn: () => fetchGame(params.gameID),
-    });
+  loader: async ({ params, context }): Promise<LoaderData> => {
+    const query = gameDetailQuery(params.gameID);
 
-    // Return gameID to the component (data is cached)
+    const gameState =
+      context.queryClient.getQueryData<GameStatePayload>(query.queryKey) ??
+      (await context.queryClient.fetchQuery(query));
+
     return {
       gameState: gameState,
-      user: context.authentication.user,
     };
   },
 });
@@ -42,26 +52,27 @@ export const Route = createFileRoute("/game/$gameID")({
 function RouteComponent() {
   const params = Route.useParams();
 
-  const { user } = Route.useLoaderData();
-  const { queryClient } = useRouteContext({ from: "/game/$gameID" });
+  const { gameState: initialGameState } = Route.useLoaderData();
+  const { queryClient } = Route.useRouteContext();
+  const { user } = useAuth();
 
-  const { data: gameState } = useSuspenseQuery({
-    queryKey: ["game", params.gameID],
-    queryFn: () => fetchGame(params.gameID),
+  const { data: gameState } = useQuery({
+    ...gameDetailQuery(params.gameID),
+    initialData: initialGameState,
   });
   console.log("gameState", gameState);
   const navigate = useNavigate();
-  const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
+  // const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
   const { send, subscribe, connected } = useWebSocket();
   const [userColors, setUserColors] = useState<Record<string, string>>({});
-  const [winnerId, setWinnerId] = useState<number | null>(null);
+  // const [winnerId, setWinnerId] = useState<number | null>(null);
 
-  const winnerPlayer = gameState?.game?.players.find(
-    (p) => p.user_id === gameState?.game?.winner
+  const winnerPlayer = gameState?.game.players.find(
+    (p) => p.user_id === gameState.game.winner
   );
 
   useEffect(() => {
-    if (!gameState?.game) return;
+    if (!gameState) return;
     console.log("Setting boxes from gameState:", gameState.grids);
 
     const colors: string[] = [
@@ -93,7 +104,7 @@ function RouteComponent() {
     const unsubscribe = subscribe((message: Message) => {
       if (message.type === "game:state") {
         queryClient.setQueryData(["game", params.gameID], message.payload);
-        if (gameState?.game?.players) {
+        if (gameState?.game.players) {
           const colorMap: Record<GamePlayer["user_id"], string> = {};
           gameState.game.players.forEach((player, index) => {
             colorMap[player.user_id] = colors[index % colors.length];
@@ -103,10 +114,10 @@ function RouteComponent() {
       }
 
       if (message.type === "winner_set") {
-        const winnerId = message.payload.winnerId;
+        // const winnerId = message.payload.winnerId;
         const winnerUsername = message.payload.winnerUsername;
-        setWinnerId(winnerId);
-        setWinnerUsername(winnerUsername);
+        // setWinnerId(winnerId);
+        // setWinnerUsername(winnerUsername);
         toast.success(`Player ${winnerUsername} has won the game!`);
       }
 
@@ -145,7 +156,7 @@ function RouteComponent() {
   }, [send]);
 
   const handleQuitGame = () => {
-    if (gameState?.game?.session_id && user?.userID) {
+    if (gameState?.game.session_id && user?.userID) {
       send({
         type: "game:quit",
         payload: {
@@ -181,6 +192,15 @@ function RouteComponent() {
     });
   };
 
+  if (!gameState || !user) {
+    return <div>Loading game...</div>;
+  }
+
+  const currentTurn = gameState.game.current_turn;
+  const currentPlayer = gameState.game.players.find(
+    (p) => p.turn_order === currentTurn
+  )?.username;
+
   return (
     <div className="flex flex-col md:flex-row h-screen p-4 gap-4">
       <Toaster position="top-right" richColors />
@@ -189,21 +209,12 @@ function RouteComponent() {
       <div className="w-full md:w-2/3 flex flex-col items-center">
         <div className="flex justify-between items-center w-full max-w-[700px] px-4 mb-2">
           <p className="text-lg font-medium">
-            {gameState?.game?.current_turn !== null ? (
-              <>
-                Current Turn:{" "}
-                {gameState?.game.players.find(
-                  (p) => p.turn_order === gameState.game?.current_turn
-                )?.username ?? `Player ${gameState?.game?.current_turn}`}
-              </>
-            ) : (
-              ""
-            )}
+            Current Turn: {currentPlayer ?? `Player ${currentTurn.toString()}`}
           </p>
           <div className="mt-2">
             <h3 className="font-semibold mb-1">Scores:</h3>
             <ul className="text-sm space-y-1">
-              {gameState?.game.players.map((player) => (
+              {gameState.game.players.map((player) => (
                 <li key={player.user_id}>
                   {player.username}: {player.score}
                 </li>
@@ -215,16 +226,14 @@ function RouteComponent() {
           </Button>
         </div>
         <div className="w-full max-w-[500px] md:max-w-[700px] lg:max-w-[650px]">
-          {gameState && (
-            <Grid
-              gameID={gameState.game?.game_id}
-              boxes={gameState.grids}
-              userColors={userColors}
-              boardSize={gameState.game?.board_size}
-              userID={user.userID}
-              handleClick={handleClick}
-            />
-          )}
+          <Grid
+            gameID={gameState.game.game_id}
+            boxes={gameState.grids}
+            userColors={userColors}
+            boardSize={gameState.game.board_size}
+            userID={user.userID}
+            handleClick={handleClick}
+          />
         </div>
       </div>
 
@@ -234,12 +243,12 @@ function RouteComponent() {
           <PlayerLobby />
         </div>
         <div className="h-150">
-          {gameState?.game?.session_id && (
+          {gameState.game.session_id && (
             <Chatbox sessionID={gameState.game.session_id} />
           )}
         </div>
       </div>
-      <Dialog open={!!gameState?.game?.winner}>
+      <Dialog open={!!gameState.game.winner}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
@@ -254,7 +263,7 @@ function RouteComponent() {
           <div className="mt-4">
             <h4 className="font-semibold mb-2">Final Scores:</h4>
             <ul className="text-sm space-y-1">
-              {gameState?.game?.players.map((player) => (
+              {gameState.game.players.map((player) => (
                 <li key={player.user_id}>
                   {player.username}: {player.score}
                 </li>
@@ -264,8 +273,8 @@ function RouteComponent() {
           <DialogFooter>
             <Button
               onClick={() => {
-                setWinnerId(null);
-                setWinnerUsername(null);
+                // setWinnerId(null);
+                // setWinnerUsername(null);
                 void navigate({ to: "/" });
               }}
             >

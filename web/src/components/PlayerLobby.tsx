@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWebSocket } from "../WebSocketContext";
-import { useUser } from "../UserContext";
+// import { useUser } from "../UserContext";
 import { useNavigate } from "@tanstack/react-router";
 import { Message, Player, InvitePayload } from "@/types/websocket";
 import PlayerList from "./PlayerList";
@@ -16,7 +16,7 @@ const PlayerLobby = () => {
     null
   );
   const { user } = useAuth();
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>();
+  const [selectedPlayer, setSelectedPlayer] = useState<Player>();
   const { send, subscribe, connected } = useWebSocket();
   const navigate = useNavigate();
 
@@ -61,7 +61,7 @@ const PlayerLobby = () => {
           board_size: boardSize,
         },
       });
-      setSelectedPlayer(null);
+      setSelectedPlayer(undefined);
     }
   };
 
@@ -102,7 +102,7 @@ const PlayerLobby = () => {
         onBoardSizeChange={setBoardSize}
         onSendInvite={handleSendGameInvite}
         onClose={() => {
-          setSelectedPlayer(null);
+          setSelectedPlayer(undefined);
         }}
       />
 
