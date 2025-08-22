@@ -1,7 +1,9 @@
 package game
 
-import "fmt"
-
+import (
+	"fmt"
+	"math/rand"
+)
 type Engine struct {
 	Players     []Player
 	BoardSize   int
@@ -195,23 +197,81 @@ func (e *Engine) CheckAndScoreBox(row, col int, userID int) (bool, *Box) {
 }
 
 func (e *Engine) GenerateBotMove(botId int) *Move {
+	completionMoves := []Move{}
+	safeMoves := []Move{}
+	riskyMoves := []Move{}
+
+	// Categorize moves
 	for row := 0; row < e.BoardSize; row++ {
 		for col := 0; col < e.BoardSize; col++ {
+			box := &e.Grid[row][col]
+			if box.Completed_by != nil {
+				continue
+			}
+
 			edges := []string{"top_edge", "right_edge", "bottom_edge", "left_edge"}
 			for _, edge := range edges {
-				if e.isEdgeAvailable(row, col, edge) {
-					return &Move{
-						Row:    row,
-						Col:    col,
-						Edge:   edge,
-						UserID: botId,
-					}
+				if !e.isEdgeAvailable(row, col, edge) {
+					continue
+				}
+
+				claimed := e.countClaimedEdges(box)
+				move := Move{UserID: botId, Row: row, Col: col, Edge: edge}
+
+				switch claimed {
+				case 3:
+					// Completing a box → always good
+					completionMoves = append(completionMoves, move)
+				case 0, 1:
+					// Safe → doesn't hand over a box
+					safeMoves = append(safeMoves, move)
+				case 2:
+					// Risky → sets up a chain
+					riskyMoves = append(riskyMoves, move)
 				}
 			}
 		}
 	}
+
+	// Priority order:
+	// 1. Complete a box if possible
+	if len(completionMoves) > 0 {
+		return &completionMoves[rand.Intn(len(completionMoves))] // could randomize
+	}
+
+	// 2. Take a safe move
+	if len(safeMoves) > 0 {
+		return &safeMoves[rand.Intn(len(safeMoves))]
+	}
+
+	// 3. If nothing else, take a risky move 
+	if len(riskyMoves) > 0 {
+		return &riskyMoves[rand.Intn(len(riskyMoves))]
+	}
+
 	return nil
 }
+
+// Count edges claimed for a box
+func (e *Engine) countClaimedEdges(box *Box) int {
+	count := 0
+	if box.TopEdge {
+		count++
+	}
+	if box.RightEdge {
+		count++
+	}
+	if box.BottomEdge {
+		count++
+	}
+	if box.LeftEdge {
+		count++
+	}
+	return count
+}
+
+
+
 
 func (e *Engine) isGameOver() bool {
 	for row := 0; row < e.BoardSize; row++ {
