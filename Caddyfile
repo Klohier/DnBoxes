@@ -2,10 +2,15 @@ localhost {
     encode gzip
 
     # Reverse proxy API
-    reverse_proxy /api/v1/* backend1:8484 backend2:8484
+    reverse_proxy /api/v1/* backend1:8484
 
     # Reverse proxy WebSocket
-    reverse_proxy /ws/* backend1:8484 backend2:8484
+    reverse_proxy /ws/* backend1:8484
+
+
+    reverse_proxy /debug/pprof/* backend1:6060 {
+        flush_interval -1  # Optional: disables buffering for streaming responses
+    }
 
 
     # Reverse proxy frontend

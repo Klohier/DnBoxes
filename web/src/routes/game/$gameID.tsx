@@ -1,9 +1,5 @@
 import { fetchGame } from "@/api/fetchGame";
-import {
-  createFileRoute,
-  useNavigate,
-  // useRouteContext,
-} from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "sonner";
@@ -21,7 +17,6 @@ import { GamePlayer, GameStatePayload, Message } from "@/types/websocket";
 import PlayerLobby from "@/components/PlayerLobby";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
-// import { User } from "@/types/auth";
 import { useAuth } from "@/AuthContext";
 
 export const gameDetailQuery = (id: string) => ({

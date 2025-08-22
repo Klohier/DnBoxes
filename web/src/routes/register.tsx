@@ -32,6 +32,7 @@ function RouteComponent() {
           onSubmitHandler={handleRegister}
           isLoading={isLoading}
           buttonText="Register"
+          formType="register"
         />
       </div>
     </div>

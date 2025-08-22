@@ -6,6 +6,7 @@ import {
   useRef,
   ReactNode,
   useMemo,
+  useCallback,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { Message } from "./types/websocket";
@@ -26,45 +27,36 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
 }) => {
   const socket = useRef<WebSocket | null>(null);
-  const { isAuthenticated, loading } = useAuth();
-  const subscribers = useRef<((message: Message) => void)[]>([]);
+  const { isAuthenticated } = useAuth();
+  const subscribers = useRef<Set<(message: Message) => void>>(new Set());
   const [connected, setConnected] = useState(false);
   const apiUrl = "localhost";
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
   //TODO: Turn this into a custom hook
   useEffect(() => {
-    if (loading) {
-      // Wait until loading finishes, do nothing for now
-      return;
-    }
     if (!isAuthenticated) {
-      if (
-        socket.current?.readyState === WebSocket.OPEN ||
-        socket.current?.readyState === WebSocket.CONNECTING
-      ) {
-        console.log("Closing socket due to unauthenticated state");
+      if (socket.current) {
         socket.current.close();
+        socket.current = null;
+        setConnected(false);
       }
-      socket.current = null;
+      subscribers.current.clear();
       return;
     }
-    let reconnectInterval: NodeJS.Timeout;
+
+    if (socket.current) return;
+
     const connect = () => {
-      if (
-        socket.current &&
-        (socket.current.readyState === WebSocket.OPEN ||
-          socket.current.readyState === WebSocket.CONNECTING)
-      ) {
-        console.log(
-          "WebSocket already connected or connecting. Skipping connect."
-        );
-        return;
-      }
       const ws = new WebSocket(`wss://${apiUrl}/api/v1/ws`);
       socket.current = ws;
       ws.onopen = () => {
         console.log("WebSocket connected");
         setConnected(true);
+        if (reconnectTimeout.current) {
+          clearTimeout(reconnectTimeout.current);
+          reconnectTimeout.current = null;
+        }
         // set only once connected
       };
       ws.onmessage = (event: MessageEvent<string>) => {
@@ -77,37 +69,41 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       ws.onclose = () => {
         console.log("WebSocket disconnected");
         setConnected(false);
-        reconnectInterval = setTimeout(connect, 1000);
+        socket.current = null;
+        subscribers.current.clear();
+        reconnectTimeout.current ??= setTimeout(connect, 1000);
       };
       ws.onerror = (err) => {
         console.error("WebSocket error", err);
-        ws.close(); // Trigger onclose
+        ws.close();
       };
     };
 
     connect();
 
     return () => {
-      clearTimeout(reconnectInterval);
-      if (
-        socket.current &&
-        (socket.current.readyState === WebSocket.OPEN ||
-          socket.current.readyState === WebSocket.CONNECTING)
-      ) {
+      if (socket.current) {
         socket.current.close();
+        socket.current = null;
       }
-      socket.current = null;
+      subscribers.current.clear();
+      if (reconnectTimeout.current) {
+        clearTimeout(reconnectTimeout.current);
+        reconnectTimeout.current = null;
+      }
     };
-  }, [isAuthenticated, loading]);
+  }, [isAuthenticated]);
 
-  const subscribe = (callback: (message: Message) => void) => {
+  const subscribe = useCallback((callback: (message: Message) => void) => {
     console.log("Adding subscriber");
-    subscribers.current.push(callback);
+    subscribers.current.add(callback);
+    console.log("Total subscribers:", subscribers.current.size);
     return () => {
       console.log("Removing subscriber");
-      subscribers.current = subscribers.current.filter((cb) => cb !== callback);
+      subscribers.current.delete(callback);
+      console.log("Total subscribers:", subscribers.current.size);
     };
-  };
+  }, []);
   const send = (message: Message) => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(JSON.stringify(message));

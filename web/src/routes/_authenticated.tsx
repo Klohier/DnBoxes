@@ -1,29 +1,28 @@
-// import { Button } from "@/components/ui/button";
-import {
-  createFileRoute,
-  //   Link,
-  redirect,
-  //   useRouteContext,
-} from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { z } from "zod";
 import { Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated")({
   component: RouteComponent,
-  beforeLoad: ({ context }) => {
-    const { isAuthenticated } = context.authentication;
-    // await context.queryClient.invalidateQueries({ queryKey: ["me"] });
-
-    if (!isAuthenticated) {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw redirect({
+  validateSearch: z.object({
+    redirect: z.string().optional().catch(""),
+  }),
+  beforeLoad: ({ context, location }) => {
+    if (context.authentication.loading) {
+      return <div>Loading...</div>;
+    }
+    if (!context.authentication.isAuthenticated) {
+      redirect({
         to: "/login",
+        search: {
+          redirect: location.href,
+        },
+        throw: true,
       });
     }
   },
 });
 
 function RouteComponent() {
-  //   const { authentication } = useRouteContext({ from: "/_authenticated" });
-
   return <Outlet />;
 }

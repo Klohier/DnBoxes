@@ -21,6 +21,8 @@ services:
     build: .
     expose:
       - "8484"
+    ports:
+      - "6060:6060"
     env_file:
       - .env
 
@@ -31,20 +33,20 @@ services:
         condition: service_healthy
 
     restart: on-failure
-  backend2:
-    build: .
-    expose:
-      - "8484"
-    env_file:
-      - .env
+  # backend2:
+  #   build: .
+  #   expose:
+  #     - "8484"
+  #   env_file:
+  #     - .env
 
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
 
-    restart: on-failure
+  #   restart: on-failure
 
   redis:
     image: "redis:latest"
@@ -75,7 +77,6 @@ services:
     depends_on:
       - frontend
       - backend1
-      - backend2
 
 volumes:
   caddy_data:

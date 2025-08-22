@@ -1,4 +1,4 @@
-import { AuthContextType } from "@/AuthContext";
+import { AuthContextType, useAuth } from "@/AuthContext";
 import { Button } from "@/components/ui/button";
 import { GameStatePayload } from "@/types/websocket";
 import { QueryClient } from "@tanstack/react-query";
@@ -7,10 +7,8 @@ import {
   createRootRouteWithContext,
   Link,
   Outlet,
-  // useMatchRoute,
-  useRouteContext,
+  // useRouteContext,
   useRouter,
-  // useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import axios from "axios";
@@ -26,30 +24,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function Root() {
   const router = useRouter();
-  const auth = useRouteContext({ from: "__root__" });
+  const auth = useAuth();
   const [loading, setLoading] = useState<boolean>();
-  // const apiUrl =
-  //   (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
-
-  useEffect(() => {
-    console.log("Auth change", auth.authentication.isAuthenticated);
-    if (!auth.authentication.isAuthenticated) {
-      void router.navigate({ to: "/login" });
-    }
-  }, [auth.authentication.isAuthenticated]);
 
   async function handleCreateBotGame() {
-    if (!auth.authentication.isAuthenticated) {
+    if (!auth.isAuthenticated) {
       alert("User not authenticated");
       return;
     }
-
     setLoading(true);
+
     try {
       const response = await axios.post<GameStatePayload>(
         `/api/v1/games/create-bot-game`,
         {
-          human_player_id: auth.authentication.user?.userID,
+          human_player_id: auth.user?.userID,
           board_size: 5,
           session_id: Date.now() - Math.floor(Math.random() * 100000),
         },
@@ -70,6 +59,14 @@ function Root() {
     }
   }
 
+  useEffect(() => {
+    console.log("Auth Debug:", {
+      loading: auth.loading,
+      isAuthenticated: auth.isAuthenticated,
+      user: auth.user,
+    });
+  }, [auth.loading]);
+
   return (
     <>
       <div className="p-2 flex gap-2">
@@ -80,12 +77,18 @@ function Root() {
           About
         </Link>
 
-        {auth.authentication.isAuthenticated && (
+        {auth.loading ? (
+          <div className="flex gap-2">
+            <Button disabled variant="outline">
+              Loading...
+            </Button>
+            <Button disabled variant="outline">
+              Loading...
+            </Button>
+          </div>
+        ) : auth.isAuthenticated ? (
           <>
-            <Button
-              onClick={auth.authentication.logout}
-              variant={"destructive"}
-            >
+            <Button onClick={auth.logout} variant={"destructive"}>
               Logout
             </Button>
             <Button
@@ -95,7 +98,7 @@ function Root() {
               {loading ? "Creating Game..." : "Create Bot Game"}
             </Button>
           </>
-        )}
+        ) : null}
       </div>
       <hr />
       <Outlet />
