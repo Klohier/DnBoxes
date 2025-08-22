@@ -106,7 +106,7 @@ func main() {
 	}
 
 	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{clientOrigin, "https://localhost:4173"},
+		AllowOrigins:     []string{clientOrigin, "https://localhost:4173", "https://192.168.1.42"},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
 		AllowCredentials: true,
 	}))
