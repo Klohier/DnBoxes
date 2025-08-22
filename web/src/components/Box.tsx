@@ -56,10 +56,8 @@ const Box: React.FC<BoxProps> = ({
     onEdgeClick(gameID, currentUserId, row, col, edge);
   };
 
-  const color =
-    completed_by != null && completed_by in userColors
-      ? userColors[completed_by]
-      : "gray";
+  const color = completed_by ? userColors[completed_by] || "gray" : "gray";
+
   return (
     <g key={box_id}>
       {completed && (

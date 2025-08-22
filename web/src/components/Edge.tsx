@@ -20,7 +20,7 @@ const Edge: React.FC<EdgeProps> = ({
   userColor,
 }) => {
   const [hovered, setHovered] = useState(false);
-  const strokeColor = active || hovered ? userColor : "gray";
+  const strokeColor = active ? "black" : hovered ? userColor : "gray";
   const strokeDasharray = active || hovered ? "0" : "4,4";
   const cursorStyle = active ? "default" : "pointer";
   return (
