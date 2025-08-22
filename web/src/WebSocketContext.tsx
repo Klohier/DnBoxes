@@ -30,7 +30,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const { isAuthenticated } = useAuth();
   const subscribers = useRef<Set<(message: Message) => void>>(new Set());
   const [connected, setConnected] = useState(false);
-  const apiUrl = "localhost";
+  const apiUrl = "geronimolab.com";
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
   //TODO: Turn this into a custom hook
