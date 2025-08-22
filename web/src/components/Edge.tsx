@@ -50,7 +50,10 @@ const Edge: React.FC<EdgeProps> = ({
         stroke={strokeColor}
         strokeDasharray={strokeDasharray}
         strokeWidth="5"
-        style={{ pointerEvents: "none" }}
+        style={{
+          pointerEvents: "none",
+          transition: "stroke 0.3s ease, stroke-dasharray 0.3s ease",
+        }}
       />
     </>
   );
