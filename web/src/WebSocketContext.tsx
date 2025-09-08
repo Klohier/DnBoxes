@@ -30,7 +30,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const { isAuthenticated } = useAuth();
   const subscribers = useRef<Set<(message: Message) => void>>(new Set());
   const [connected, setConnected] = useState(false);
-  const apiUrl = "geronimolab.com";
+
+  const apiUrl: string = import.meta.env.VITE_API_URL as string;
+  if (!apiUrl) {
+    throw new Error("VITE_API_URL is not defined in environment variables");
+  }
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
   //TODO: Turn this into a custom hook

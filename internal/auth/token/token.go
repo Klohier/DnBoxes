@@ -2,12 +2,15 @@ package token
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var key = []byte("asecretkeyisherefortestinghahaha")
+
+
+var key = []byte(os.Getenv("TOKEN_KEY"))
 
 func GenerateToken(userID int) (string, error) {
 	claims := jwt.MapClaims{
