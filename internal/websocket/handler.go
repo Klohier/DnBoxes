@@ -43,15 +43,15 @@ type Manager struct {
 
 func NewManager(UserService *user.UserService, SessionService *session.SessionService, RedisClient *redis.Client, deps *HandlerDeps) *Manager {
 	m := &Manager{
-		connections:   make(ConnectionList),
-		rooms:         make(map[int]ConnectionList),
-		handlers:      make(map[string]EventHandler),
-		userService:   UserService,
+		connections:    make(ConnectionList),
+		rooms:          make(map[int]ConnectionList),
+		handlers:       make(map[string]EventHandler),
+		userService:    UserService,
 		sessionService: SessionService,
-		redisClient:   RedisClient,
-		deps:          deps,
-		subscriptions: make(map[string]map[*Connection]bool),
-		cancelFuncs:   make(map[string]context.CancelFunc),
+		redisClient:    RedisClient,
+		deps:           deps,
+		subscriptions:  make(map[string]map[*Connection]bool),
+		cancelFuncs:    make(map[string]context.CancelFunc),
 	}
 	m.setupEventHandlers(deps)
 	return m
@@ -105,7 +105,7 @@ func (m *Manager) ServeWs(c echo.Context) error {
 		slog.Error("WebSocket upgrade failed", slog.Any("error", err))
 		return err
 	}
-	
+
 	//grabs user data from session
 	cookie, err := c.Cookie("DnB-Session")
 	if err != nil {
@@ -118,18 +118,18 @@ func (m *Manager) ServeWs(c echo.Context) error {
 		slog.Error("Error decoding the cookie:", "error", err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
 	}
-	
+
 	//grabs full user data from database
 	user, err := m.userService.FindByID(c.Request().Context(), userID)
 	if err != nil {
 		slog.Error("Error querying database for user: " + err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching user info")
 	}
-	
+
 	// creates new connection with user info
 	connection := NewConnection(ws, m, userID, user.Username)
 	slog.Info("WebSocket connection established for UserID:", "userID", userID)
-	
+
 	// FIXED: Handle existing connections properly BEFORE adding new one
 	m.addConnection(connection)
 	slog.Info("Connection added to manager")
@@ -186,7 +186,7 @@ func (m *Manager) Unsubscribe(topic string, conn *Connection) {
 	if conns, ok := m.subscriptions[topic]; ok {
 		delete(conns, conn)
 		slog.Info("Connection unsubscribed from topic", "topic", topic, "userID", conn.userID)
-		
+
 		if len(conns) == 0 {
 			delete(m.subscriptions, topic)
 			if cancel, ok := m.cancelFuncs[topic]; ok {
@@ -254,7 +254,7 @@ func (m *Manager) broadcast(topic string, eventType string, data any) {
 		Type:    eventType,
 		Payload: responsePayload,
 	}
-	
+
 	slog.Info("broadcasting message", "topic", topic, "connections", len(conns), "eventType", eventType)
 	for conn := range conns {
 		slog.Info("sending to connection", "userID", conn.userID)
@@ -269,17 +269,17 @@ func (m *Manager) broadcast(topic string, eventType string, data any) {
 // cleanupConnection closes websocket connection and removes from manager
 func (m *Manager) cleanupConnection(connection *Connection) {
 	slog.Info("Cleaning up connection", "userID", connection.userID)
-	
+
 	// Close the websocket first
 	connection.ws.Close()
-	
+
 	// Remove from manager (which handles unsubscriptions)
 	m.removeConnection(connection)
-	
+
 	slog.Info("WebSocket connection closed", "userID", connection.userID)
 }
 
-//addConnection adds user connection to memory
+// addConnection adds user connection to memory
 func (m *Manager) addConnection(connection *Connection) {
 	m.Lock()
 	defer m.Unlock()
@@ -296,13 +296,13 @@ func (m *Manager) addConnection(connection *Connection) {
 	// If there's an existing connection, clean it up first
 	if existingConn != nil {
 		slog.Info("Found existing connection for UserID, cleaning up", "userID", existingConn.userID)
-		
+
 		// Remove from connections map immediately
 		delete(m.connections, existingConn)
-		
+
 		// Unsubscribe from all topics (this is safe to call within the lock)
 		m.unsubscribeAllUnsafe(existingConn)
-		
+
 		// Close the websocket connection in a goroutine to avoid blocking
 		go func() {
 			existingConn.ws.Close()
@@ -317,11 +317,11 @@ func (m *Manager) addConnection(connection *Connection) {
 
 func (m *Manager) removeConnection(connection *Connection) {
 	slog.Info("Removing connection", "userID", connection.userID)
-	
+
 	m.Lock()
 	delete(m.connections, connection)
 	m.Unlock()
-	
+
 	m.UnsubscribeAll(connection)
 }
 
@@ -331,7 +331,7 @@ func (m *Manager) unsubscribeAllUnsafe(c *Connection) {
 		if _, exists := conns[c]; exists {
 			delete(conns, c)
 			slog.Info("Unsubscribed connection from topic", "topic", topic, "userID", c.userID)
-			
+
 			// If no more connections for this topic, cancel Redis subscription
 			if len(conns) == 0 {
 				delete(m.subscriptions, topic)

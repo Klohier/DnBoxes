@@ -44,8 +44,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         socket.current.close();
         socket.current = null;
         setConnected(false);
+        subscribers.current.clear();
       }
-      subscribers.current.clear();
       return;
     }
 
@@ -89,8 +89,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       if (socket.current) {
         socket.current.close();
         socket.current = null;
+        subscribers.current.clear();
       }
-      subscribers.current.clear();
+
       if (reconnectTimeout.current) {
         clearTimeout(reconnectTimeout.current);
         reconnectTimeout.current = null;

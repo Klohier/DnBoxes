@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 )
+
 type Engine struct {
 	Players     []Player
 	BoardSize   int
@@ -244,7 +245,7 @@ func (e *Engine) GenerateBotMove(botId int) *Move {
 		return &safeMoves[rand.Intn(len(safeMoves))]
 	}
 
-	// 3. If nothing else, take a risky move 
+	// 3. If nothing else, take a risky move
 	if len(riskyMoves) > 0 {
 		return &riskyMoves[rand.Intn(len(riskyMoves))]
 	}
@@ -269,9 +270,6 @@ func (e *Engine) countClaimedEdges(box *Box) int {
 	}
 	return count
 }
-
-
-
 
 func (e *Engine) isGameOver() bool {
 	for row := 0; row < e.BoardSize; row++ {

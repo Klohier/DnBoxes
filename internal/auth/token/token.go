@@ -8,8 +8,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-
-
 var key = []byte(os.Getenv("TOKEN_KEY"))
 
 func GenerateToken(userID int) (string, error) {

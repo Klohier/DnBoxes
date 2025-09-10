@@ -15,7 +15,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	// "dango/web"
 	"log"
 	"log/slog"
 	"os"
@@ -47,10 +46,7 @@ func main() {
 
 	db, err := pgxpool.New(context.Background(), connStr)
 
-	slog.Info("Connecting to DB with:", "connection" , connStr)
-
-
-
+	slog.Info("Connecting to DB with:", "connection", connStr)
 
 	if err != nil {
 		log.Fatal((err))
