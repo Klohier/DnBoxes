@@ -118,8 +118,10 @@ func main() {
 
 	chatHandler := chat.NewChatHandler(chatService)
 	gameRepo := game.NewPgGameRepository(db)
-	gameService := game.NewGameService(gameRepo, rdb)
-	gameHandler := game.NewGameHandler(gameService)
+	botService := game.NewBotService()
+	gameService := game.NewGameService(gameRepo, rdb, botService)
+	
+	gameHandler := game.NewGameHandler(gameService, botService)
 	sessionRepo := session.NewPgSessionRepository(db)
 	sessionService := session.NewSessionService(sessionRepo)
 	sessionHandler := session.NewSessionHandler(sessionService)
@@ -130,6 +132,8 @@ func main() {
 	}
 
 	manager := websocket.NewManager(userService, sessionService, rdb, handlerDeps)
+
+	go manager.Run()
 
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")

@@ -7,124 +7,31 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"sync"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type GameService struct {
 	gameRepo    GameRepository
-	mu          sync.RWMutex
-	botGames    map[int]*GameState
+	// mu          sync.RWMutex
+	// botGames    map[int]*GameState
 	redisClient *redis.Client
-	nextID      int
+	botService  *BotService
+	// nextID      int
 }
 
-func NewGameService(gameRepo GameRepository, redisClient *redis.Client) *GameService {
+func NewGameService(gameRepo GameRepository, redisClient *redis.Client, botService *BotService) *GameService {
 	return &GameService{
 		gameRepo:    gameRepo,
-		botGames:    make(map[int]*GameState),
-		nextID:      10000,
+		botService:  botService,
+		// botGames:    make(map[int]*GameState),
+		// nextID:      10000,
 		redisClient: redisClient,
 	}
 }
 
-func (s *GameService) GetBotGameState(gameID int) (*GameState, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	game, ok := s.botGames[gameID]
-	if !ok {
-		fmt.Printf("Bot game %d not found\n", gameID)
-		return nil, fmt.Errorf("bot game %d not found", gameID)
-	}
-	return game, nil
-}
 
-func (s *GameService) CreateBotGameInMemory(ctx context.Context, playerIDs []int, boardSize int, sessionId int) (*GameState, error) {
-	if boardSize <= 4 || boardSize >= 20 {
-		return nil, errors.New("invalid board size: must be >4 and <20")
-	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Create players
-	players := []Player{
-		{
-			UserID:      playerIDs[0],
-			Username:    "Human",
-			TurnOrder:   0,
-			IsSpectator: false,
-			IsConnected: true,
-			Score:       0,
-		},
-		{
-			UserID:      -1,
-			Username:    "Bot",
-			TurnOrder:   1,
-			IsSpectator: false,
-			IsConnected: true,
-			Score:       0,
-		},
-	}
-
-	s.nextID++
-	gameID := s.nextID
-	now := time.Now()
-
-	// Construct Game
-	turnIndex := 0
-	game := &Game{
-		GameId:      &gameID,
-		SessionId:   sessionId,
-		GameName:    nil,
-		Players:     players,
-		BoardSize:   boardSize,
-		WinnerId:    nil,
-		CreatedAt:   now,
-		CurrentTurn: &turnIndex,
-	}
-
-	// Create empty boxes
-	grids := []Box{}
-	boxID := 1
-	for row := 0; row < boardSize; row++ {
-		for col := 0; col < boardSize; col++ {
-			grids = append(grids, Box{
-				BoxId:        boxID,
-				GameId:       gameID,
-				TopEdge:      false,
-				LeftEdge:     false,
-				RightEdge:    false,
-				BottomEdge:   false,
-				Row:          row,
-				Col:          col,
-				Completed:    nil,
-				Completed_by: nil,
-			})
-			boxID++
-		}
-	}
-
-	state := &GameState{
-		Game:  game,
-		Grids: grids,
-	}
-
-	s.botGames[gameID] = state
-
-	slog.Info("Created in-memory bot game",
-		"gameID", gameID,
-		"sessionID", sessionId,
-		"boardSize", boardSize,
-		"players", players,
-		"boxesCount", len(grids),
-		"state", state,
-	)
-
-	return state, nil
-}
 
 func (s *GameService) GetGameState(ctx context.Context, gameId int) (*GameState, error) {
 	game, err := s.gameRepo.FindByID(ctx, gameId)
@@ -175,215 +82,231 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 
 }
 
-func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, row int, col int, edge string) (*GameState, error) {
+// func (s *GameService) MakeMove(ctx context.Context, gameId int, playerId int, row int, col int, edge string) (*GameState, error) {
 
-	var gameState *GameState
-	var err error
-	channel := fmt.Sprintf("game:%d", gameId)
+// 	// var gameState *GameState
+// 	// var err error
+// 	channel := fmt.Sprintf("game:%d", gameId)
 
-	//Checks if edge is a valid option
-	if edge != "top_edge" && edge != "right_edge" && edge != "left_edge" && edge != "bottom_edge" {
-		return nil, errors.New("invalid edge : " + edge)
+// 	//Checks if edge is a valid option
+// 	if err := validateEdge(edge); err != nil {
+//         return nil, err
+//     }
+
+// 	gameState, err := s.GetGameState(ctx, gameId)
+//     if err != nil {
+//         return nil, fmt.Errorf("failed to fetch game state: %w", err)
+//     }
+
+// 	move := Move{
+// 		Row:    row,
+// 		Col:    col,
+// 		Edge:   edge,
+// 		UserID: playerId,
+// 	}
+
+
+
+
+// 	engine := NewEngine(gameState)
+// 	result, err := engine.ApplyMove(move)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Persist the move (scores, grids, turn)
+//     if err := s.persistMove(ctx, gameId, playerId, engine, result); err != nil {
+//         return nil, err
+//     }
+
+//     // Publish updated game state to subscribers
+//     if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
+//         slog.Error("failed to publish message:", "error", err)
+//     }
+
+//     // Return updated game state
+//     updatedGameState, err := s.GetGameState(ctx, gameId)
+//     if err != nil {
+//         return nil, fmt.Errorf("failed to reload game state: %w", err)
+//     }
+
+// 	// For Bot Game
+// 	// if botGame, ok := s.botGames[gameId]; ok {
+// 	// 	botGame.Game.CurrentTurn = &engine.CurrentTurn
+// 	// 	botGame.Game.WinnerId = engine.WinnerID
+// 	// 	botGame.Game.Players = engine.Players
+// 	// 	botGame.Game.BoardSize = engine.BoardSize
+
+// 	// 	for i := range botGame.Game.Players {
+// 	// 		playerID := botGame.Game.Players[i].UserID
+// 	// 		if score, ok := engine.Scores[playerID]; ok {
+// 	// 			botGame.Game.Players[i].Score = score
+// 	// 		} else {
+// 	// 			botGame.Game.Players[i].Score = 0
+// 	// 		}
+// 	// 	}
+
+// 	// 	// Flatten the grid for engine
+// 	// 	botGame.Grids = flattenGrid(engine.Grid)
+// 	// }
+
+// 	// if !s.isBotGame(gameState.Game) {
+// 	// 	if err := s.persistMove(ctx, gameId, playerId, engine, result); err != nil {
+//     //         return nil, err
+//     //     }
+// 	// }
+
+// 	// nextTurn := result.NextTurn
+
+// 	// nextPlayerID := gameState.Game.Players[nextTurn].UserID
+
+// 	// if isBot(nextPlayerID) {
+// 	// 	slog.Info("Triggering bot move")
+
+// 	// 	//TODO: Causes race condition
+// 	// 	// go func() {
+// 	// 	if _, err := s.makeBotMoves(ctx, gameId, nextPlayerID); err != nil {
+// 	// 		slog.Error("Bot move error", "err", err)
+// 	// 	}
+// 	// 	// }()
+// 	// }
+
+// 	// if result.WinnerID != nil {
+// 	// 	if !s.isBotGame(gameState.Game) {
+// 	// 		if err := s.gameRepo.SetWinner(ctx, gameId, result.WinnerID); err != nil {
+// 	// 			slog.Error("failed to persist winner", "error", err)
+// 	// 			return nil, err
+// 	// 		}
+// 	// 	} else {
+// 	// 		slog.Info("Bot game finished", "gameId", gameId, "winnerId", *result.WinnerID)
+// 	// 	}
+// 	// 	if s.isBotGame(gameState.Game) {
+// 	// 		s.mu.Lock()
+// 	// 		delete(s.botGames, gameId)
+// 	// 		s.mu.Unlock()
+// 	// 		slog.Info("Deleted finished bot game from memory", "gameId", gameId)
+// 	// 	}
+
+// 	// }
+
+// 	// // Reload updated game and grids after persistence
+
+// 	// if !s.isBotGame(gameState.Game) {
+// 	// 	updatedGameState, err := s.GetGameState(ctx, gameId)
+// 	// 	if err != nil {
+// 	// 		return nil, errors.New("failed to get grids after move: " + err.Error())
+// 	// 	}
+
+// 	// 	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
+// 	// 		slog.Error("failed to publish message:", "error", err)
+// 	// 	}
+// 	// 	return updatedGameState, nil
+
+// 	// }
+
+// 	// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
+// 	// 	slog.Error("failed to publish message:", "error", err)
+// 	// }
+// 	// return gameState, nil
+//  return updatedGameState, nil
+// }
+
+func (s *GameService) MakeMove(ctx context.Context, gameID int, playerID int, row int, col int, edge string) (*GameState, error) {
+	// Validate edge
+	if err := validateEdge(edge); err != nil {
+		return nil, err
 	}
 
-	move := Move{
-		Row:    row,
-		Col:    col,
-		Edge:   edge,
-		UserID: playerId,
+	// Check if bot game
+	if state, err := s.botService.GetBotGameState(gameID); err == nil {
+		return s.botMakeMove(ctx, state, playerID, row, col, edge)
 	}
 
-	// s.mu.Lock()
-	// defer s.mu.Unlock()
-	s.mu.RLock()
-	inMemGame, exists := s.botGames[gameId]
-	s.mu.RUnlock()
-	if exists {
-		slog.Info("Detected bot game: using in-memory state")
-		gameState = inMemGame
-	} else {
-		// s.mu.RUnlock()
-		gameState, err = s.GetGameState(ctx, gameId)
-		if err != nil {
-			return nil, errors.New("failed to find game: " + err.Error())
-		}
-		// s.mu.Lock()
-	}
+	// Normal DB-backed game
+	return s.dbMakeMove(ctx, gameID, playerID, row, col, edge)
+}
 
-	engine := NewEngine(gameState)
+func (s *GameService) botMakeMove(ctx context.Context, state *GameState, playerID, row, col int, edge string) (*GameState, error) {
+	engine := NewEngine(state)
+
+	// Apply the human move
+	move := Move{Row: row, Col: col, Edge: edge, UserID: playerID}
 	result, err := engine.ApplyMove(move)
 	if err != nil {
 		return nil, err
 	}
 
-	// For Bot Game
-	if botGame, ok := s.botGames[gameId]; ok {
-		botGame.Game.CurrentTurn = &engine.CurrentTurn
-		botGame.Game.WinnerId = engine.WinnerID
-		botGame.Game.Players = engine.Players
-		botGame.Game.BoardSize = engine.BoardSize
+	
 
-		for i := range botGame.Game.Players {
-			playerID := botGame.Game.Players[i].UserID
-			if score, ok := engine.Scores[playerID]; ok {
-				botGame.Game.Players[i].Score = score
-			} else {
-				botGame.Game.Players[i].Score = 0
-			}
-		}
+	// Update bot game state
+	state.Game.CurrentTurn = &result.NextTurn
+	state.Game.WinnerId = result.WinnerID
+	state.Game.Players = engine.Players
+	state.Grids = flattenGrid(engine.Grid)
 
-		// Flatten the grid for engine
-		botGame.Grids = flattenGrid(engine.Grid)
+	// Publish human move
+	channel := fmt.Sprintf("game:%d", *state.Game.GameId)
+	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, state); err != nil {
+		slog.Error("failed to publish human move", "error", err)
 	}
 
-	if !s.isBotGame(gameState.Game) {
-
-		for r := 0; r < engine.BoardSize; r++ {
-			for c := 0; c < engine.BoardSize; c++ {
-				box := engine.Grid[r][c]
-				// Update only edges that are true in this box
-				if box.TopEdge {
-					if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "top_edge"); err != nil {
-						return nil, err
-					}
-				}
-				if box.RightEdge {
-					if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "right_edge"); err != nil {
-						return nil, err
-					}
-				}
-				if box.BottomEdge {
-					if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "bottom_edge"); err != nil {
-						return nil, err
-					}
-				}
-				if box.LeftEdge {
-					if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "left_edge"); err != nil {
-						return nil, err
-					}
-				}
-
-			}
-		}
-
-		for _, box := range result.ClaimedBoxes {
-			if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
-				slog.Error("failed to increment player score", "error", err)
-			}
-
-			if err := s.gameRepo.SetBoxCompleted(ctx, box.GameId, box.Row, box.Col, playerId); err != nil {
-				slog.Error("failed to set box completed", "error", err)
+	// If it's now a bot turn, let the bot play
+	currentPlayer := state.Game.Players[*state.Game.CurrentTurn]
+	if isBot(currentPlayer.UserID) {
+		if err := s.botService.PlayBotTurn(ctx, *state.Game.GameId, currentPlayer.UserID, func(gs *GameState, mv *Move) (*GameState, error) {
+			engine := NewEngine(gs)
+			res, err := engine.ApplyMove(*mv)
+			if err != nil {
 				return nil, err
 			}
-		}
 
-		if err := s.gameRepo.UpdateTurn(ctx, gameId, result.NextTurn); err != nil {
-			return nil, fmt.Errorf("failed to update turn: %w", err)
-		}
+			// Update state
+			gs.Game.CurrentTurn = &res.NextTurn
+			gs.Game.WinnerId = res.WinnerID
+			gs.Game.Players = engine.Players
+			gs.Grids = flattenGrid(engine.Grid)
 
-		gameState.Game.CurrentTurn = &result.NextTurn
-
-	}
-
-	nextTurn := result.NextTurn
-
-	nextPlayerID := gameState.Game.Players[nextTurn].UserID
-
-	if isBot(nextPlayerID) {
-		slog.Info("Triggering bot move")
-
-		//TODO: Causes race condition
-		// go func() {
-		if _, err := s.makeBotMoves(ctx, gameId, nextPlayerID); err != nil {
-			slog.Error("Bot move error", "err", err)
-		}
-		// }()
-	}
-
-	if result.WinnerID != nil {
-		if !s.isBotGame(gameState.Game) {
-			if err := s.gameRepo.SetWinner(ctx, gameId, result.WinnerID); err != nil {
-				slog.Error("failed to persist winner", "error", err)
-				return nil, err
+			// Publish bot move
+			if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gs); err != nil {
+				slog.Error("failed to publish bot move", "error", err)
 			}
-		} else {
-			slog.Info("Bot game finished", "gameId", gameId, "winnerId", *result.WinnerID)
-		}
-		if s.isBotGame(gameState.Game) {
-			s.mu.Lock()
-			delete(s.botGames, gameId)
-			s.mu.Unlock()
-			slog.Info("Deleted finished bot game from memory", "gameId", gameId)
-		}
 
+			return gs, nil
+		}); err != nil {
+			return nil, err
+		}
 	}
 
-	// Reload updated game and grids after persistence
+	return state, nil
+}
 
-	if !s.isBotGame(gameState.Game) {
-		updatedGameState, err := s.GetGameState(ctx, gameId)
-		if err != nil {
-			return nil, errors.New("failed to get grids after move: " + err.Error())
-		}
+// ---------------------- DB Move Logic ----------------------
 
-		if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
-			slog.Error("failed to publish message:", "error", err)
-		}
-		return updatedGameState, nil
+func (s *GameService) dbMakeMove(ctx context.Context, gameID, playerID, row, col int, edge string) (*GameState, error) {
+	channel := fmt.Sprintf("game:%d", gameID)
+	gameState, err := s.GetGameState(ctx, gameID)
+	if err != nil {
+		return nil, err
+	}
 
+	engine := NewEngine(gameState)
+	move := Move{Row: row, Col: col, Edge: edge, UserID: playerID}
+	result, err := engine.ApplyMove(move)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.persistMove(ctx, gameID, playerID, engine, result); err != nil {
+		return nil, err
 	}
 
 	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
-		slog.Error("failed to publish message:", "error", err)
-	}
-	return gameState, nil
-
-}
-
-func (s *GameService) isBotGame(game *Game) bool {
-	for _, playerId := range game.Players {
-		if isBot(playerId.UserID) {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *GameService) makeBotMoves(ctx context.Context, gameId int, botId int) (*GameState, error) {
-	for {
-		gameState, err := s.GetBotGameState(gameId)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get game state for bot: %w", err)
-		}
-
-		engine := NewEngine(gameState)
-		move := engine.GenerateBotMove(botId)
-		if move == nil {
-			slog.Warn("Bot has no valid moves")
-			break
-		}
-
-		slog.Info("Bot is making move", "move", move)
-
-		_, err = s.MakeMove(ctx, gameId, botId, move.Row, move.Col, move.Edge)
-		if err != nil {
-			slog.Error("Bot move failed", "error", err)
-			return nil, err
-		}
-
-		currentPlayer := gameState.Game.Players[*gameState.Game.CurrentTurn]
-		slog.Info("Current Turn", "turn", currentPlayer)
-
-		// time.Sleep(1000 * time.Millisecond)
-
-		// Stop if bot no longer gets a second move (i.e., didn't close a box)
-		if gameState.Game.CurrentTurn == nil || *gameState.Game.CurrentTurn != botId {
-			break
-		}
+		slog.Error("failed to publish move", "error", err)
 	}
 
-	return s.GetBotGameState(gameId)
+	return s.GetGameState(ctx, gameID)
 }
+
 
 // SetWinner sets winner of game duh
 func (s *GameService) SetWinner(ctx context.Context, gameId int, winnerId *int) error {
@@ -408,4 +331,54 @@ func flattenGrid(grid [][]Box) []Box {
 	}
 	return boxes
 
+}
+
+
+func validateEdge(edge string) error {
+    switch edge {
+    case "top_edge", "right_edge", "bottom_edge", "left_edge":
+        return nil
+    default:
+        return fmt.Errorf("invalid edge: %s", edge)
+    }
+}
+
+func (s *GameService) persistMove(ctx context.Context, gameId, playerId int, engine *Engine, result MoveResult) error {
+    for r := 0; r < engine.BoardSize; r++ {
+        for c := 0; c < engine.BoardSize; c++ {
+            box := engine.Grid[r][c]
+            if box.TopEdge {
+                if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "top_edge"); err != nil {
+                    return err
+                }
+            }
+            if box.RightEdge {
+                if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "right_edge"); err != nil {
+                    return err
+                }
+            }
+            if box.BottomEdge {
+                if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "bottom_edge"); err != nil {
+                    return err
+                }
+            }
+            if box.LeftEdge {
+                if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "left_edge"); err != nil {
+                    return err
+                }
+            }
+        }
+    }
+
+    for _, box := range result.ClaimedBoxes {
+        if err := s.gameRepo.IncrementPlayerScore(ctx, gameId, playerId); err != nil {
+            slog.Error("failed to increment player score", "error", err)
+        }
+        if err := s.gameRepo.SetBoxCompleted(ctx, box.GameId, box.Row, box.Col, playerId); err != nil {
+            slog.Error("failed to set box completed", "error", err)
+            return err
+        }
+    }
+
+    return s.gameRepo.UpdateTurn(ctx, gameId, result.NextTurn)
 }

@@ -24,6 +24,9 @@ func MessageHandler(event Event, c *Connection, deps *HandlerDeps) error {
 		slog.Error("failed to save message: ", "error", err.Error())
 	}
 
+	// topic := fmt.Sprintf("chat:%d", Message.SessionID)
+    c.manager.Broadcast(channel, EventMessage, Message)
+
 	return nil
 
 }

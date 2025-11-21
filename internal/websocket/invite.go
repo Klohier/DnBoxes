@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -29,7 +30,7 @@ func InviteHandler(event Event, c *Connection) error {
 	outgoingEvent.Type = EventSendInvite
 
 	// Find the receiver's connection
-	client := findConnectionByUserID(c.manager, inviteEvent.ReceiverID)
+	client := c.manager.GetConnectionByUserID(inviteEvent.ReceiverID)
 	if client == nil {
 		slog.Error("could not find connection for receiver ID", "reciever", inviteEvent.ReceiverID)
 		return nil
@@ -40,8 +41,7 @@ func InviteHandler(event Event, c *Connection) error {
 		"receiver_id", inviteEvent.ReceiverID,
 	)
 
-	client.egress <- outgoingEvent
-
+client.Send(outgoingEvent)
 	return nil
 }
 
@@ -54,7 +54,7 @@ func AcceptInviteHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	}
 
 	// Find the sender's connection
-	inviterConnection := findConnectionByUserID(c.manager, acceptInviteEvent.SenderId)
+	inviterConnection := c.manager.GetConnectionByUserID(acceptInviteEvent.SenderId)
 	if inviterConnection == nil {
 		slog.Error("inviter with userID not found", "error", acceptInviteEvent.SenderId)
 		return nil
@@ -84,6 +84,16 @@ func AcceptInviteHandler(event Event, c *Connection, deps *HandlerDeps) error {
 		slog.Error("failed to create game: ", "error", err)
 	}
 
+	gameTopic := fmt.Sprintf("game:%d", game.SessionId)
+	c.manager.Subscribe(gameTopic, c)
+	c.manager.Subscribe(gameTopic, inviterConnection)
+
+
+	slog.Info("Subscribed players to game topic",
+    "topic", gameTopic,
+    "subscribed_connections", len(c.manager.rooms[gameTopic]),
+)
+
 	// Notify both players of the accepted invite and game creation
 	gameCreatedEvent := Event{
 		Type: EventGameCreated,
@@ -103,8 +113,7 @@ func AcceptInviteHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	gameCreatedEvent.Payload = gameCreatedData
 
 	// Send the event to both the sender and the invitee
-	c.egress <- gameCreatedEvent
-	inviterConnection.egress <- gameCreatedEvent
-
+c.Send(gameCreatedEvent)	
+inviterConnection.Send(gameCreatedEvent)
 	return nil
 }

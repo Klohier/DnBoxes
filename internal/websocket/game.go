@@ -31,12 +31,17 @@ func GameStateHandler(event Event, c *Connection, deps *HandlerDeps) error {
 		slog.Error("failed to marshal game state response:", "error", err)
 	}
 
-	responseEvent := Event{
-		Type:    EventGameState,
-		Payload: responsePayload,
-	}
+	// responseEvent := Event{
+	// 	Type:    EventGameState,
+	// 	Payload: responsePayload,
+	// }
 
-	c.egress <- responseEvent
+	c.Send(Event{
+		Type: EventGameState,
+		Payload: responsePayload,
+	})
+
+	// c.egress <- responseEvent
 
 	if gameState.Game.WinnerId != nil {
 		if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
@@ -69,20 +74,22 @@ func MoveHandler(event Event, c *Connection, deps *HandlerDeps) error {
 	gameState, err := deps.GameService.MakeMove(ctx, payload.GameID, payload.PlayerID, payload.Row, payload.Col, payload.Edge)
 	if err != nil {
 
-		invalidMoveEvent := Event{
-			Type: "invalid_move",
-		}
-
-		c.egress <- invalidMoveEvent
+		c.Send(Event{Type: "invalid_move"})
 
 		slog.Error("failed to make moves for game",
 			"gameID", payload.GameID,
 			"error", err,
 		)
+		return nil
 	}
 
 	topic := fmt.Sprintf("game:%d", payload.GameID)
-	c.manager.broadcast(topic, "game:state", gameState)
+	c.manager.Broadcast(topic, "game:state", gameState)
+
+
+	if gameState.Game.WinnerId != nil {
+		c.manager.Broadcast(topic, "game:winner", gameState)
+	}
 
 	return nil
 }

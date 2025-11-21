@@ -1,13 +1,17 @@
 package websocket
 
 import (
+	"dango/internal/auth/token"
 	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"log/slog"
 
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
 )
 
 var (
@@ -26,7 +30,6 @@ type Connection struct {
 	egress   chan Event
 	userID   int
 	username string
-	// sessionID int
 }
 
 // NewConnection creates a new WebSocket connection.
@@ -37,13 +40,25 @@ func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username st
 		egress:   make(chan Event, 100),
 		userID:   userID,
 		username: username,
-		// sessionID: sessionID,
+	}
+}
+
+func (c *Connection) Send(event Event) {
+	slog.Info("Sending event to WS", "userID", c.userID, "type", event.Type)
+	select {
+	case c.egress <- event:
+		// message enqueued successfully
+	default:
+		// egress channel full, drop the connection
+		slog.Warn("dropping connection: egress channel full", "userID", c.userID)
+		c.manager.unregister <- c
 	}
 }
 
 func (c *Connection) readMessage() {
 	defer func() {
-		c.manager.removeConnection(c)
+		c.manager.unregister <- c
+		c.ws.Close()	
 	}()
 
 	c.ws.SetReadLimit(512)
@@ -85,13 +100,12 @@ func (c *Connection) readMessage() {
 	}
 }
 
-// WriteMessage sends a message to the WebSocket.
-// writeMessages is a process that listens for new messages to output to the Client
+// writeMessage is a process that listens for new messages to output to the Client
 func (c *Connection) writeMessage() {
 	ticker := time.NewTicker(pingInterval)
 	defer func() {
 		ticker.Stop()
-		c.manager.removeConnection(c)
+		c.ws.Close()
 	}()
 
 	for {
@@ -132,4 +146,69 @@ func (c *Connection) pongHandler(pongMsg string) error {
 	// Current time + Pong Wait time
 	slog.Debug("pong")
 	return c.ws.SetReadDeadline(time.Now().Add(pongWait))
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+// ServeWs handles WebSocket connections.
+func (m *Manager) ServeWs(c echo.Context) error {
+	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		slog.Error("WebSocket upgrade failed", slog.Any("error", err))
+		return err
+	}
+
+	//grabs user data from session
+	cookie, err := c.Cookie("DnB-Session")
+	if err != nil {
+		slog.Error("Error getting session from cookie: " + err.Error())
+		return echo.NewHTTPError(http.StatusUnauthorized, "Session not found in cookie")
+	}
+	userID, err := token.VerifyToken(cookie.Value)
+
+	if err != nil {
+		slog.Error("Error decoding the cookie:", "error", err)
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
+	}
+
+	//grabs full user data from database
+	user, err := m.userService.FindByID(c.Request().Context(), userID)
+	if err != nil {
+		slog.Error("Error querying database for user: " + err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching user info")
+	}
+
+	// creates new connection with user info
+	connection := NewConnection(ws, m, userID, user.Username)
+	slog.Info("WebSocket connection established for UserID:", "userID", userID)
+
+	// FIXED: Handle existing connections properly BEFORE adding new one
+	connection.manager.register <- connection
+	slog.Info("Connection added to manager")
+
+	// Subscribe to personal messages
+	m.Subscribe(fmt.Sprintf("user:%d", userID), connection)
+	m.Subscribe("lobby", connection)
+	m.Subscribe("game:10001", connection)
+
+
+	// go routine for read message
+	go func() {
+		slog.Info("Starting readMessage goroutine")
+		// defer m.cleanupConnection(connection)
+		connection.readMessage()
+	}()
+
+	// go routine for write message
+	go func() {
+		slog.Info("Starting writeMessage goroutine")
+		// defer m.cleanupConnection(connection)
+		connection.writeMessage()
+	}()
+
+	return nil
 }

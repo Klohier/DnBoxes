@@ -11,6 +11,7 @@ import (
 
 type GameHandler struct {
 	gameService *GameService
+	botService  *BotService
 	logger      *slog.Logger
 }
 
@@ -22,8 +23,9 @@ type GameRequest struct {
 	GameId int `json:"gameId"`
 }
 
-func NewGameHandler(userService *GameService) *GameHandler {
+func NewGameHandler(userService *GameService, botService *BotService) *GameHandler {
 	return &GameHandler{gameService: userService,
+		botService:  botService,
 		logger: slog.New(slog.NewJSONHandler(os.Stdout, nil))}
 }
 
@@ -62,7 +64,7 @@ func (h *GameHandler) GetGameState(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "error: invalid gameId")
 	}
 
-	gameState, err := h.gameService.GetBotGameState(gameIDInt)
+	gameState, err := h.botService.GetBotGameState(gameIDInt)
 	if err == nil {
 		return c.JSON(http.StatusOK, gameState)
 	}
@@ -118,6 +120,7 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 	var req struct {
 		HumanPlayerID int `json:"human_player_id"`
 		BoardSize     int `json:"board_size"`
+		NumBots       int `json:"num_bots"`
 		SessionID     int `json:"session_id"`
 	}
 
@@ -133,16 +136,19 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 	if req.BoardSize <= 4 || req.BoardSize >= 20 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "board_size must be >4 and <20"})
 	}
+	if req.NumBots <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "num_bots must be greater than 0"})
+	}
 
 	// -1 meaning bot id
 	playerIDs := []int{req.HumanPlayerID, -1}
 
-	game, err := h.gameService.CreateBotGameInMemory(c.Request().Context(), playerIDs, req.BoardSize, req.SessionID)
+	game, err := h.botService.CreateBotGame( playerIDs, req.NumBots, req.BoardSize, req.SessionID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
 	}
 
-	gameState, err := h.gameService.GetBotGameState(*game.Game.GameId)
+	gameState, err := h.botService.GetBotGameState(*game.Game.GameId)
 	if err != nil {
 		slog.Error("Failed to fetch bot game state", "game_id", *game.Game.GameId, "error", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch game state"})

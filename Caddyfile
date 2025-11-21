@@ -1,4 +1,4 @@
-geronimolab.com {
+localhost {
     encode gzip
 
     # Reverse proxy API

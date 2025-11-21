@@ -12,6 +12,11 @@ type HandlerDeps struct {
 	GameService *game.GameService
 }
 
+type BroadcastEvent struct {
+    Topic string
+    Event Event
+}
+
 // Event is the Messages sent over the websocket
 // Used to differ between different actions
 type Event struct {

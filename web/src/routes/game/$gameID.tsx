@@ -148,7 +148,7 @@ function RouteComponent() {
         payload: { topic: `game:${params.gameID}` },
       });
     };
-  }, [send]);
+  }, [send, params.gameID]);
 
   const handleQuitGame = () => {
     if (gameState?.game.session_id && user?.userID) {
