@@ -192,8 +192,8 @@ func (m *Manager) ServeWs(c echo.Context) error {
 
 	// Subscribe to personal messages
 	m.Subscribe(fmt.Sprintf("user:%d", userID), connection)
-	m.Subscribe("lobby", connection)
-	m.Subscribe("game:10001", connection)
+	// m.Subscribe("lobby", connection)
+	// m.Subscribe("game:10001", connection)
 
 
 	// go routine for read message

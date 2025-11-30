@@ -31,17 +31,14 @@ func GameStateHandler(event Event, c *Connection, deps *HandlerDeps) error {
 		slog.Error("failed to marshal game state response:", "error", err)
 	}
 
-	// responseEvent := Event{
-	// 	Type:    EventGameState,
-	// 	Payload: responsePayload,
-	// }
+
 
 	c.Send(Event{
 		Type: EventGameState,
 		Payload: responsePayload,
 	})
 
-	// c.egress <- responseEvent
+
 
 	if gameState.Game.WinnerId != nil {
 		if err := broadcastWinnerEvent(c, gameState, payload.GameID); err != nil {
