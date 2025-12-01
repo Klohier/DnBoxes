@@ -10,7 +10,7 @@ type Lobby struct {
 	IsPrivate   bool `json:"is_private"`
 	CreatedAt   time.Time `json:"created_at"`
 	// SessionID   int64
-	Players     []*LobbyPlayer
+	Players     []LobbyPlayer
 }
 
 type LobbyPlayer struct {
