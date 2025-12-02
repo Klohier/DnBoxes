@@ -1,13 +1,13 @@
 package user
 
 import (
-	"dango/internal/auth/token"
 	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
 
@@ -82,27 +82,34 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 
 func (h *UserHandler) GetMe(c echo.Context) error {
 	ctx := c.Request().Context()
+ // Get the JWT token object injected by echo-jwt middleware
+    userToken, ok := c.Get("user").(*jwt.Token)
+    if !ok {
+        return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
+    }
 
-	cookie, err := c.Cookie("DnB-Session")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Failed to Retrieve Cookie: "+err.Error())
-	}
+    // Extract claims
+    claims, ok := userToken.Claims.(jwt.MapClaims)
+    if !ok || !userToken.Valid {
+        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
+    }
 
-	tokenString := cookie.Value
+    // Get user ID from claims
+    userIDFloat, ok := claims["sub"].(float64)
+    if !ok {
+        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
+    }
+    userID := int(userIDFloat)
 
-	userID, err := token.VerifyToken(tokenString)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "Failed to Verify Token: "+err.Error())
-	}
+    // Fetch the user
+    user, err := h.userService.FindByID(ctx, userID)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusNotFound, "failed to retrieve user: "+err.Error())
+    }
 
-	user, err := h.userService.FindByID(ctx, userID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Failed to Retrieve User: "+err.Error())
-	}
+    userResponse := NewUserResponse(user)
+    return c.JSON(http.StatusOK, userResponse)
 
-	UserResponse := NewUserResponse(user)
-
-	return c.JSON(http.StatusOK, UserResponse)
 
 }
 
@@ -118,6 +125,3 @@ func (h *UserHandler) GetAllUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, UserResponses)
 }
 
-func (h UserHandler) HandleNewUser(c echo.Context) error {
-	return nil
-}

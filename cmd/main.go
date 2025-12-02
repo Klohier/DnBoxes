@@ -19,6 +19,8 @@ import (
 	"log/slog"
 	"os"
 
+	echojwt "github.com/labstack/echo-jwt/v4"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	// "github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -134,10 +136,16 @@ func main() {
 	manager := websocket.NewManager(userService, sessionService, rdb, handlerDeps)
 
 	go manager.Run()
-
+key := []byte(os.Getenv("TOKEN_KEY"))
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")
+	api.Use(echojwt.WithConfig(echojwt.Config{
+    SigningKey: key,
+    TokenLookup: "cookie:DnB-Session",
+}))
 
+
+    public := app.Group("/api/v1")
 	api.GET("/ws", manager.ServeWs)
 	//Users
 	api.GET("/users/:userId", userHandler.FindByID)
@@ -146,7 +154,7 @@ func main() {
 	api.GET("/users", userHandler.GetAllUsers)
 
 	//Auth
-	api.POST("/login", loginHandler.Login)
+	public.POST("/login", loginHandler.Login)
 	api.POST("/logout", loginHandler.Logout)
 
 	//Game

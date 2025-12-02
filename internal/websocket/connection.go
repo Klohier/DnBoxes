@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"dango/internal/auth/token"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +9,7 @@ import (
 
 	"log/slog"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
@@ -162,18 +162,24 @@ func (m *Manager) ServeWs(c echo.Context) error {
 		return err
 	}
 
-	//grabs user data from session
-	cookie, err := c.Cookie("DnB-Session")
-	if err != nil {
-		slog.Error("Error getting session from cookie: " + err.Error())
-		return echo.NewHTTPError(http.StatusUnauthorized, "Session not found in cookie")
-	}
-	userID, err := token.VerifyToken(cookie.Value)
+	// Extract the JWT token from Echo context 
+    userToken, ok := c.Get("user").(*jwt.Token)
+    if !ok {
+        return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
+    }
 
-	if err != nil {
-		slog.Error("Error decoding the cookie:", "error", err)
-		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
-	}
+    // Extract claims
+    claims, ok := userToken.Claims.(jwt.MapClaims)
+    if !ok || !userToken.Valid {
+        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
+    }
+
+    // Get user ID from claims
+    userIDFloat, ok := claims["sub"].(float64)
+    if !ok {
+        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
+    }
+    userID := int(userIDFloat)
 
 	//grabs full user data from database
 	user, err := m.userService.FindByID(c.Request().Context(), userID)
@@ -186,7 +192,7 @@ func (m *Manager) ServeWs(c echo.Context) error {
 	connection := NewConnection(ws, m, userID, user.Username)
 	slog.Info("WebSocket connection established for UserID:", "userID", userID)
 
-	// FIXED: Handle existing connections properly BEFORE adding new one
+	// Handle existing connections before adding new one
 	connection.manager.register <- connection
 	slog.Info("Connection added to manager")
 
@@ -199,14 +205,12 @@ func (m *Manager) ServeWs(c echo.Context) error {
 	// go routine for read message
 	go func() {
 		slog.Info("Starting readMessage goroutine")
-		// defer m.cleanupConnection(connection)
 		connection.readMessage()
 	}()
 
 	// go routine for write message
 	go func() {
 		slog.Info("Starting writeMessage goroutine")
-		// defer m.cleanupConnection(connection)
 		connection.writeMessage()
 	}()
 

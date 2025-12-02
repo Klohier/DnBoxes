@@ -1,16 +1,11 @@
 package auth
 
 import (
-	// "errors"
-	// "dango/internal/auth"
-	// "log"
 	"dango/internal/auth/token"
 	"log/slog"
 	"net/http"
-	"time"
-
-	// "net/http"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -62,7 +57,6 @@ func (h *LoginHandler) Login(c echo.Context) error {
 
 }
 func (h *LoginHandler) Logout(c echo.Context) error {
-	// Clear the HttpOnly cookie by setting MaxAge to -1
 	cookie := new(http.Cookie)
 	cookie.Name = "DnB-Session"
 	cookie.Value = ""
