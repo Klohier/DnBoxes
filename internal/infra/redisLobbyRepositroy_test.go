@@ -12,101 +12,74 @@ import (
 )
 
 func setupRedis() *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   1,
-	})
+return redis.NewClient(&redis.Options{
+Addr: "localhost:6379",
+DB:   1, // use test DB
+})
 }
 
-func TestRedisLobbyRepository_Unit(t *testing.T) {
-	client := setupRedis()
-	repo := infra.NewRedisLobbyRepository(client)
-	ctx := context.Background()
+func TestRedisLobbyRepository_CRUD(t *testing.T) {
+ctx := context.Background()
+client := setupRedis()
+repo := infra.NewRedisLobbyRepository(client)
 
-	// Clean up DB before and after
-	client.FlushDB(ctx)
-	defer client.FlushDB(ctx)
 
-	// --- Create Lobby ---
-	l := lobby.Lobby{
-		LobbyID:     "test123",
-		HostID:      1,
-		Name:        "TestLobby",
-		PlayerLimit: 2,
-		IsPrivate:   false,
-		CreatedAt:   time.Now(),
-	}
+// clean up before and after
+client.FlushDB(ctx)
+defer client.FlushDB(ctx)
 
-	t.Logf("Creating lobby: %+v", l)
-	if err := repo.CreateLobby(ctx, l); err != nil {
-		t.Fatal(err)
-	}
+l := &lobby.Lobby{
+	LobbyID:     "lobby1",
+	HostID:      123,
+	Name:        "Test Lobby",
+	PlayerLimit: 4,
+	IsPrivate:   false,
+	CreatedAt:   time.Now(),
+	Players: []lobby.LobbyPlayer{
+		{UserID: 123, IsReady: false},
+	},
+}
 
-	// --- Get Players (should include host) ---
-	players, err := repo.GetPlayers(ctx, l.LobbyID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Players after creation: %+v", players)
-	if len(players) != 1 || players[0].UserID != 1 {
-		t.Fatalf("expected host in players list, got %v", players)
-	}
+// --- CreateLobby ---
+if err := repo.CreateLobby(ctx, l); err != nil {
+	t.Fatalf("CreateLobby failed: %v", err)
+}
 
-	// --- Add Second Player ---
-	t.Logf("Adding player 2")
-	if err := repo.AddPlayer(ctx, l.LobbyID, 2); err != nil {
-		t.Fatal(err)
-	}
-	players, _ = repo.GetPlayers(ctx, l.LobbyID)
-	t.Logf("Players after adding player 2: %+v", players)
-	if len(players) != 2 {
-		t.Fatalf("expected 2 players, got %d", len(players))
-	}
+// --- GetLobby ---
+got, err := repo.GetLobby(ctx, l.LobbyID)
+if err != nil {
+	t.Fatalf("GetLobby failed: %v", err)
+}
+if got == nil || got.LobbyID != l.LobbyID || got.HostID != l.HostID {
+	t.Fatalf("GetLobby returned wrong data: %+v", got)
+}
 
-	// --- Set Player Ready ---
-	t.Logf("Setting player 2 ready")
-	if err := repo.SetPlayerReady(ctx, l.LobbyID, 2, true); err != nil {
-		t.Fatal(err)
-	}
-	players, _ = repo.GetPlayers(ctx, l.LobbyID)
-	t.Logf("Players after setting ready: %+v", players)
-	foundReady := false
-	for _, p := range players {
-		if p.UserID == 2 && p.IsReady {
-			foundReady = true
-		}
-	}
-	if !foundReady {
-		t.Fatalf("player 2 should be ready")
-	}
+// --- Save (update) ---
+got.Name = "Updated Lobby"
+if err := repo.Save(ctx, got); err != nil {
+	t.Fatalf("Save failed: %v", err)
+}
+updated, _ := repo.GetLobby(ctx, l.LobbyID)
+if updated.Name != "Updated Lobby" {
+	t.Fatalf("Save did not persist changes: %+v", updated)
+}
 
-	// --- Remove Player ---
-	t.Logf("Removing player 2")
-	if err := repo.RemovePlayer(ctx, l.LobbyID, 2); err != nil {
-		t.Fatal(err)
-	}
-	players, _ = repo.GetPlayers(ctx, l.LobbyID)
-	t.Logf("Players after removing player 2: %+v", players)
-	if len(players) != 1 || players[0].UserID != 1 {
-		t.Fatalf("expected only host remaining, got %v", players)
-	}
+// --- GetAllLobbies ---
+all, err := repo.GetAllLobbies(ctx)
+if err != nil {
+	t.Fatalf("GetAllLobbies failed: %v", err)
+}
+if len(all) != 1 || all[0].LobbyID != l.LobbyID {
+	t.Fatalf("GetAllLobbies returned wrong data: %+v", all)
+}
 
-	// --- Remove Host ---
-	t.Logf("Removing host")
-	if err := repo.RemovePlayer(ctx, l.LobbyID, 1); err != nil {
-		t.Fatal(err)
-	}
-	players, _ = repo.GetPlayers(ctx, l.LobbyID)
-	t.Logf("Players after removing host: %+v", players)
-	if len(players) != 0 {
-		t.Fatalf("expected no players remaining, got %d", len(players))
-	}
+// --- DeleteLobby ---
+if err := repo.DeleteLobby(ctx, l.LobbyID); err != nil {
+	t.Fatalf("DeleteLobby failed: %v", err)
+}
+deleted, _ := repo.GetLobby(ctx, l.LobbyID)
+if deleted != nil {
+	t.Fatalf("Lobby should have been deleted, got: %+v", deleted)
+}
 
-	// --- Check Lobby Exists ---
-	lobbyAfterRemoval, _ := repo.GetLobby(ctx, l.LobbyID)
-	t.Logf("Lobby after removing all players: %+v", lobbyAfterRemoval)
-	// Note: The repository does not auto-delete the lobby
-	if lobbyAfterRemoval == nil {
-		t.Logf("Lobby record still exists? nil")
-	}
 }

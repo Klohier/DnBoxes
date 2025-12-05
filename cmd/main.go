@@ -4,6 +4,8 @@ import (
 	"context"
 	"dango/internal/auth"
 	"dango/internal/chat"
+	"dango/internal/infra"
+	"dango/internal/lobby"
 
 	"dango/internal/game"
 	"dango/internal/session"
@@ -68,6 +70,8 @@ func main() {
 		DB:       0,
 	})
 
+	eventBus := infra.NewRedisEventBus(rdb)
+
 	// SETUP for embeded react app into go binary
 
 	// web.RegisterHandlers(app)
@@ -128,14 +132,19 @@ func main() {
 	sessionService := session.NewSessionService(sessionRepo)
 	sessionHandler := session.NewSessionHandler(sessionService)
 
-	handlerDeps := &websocket.HandlerDeps{
-		ChatService: chatService,
-		GameService: gameService,
-	}
+	lobbyRepo :=  infra.NewRedisLobbyRepository(rdb)
+	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
+	lobbyHandler := lobby.NewLobbyHandler(eventBus, lobbyService)
 
-	manager := websocket.NewManager(userService, sessionService, rdb, handlerDeps)
+	// handlerDeps := &websocket.HandlerDeps{
+	// 	ChatService: chatService,
+	// 	GameService: gameService,
+	// }
+
+	manager := websocket.NewManager(eventBus)
 
 	go manager.Run()
+	manager.ListenEventBus("global:lobbies")
 key := []byte(os.Getenv("TOKEN_KEY"))
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")
@@ -152,6 +161,13 @@ key := []byte(os.Getenv("TOKEN_KEY"))
 	api.GET("/users/me", userHandler.GetMe)
 	api.POST("/users", userHandler.CreateUser)
 	api.GET("/users", userHandler.GetAllUsers)
+
+	//Lobby
+	api.GET("/lobbies", lobbyHandler.GetAllLobbies)
+	api.POST("/lobbies", lobbyHandler.CreateLobby)
+	// api.POST("/lobbies/:lobbyId/join", lobbyHandler.JoinLobby)
+	// api.POST("/lobbies/:lobbyId/ready", lobbyHandler.SetPlayerReady)
+	// api.POST("/lobbies/:lobbyId/leave", lobbyHandler.LeaveLobby)
 
 	//Auth
 	public.POST("/login", loginHandler.Login)

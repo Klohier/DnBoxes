@@ -3,7 +3,6 @@ package lobby
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,9 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	ErrLobbyFull = errors.New("lobby is full")
-)
 
 type LobbyService struct {
 	lobbyRepo LobbyRepository
@@ -27,7 +23,7 @@ func NewLobbyService(lobbyRepo LobbyRepository, bus events.EventBus) *LobbyServi
 
 func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name string, limit int, isPrivate bool) (*Lobby, error) {
 	lobbyID := uuid.New().String()
-	lobby := Lobby{
+	lobby := &Lobby{
 		LobbyID:     lobbyID,
 		HostID:      hostID,
 		Name:        name,
@@ -36,105 +32,155 @@ func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name strin
 		CreatedAt:   time.Now(),
 	}
 
+	// Add host as first player
+	   if err := lobby.AddPlayer(hostID); err != nil {
+        return nil, err
+    }
+
 	if err := s.lobbyRepo.CreateLobby(ctx, lobby); err != nil {
 		return nil, err
 	}
 
-	s.publishLobbyEvent(ctx, lobbyID, "lobby_created", nil)
-	
+	// s.publishLobbyEvent(ctx, lobbyID, "lobby_created", nil)
+	s.publishLobbyEvent(ctx, "global:lobbies", "lobby_created", lobby)
+
+
+
 	// Publish host joined event
 
-	s.publishLobbyEvent(ctx, lobbyID, "player_joined", &hostID)
-	return &lobby, nil
+	// s.publishLobbyEvent(ctx, "lobby:"+lobbyID+":events", "player_joined", &hostID)
+	return lobby, nil
 }
 
 func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int64) error {
-	players, err := s.lobbyRepo.GetPlayers(ctx, lobbyID)
-	if err != nil {
-		return err
-	}
+	// players, err := s.lobbyRepo.GetPlayers(ctx, lobbyID)
+	// if err != nil {
+	// 	return err
+	// }
 
 	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
 	if err != nil {
 		return err
 	}
+	if lobby == nil {
+        return ErrLobbyNotFound
+    }
 
-	if len(players) >= lobby.PlayerLimit {
-		return ErrLobbyFull
-	}
+	if err := lobby.AddPlayer(userID); err != nil {
+        return err
+    }
 
-	if err := s.lobbyRepo.AddPlayer(ctx, lobbyID, userID); err != nil {
-		return err
-	}
+	 if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
+        return err
+    }
 
-	s.publishLobbyEvent(ctx, lobbyID, "player_joined", &userID)
+
+	// s.publishLobbyEvent(ctx, "lobby:"+lobbyID+":events", "player_joined", &userID)
 	return nil
 }
 
 func (s *LobbyService) LeaveLobby(ctx context.Context, lobbyID string, userID int64) error {
-	if err := s.lobbyRepo.RemovePlayer(ctx, lobbyID, userID); err != nil {
-		return err
-	}
 
-	players, err := s.lobbyRepo.GetPlayers(ctx, lobbyID)
-	if err != nil {
-		return err
-	}
 
-	if len(players) == 0 {
-		if err := s.lobbyRepo.DeleteLobby(ctx, lobbyID); err != nil {
-			return err
-		}
-		s.publishLobbyEvent(ctx, lobbyID, "lobby_deleted", nil)
-	} else {
-		s.publishLobbyEvent(ctx, lobbyID, "player_left", &userID)
-	}
+	    lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+    if err != nil {
+        return err
+    }
+    if lobby == nil {
+        return ErrLobbyNotFound
+    }
 
-	
-	return nil
+    lobby.RemovePlayer(userID)
+
+    if lobby.IsEmpty() {
+        if err := s.lobbyRepo.DeleteLobby(ctx, lobbyID); err != nil {
+            return err
+        }
+	s.publishLobbyEvent(ctx, "global:lobbies", "lobby_deleted", nil)
+        return nil
+    }
+
+    if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
+        return err
+    }
+
+	// s.publishLobbyEvent(ctx, "lobby:"+lobbyID+":events", "player_left", &userID)
+    return nil
+
 }
 
 func (s *LobbyService) SetPlayerReady(ctx context.Context, lobbyID string, userID int64, ready bool) error {
-	if err := s.lobbyRepo.SetPlayerReady(ctx, lobbyID, userID, ready); err != nil {
-		return err
-	}
 
-	s.publishLobbyEvent(ctx, lobbyID, "player_ready", &userID)
-	return nil
+	 lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+    if err != nil {
+        return err
+    }
+    if lobby == nil {
+        return ErrLobbyNotFound
+    }
+
+    lobby.SetReady(userID, ready)
+
+    if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
+        return err
+    }
+
+	s.publishLobbyEvent(ctx, "lobby:"+lobbyID, "player_ready", &userID)
+    return nil
+
 }
 
 func (s *LobbyService) GetLobbyPlayers(ctx context.Context, lobbyID string) ([]LobbyPlayer, error) {
-	return s.lobbyRepo.GetPlayers(ctx, lobbyID)
+	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+    if err != nil {
+        return nil, err
+    }
+    if lobby == nil {
+        return nil, ErrLobbyNotFound
+    }
+    return lobby.Players, nil
 }
+
+func (s *LobbyService) GetAllLobbies(ctx context.Context) ([]LobbyResponse, error) {
+    lobbies, err := s.lobbyRepo.GetAllLobbies(ctx)
+    if err != nil {
+        return nil, err
+    }
+
+    response := make([]LobbyResponse, len(lobbies))
+    for i, l := range lobbies {
+        response[i] = LobbyResponse{
+            LobbyID:     l.LobbyID,
+            Name:        l.Name,
+            HostID:      int(l.HostID),
+            PlayerLimit: l.PlayerLimit,
+            IsPrivate:   l.IsPrivate,
+            CreatedAt:   l.CreatedAt.Format(time.RFC3339),
+        }
+    }
+
+    return response, nil
+}
+
+
 
 // ---------------------- Event Publishing ----------------------
 
-func (s *LobbyService) publishLobbyEvent(ctx context.Context, lobbyID string, eventType string, userID *int64) {
-	payload := LobbyEventPayload{
-		LobbyID: lobbyID,
-		Event:   eventType,
-		Time:    time.Now().Unix(),
-	}
+func (s *LobbyService) publishLobbyEvent(ctx context.Context, channel string, eventType string, payload any) {
+    data, err := json.Marshal(payload)
+    if err != nil {
+        fmt.Println("failed to marshal event payload:", err)
+        return
+    }
 
-	if userID != nil {
-		payload.UserID = userID
-	}
-	// Marshal payload to JSON
-	data, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Println("failed to marshal event payload:", err)
-		return
-	}
+    e := events.Event{
+        Type:    eventType,
+        Payload: data,
+    }
 
-	// Publish the event
-	e := events.Event{
-		Type:    "lobby_event",
-		Payload: data,
-	}
-
-	if err := s.bus.Publish(ctx, "lobby:"+lobbyID+":events", e); err != nil {
-		fmt.Println("failed to publish event:", err)
-	} else {
-    fmt.Printf("Published event to channel lobby:%s:events: %s\n", lobbyID, string(data))
-}
+    if err := s.bus.Publish(ctx, channel, e); err != nil {
+        fmt.Println("failed to publish event:", err)
+    } else {
+        fmt.Printf("Published event to channel %s: %s\n", channel, string(data))
+    }
 }

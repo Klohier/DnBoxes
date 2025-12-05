@@ -92,18 +92,43 @@ export interface GameMovePayload {
   edge: string;
 }
 
+export interface LobbyCreatedPayload {
+  lobby_id: string;
+  name: string;
+  host_id: number;
+  player_limit: number;
+  is_private: boolean;
+  created_at: string;
+}
+
+export interface LobbyUpdatedPayload {
+  lobby_id: string;
+  name?: string;
+  player_limit?: number;
+  is_private?: boolean;
+}
+
+export interface LobbyDeletedPayload {
+  lobby_id: string;
+}
+
 export type Message =
-  | { type: "game:move"; payload: GameMovePayload }
-  | { type: "chat:new"; payload: ChatMessagePayload }
-  | { type: "game:state"; payload: GameStatePayload }
-  | { type: "winner_set"; payload: WinnerPayload }
-  | { type: "your_turn" }
-  | { type: "invalid_move" }
-  | { type: "game:quit"; payload: GameQuitPayload }
-  | { type: "invite:new"; payload: InvitePayload }
-  | { type: "player:get"; payload?: string | Player[] }
-  | { type: "game:new"; payload: GameStartPayload }
-  | { type: "invite:accept"; payload: AcceptInvitePayload }
-  | { type: "invite:decline"; payload: DeclineInvitePayload }
-  | { type: "page:join"; payload: unknown }
-  | { type: "page:leave"; payload: unknown };
+  | { type: "game:move"; payload: GameMovePayload; topic?: string }
+  | { type: "chat:new"; payload: ChatMessagePayload; topic?: string }
+  | { type: "game:state"; payload: GameStatePayload; topic?: string }
+  | { type: "winner_set"; payload: WinnerPayload; topic?: string }
+  | { type: "your_turn"; topic?: string; payload: unknown }
+  | { type: "invalid_move"; topic?: string; payload: unknown }
+  | { type: "game:quit"; payload: GameQuitPayload; topic?: string }
+  | { type: "invite:new"; payload: InvitePayload; topic?: string }
+  | { type: "player:get"; payload?: string | Player[]; topic?: string }
+  | { type: "game:new"; payload: GameStartPayload; topic?: string }
+  | { type: "invite:accept"; payload: AcceptInvitePayload; topic?: string }
+  | { type: "invite:decline"; payload: DeclineInvitePayload; topic?: string }
+  | { type: "page:join"; payload: unknown; topic?: string }
+  | { type: "page:leave"; payload: unknown; topic?: string }
+
+  // --- NEW LOBBY EVENTS ---
+  | { type: "lobby_created"; payload: LobbyCreatedPayload; topic?: string }
+  | { type: "lobby_updated"; payload: LobbyUpdatedPayload; topic?: string }
+  | { type: "lobby_deleted"; payload: LobbyDeletedPayload; topic?: string };

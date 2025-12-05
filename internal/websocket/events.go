@@ -1,49 +1,40 @@
 package websocket
 
-import (
-	"encoding/json"
-	"log/slog"
-)
-
 // GetPlayersHandler will send a list of all currently connected players
-func PlayerHandler(event Event, c *Connection) error {
-	var topic string
-	if err := json.Unmarshal(event.Payload, &topic); err != nil {
-		slog.Error("invalid topic payload:", "error", err)
-		return err
-	}
+// func PlayerHandler(event Event, c *Connection) error {
+// 	var topic string
+// 	if err := json.Unmarshal(event.Payload, &topic); err != nil {
+// 		slog.Error("invalid topic payload:", "error", err)
+// 		return err
+// 	}
 
-	conns, ok := c.manager.rooms[topic]
-	if !ok {
-		return nil
-	}
+// 	conns, ok := c.manager.rooms[topic]
+// 	if !ok {
+// 		return nil
+// 	}
 
-	var players []Player
-	for conn := range conns {
-		players = append(players, Player{
-			UserID:   conn.userID,
-			Username: conn.username,
-		})
-	}
+// 	var players []Player
+// 	for conn := range conns {
+// 		players = append(players, Player{
+// 			UserID:   conn.userID,
+// 			Username: conn.username,
+// 		})
+// 	}
 
-	c.manager.Broadcast(topic, EventGetPlayers, players)
-	slog.Info("Sending player list:", slog.Any("players", players))
-	return nil
-}
+// 	c.manager.Broadcast(topic, EventGetPlayers, players)
+// 	slog.Info("Sending player list:", slog.Any("players", players))
+// 	return nil
+// }
 
-
-type PageEventPayload struct {
-	Topic string `json:"topic"`
-}
-
-
+// type PageEventPayload struct {
+// 	Topic string `json:"topic"`
+// }
 
 // func HandlePageJoin(event Event, c *Connection) error {
 // 	var payload PageEventPayload
 // 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 // 		return err
 // 	}
-
 
 // 	c.manager.Subscribe(payload.Topic, c)
 

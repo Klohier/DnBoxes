@@ -33,7 +33,7 @@ func (r *RedisEventBus) Publish(ctx context.Context, topic string, event events.
 
 // Subscribe listens to a topic and calls the handler for each incoming message
 func (r *RedisEventBus) Subscribe(ctx context.Context, topic string, handler func(events.Event)) error {
-	pubsub := r.client.PSubscribe(ctx, topic)
+	pubsub := r.client.Subscribe(ctx, topic)
 
 	_, err := pubsub.Receive(ctx)
 	if err != nil {

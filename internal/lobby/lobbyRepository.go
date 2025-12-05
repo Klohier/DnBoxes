@@ -3,12 +3,9 @@ package lobby
 import "context"
 
 type LobbyRepository interface {
-	CreateLobby(ctx context.Context, lobby Lobby) error
+	CreateLobby(ctx context.Context, lobby *Lobby) error
 	DeleteLobby(ctx context.Context, lobbyID string) error
 	GetLobby(ctx context.Context, lobbyID string) (*Lobby, error)
-	GetAllLobbies(ctx context.Context) ([]Lobby, error)
-	AddPlayer(ctx context.Context, lobbyID string, userID int64) error
-	RemovePlayer(ctx context.Context, lobbyID string, userID int64) error
-	GetPlayers(ctx context.Context, lobbyID string) ([]LobbyPlayer, error)
-	SetPlayerReady(ctx context.Context, lobbyID string, userID int64, ready bool) error
+	GetAllLobbies(ctx context.Context) ([]*Lobby, error)
+	Save(ctx context.Context, lobby *Lobby) error
 }

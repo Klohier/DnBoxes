@@ -1,6 +1,8 @@
 package websocket
 
 import (
+	"context"
+	"dango/internal/events"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -27,7 +29,7 @@ type ConnectionList map[*Connection]bool
 type Connection struct {
 	ws       *websocket.Conn
 	manager  *Manager
-	egress   chan Event
+	egress   chan events.Event
 	userID   int
 	username string
 }
@@ -37,13 +39,13 @@ func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username st
 	return &Connection{
 		ws:       ws,
 		manager:  manager,
-		egress:   make(chan Event, 100),
+		egress:   make(chan events.Event, 100),
 		userID:   userID,
 		username: username,
 	}
 }
 
-func (c *Connection) Send(event Event) {
+func (c *Connection) Send(event events.Event) {
 	slog.Info("Sending event to WS", "userID", c.userID, "type", event.Type)
 	select {
 	case c.egress <- event:
@@ -84,7 +86,7 @@ func (c *Connection) readMessage() {
 			break // Break the loop to close conn & Cleanup
 		}
 
-		var request Event
+		var request events.Event
 		if err := json.Unmarshal(payload, &request); err != nil {
 			log.Printf("error marshalling message: %v", err)
 
@@ -93,9 +95,11 @@ func (c *Connection) readMessage() {
 		slog.Info("got message", "message", string(payload))
 		// Route the Event
 
-		if err := c.manager.routeEvent(request, c); err != nil {
-			log.Println("Error handeling Message: ", err)
-		}
+		c.manager.eventBus.Publish(context.Background(), "global:lobbies", request)
+
+		// if err := c.manager.routeEvent(request, c); err != nil {
+		// 	log.Println("Error handeling Message: ", err)
+		// }
 
 	}
 }
@@ -182,14 +186,14 @@ func (m *Manager) ServeWs(c echo.Context) error {
     userID := int(userIDFloat)
 
 	//grabs full user data from database
-	user, err := m.userService.FindByID(c.Request().Context(), userID)
-	if err != nil {
-		slog.Error("Error querying database for user: " + err.Error())
-		return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching user info")
-	}
+	// user, err := m.userService.FindByID(c.Request().Context(), userID)
+	// if err != nil {
+	// 	slog.Error("Error querying database for user: " + err.Error())
+	// 	return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching user info")
+	// }
 
 	// creates new connection with user info
-	connection := NewConnection(ws, m, userID, user.Username)
+	connection := NewConnection(ws, m, userID, "mandy_hardcode")
 	slog.Info("WebSocket connection established for UserID:", "userID", userID)
 
 	// Handle existing connections before adding new one
@@ -198,7 +202,7 @@ func (m *Manager) ServeWs(c echo.Context) error {
 
 	// Subscribe to personal messages
 	m.Subscribe(fmt.Sprintf("user:%d", userID), connection)
-	m.Subscribe("lobby", connection)
+	m.Subscribe("global:lobbies", connection)
 	// m.Subscribe("game:10001", connection)
 
 
