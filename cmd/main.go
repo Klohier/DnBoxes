@@ -72,9 +72,6 @@ func main() {
 
 	eventBus := infra.NewRedisEventBus(rdb)
 
-	// SETUP for embeded react app into go binary
-
-	// web.RegisterHandlers(app)
 
 	// SETUP FOR Logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -136,10 +133,6 @@ func main() {
 	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
 	lobbyHandler := lobby.NewLobbyHandler(eventBus, lobbyService)
 
-	// handlerDeps := &websocket.HandlerDeps{
-	// 	ChatService: chatService,
-	// 	GameService: gameService,
-	// }
 
 	manager := websocket.NewManager(eventBus)
 
