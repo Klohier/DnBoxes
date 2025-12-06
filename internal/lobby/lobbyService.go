@@ -41,22 +41,13 @@ func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name strin
 		return nil, err
 	}
 
-	// s.publishLobbyEvent(ctx, lobbyID, "lobby_created", nil)
 	s.publishLobbyEvent(ctx, "global:lobbies", "lobby_created", lobby)
 
 
-
-	// Publish host joined event
-
-	// s.publishLobbyEvent(ctx, "lobby:"+lobbyID+":events", "player_joined", &hostID)
 	return lobby, nil
 }
 
 func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int64) error {
-	// players, err := s.lobbyRepo.GetPlayers(ctx, lobbyID)
-	// if err != nil {
-	// 	return err
-	// }
 
 	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
 	if err != nil {
@@ -74,8 +65,12 @@ func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int
         return err
     }
 
+// Publish domain events
+	for _, e := range lobby.Events() {
+	s.publishLobbyEvent(ctx, "lobby:"+lobbyID, fmt.Sprintf("%T", e), e)
+	}
+	lobby.ClearEvents()
 
-	// s.publishLobbyEvent(ctx, "lobby:"+lobbyID+":events", "player_joined", &userID)
 	return nil
 }
 
@@ -104,9 +99,13 @@ func (s *LobbyService) LeaveLobby(ctx context.Context, lobbyID string, userID in
         return err
     }
 
-	// s.publishLobbyEvent(ctx, "lobby:"+lobbyID+":events", "player_left", &userID)
-    return nil
 
+	for _, e := range lobby.Events() {
+		s.publishLobbyEvent(ctx, "lobby:"+lobbyID, fmt.Sprintf("%T", e), e)
+	}
+	lobby.ClearEvents() 
+
+	return nil
 }
 
 func (s *LobbyService) SetPlayerReady(ctx context.Context, lobbyID string, userID int64, ready bool) error {
@@ -125,9 +124,12 @@ func (s *LobbyService) SetPlayerReady(ctx context.Context, lobbyID string, userI
         return err
     }
 
-	s.publishLobbyEvent(ctx, "lobby:"+lobbyID, "player_ready", &userID)
-    return nil
+	for _, e := range lobby.Events() {
+		s.publishLobbyEvent(ctx, "lobby:"+lobbyID, fmt.Sprintf("%T", e), e)
+	}
+	lobby.ClearEvents() 
 
+	return nil
 }
 
 func (s *LobbyService) GetLobbyPlayers(ctx context.Context, lobbyID string) ([]LobbyPlayer, error) {
@@ -164,7 +166,6 @@ func (s *LobbyService) GetAllLobbies(ctx context.Context) ([]LobbyResponse, erro
 
 
 
-// ---------------------- Event Publishing ----------------------
 
 func (s *LobbyService) publishLobbyEvent(ctx context.Context, channel string, eventType string, payload any) {
     data, err := json.Marshal(payload)
