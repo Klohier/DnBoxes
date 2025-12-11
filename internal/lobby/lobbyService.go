@@ -3,7 +3,6 @@ package lobby
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"dango/internal/events"
@@ -15,6 +14,17 @@ import (
 type LobbyService struct {
 	lobbyRepo LobbyRepository
 	bus 	  events.EventBus
+}
+
+type PlayerJoinedPayload struct {
+    LobbyID string       `json:"lobby_id"`
+    Player  LobbyPlayer `json:"player"`
+}
+
+type LobbyUpdatedPayload struct {
+	LobbyID string        `json:"lobby_id"`
+	Players []LobbyPlayer `json:"players"`
+	Status  string        `json:"status"` 
 }
 
 func NewLobbyService(lobbyRepo LobbyRepository, bus events.EventBus) *LobbyService {
@@ -30,6 +40,7 @@ func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name strin
 		PlayerLimit: limit,
 		IsPrivate:   isPrivate,
 		CreatedAt:   time.Now(),
+        Players:     []LobbyPlayer{},
 	}
 
 	// Add host as first player
@@ -41,8 +52,14 @@ func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name strin
 		return nil, err
 	}
 
-	s.publishLobbyEvent(ctx, "global:lobbies", "lobby_created", lobby)
 
+payloadBytes, err := json.Marshal(lobby)
+if err != nil {
+    return nil, err
+}
+
+// When websockets  readsd from "global:lobbies", they will get this event from event bus and emit to topic subscribers
+    s.bus.Publish(ctx, "global:lobbies", events.Event{Topic: "global:lobbies", Type: "lobby_created", Payload: payloadBytes})
 
 	return lobby, nil
 }
@@ -65,11 +82,24 @@ func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int
         return err
     }
 
-// Publish domain events
-	for _, e := range lobby.Events() {
-	s.publishLobbyEvent(ctx, "lobby:"+lobbyID, fmt.Sprintf("%T", e), e)
+    payload := LobbyUpdatedPayload{
+		LobbyID: lobby.LobbyID,
+		Players: lobby.Players,
+		Status:  "waiting",
 	}
-	lobby.ClearEvents()
+
+    payloadBytes, err := json.Marshal(payload)
+if err != nil {
+    return err
+}
+
+    s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{Topic:   "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+
+    s.bus.Publish(ctx, "global:lobbies", events.Event{
+    Topic:   "lobby:" + lobbyID,
+    Type:    "lobby_updated",
+    Payload: payloadBytes,
+})
 
 	return nil
 }
@@ -87,11 +117,14 @@ func (s *LobbyService) LeaveLobby(ctx context.Context, lobbyID string, userID in
 
     lobby.RemovePlayer(userID)
 
+    // Maybe should be a domain event
     if lobby.IsEmpty() {
         if err := s.lobbyRepo.DeleteLobby(ctx, lobbyID); err != nil {
             return err
         }
-	s.publishLobbyEvent(ctx, "global:lobbies", "lobby_deleted", nil)
+
+    s.bus.Publish(ctx, "global:lobbies", events.Event{ Topic:   "lobby:" + lobbyID, Type: "lobby_deleted", Payload: nil})
+
         return nil
     }
 
@@ -100,10 +133,24 @@ func (s *LobbyService) LeaveLobby(ctx context.Context, lobbyID string, userID in
     }
 
 
-	for _, e := range lobby.Events() {
-		s.publishLobbyEvent(ctx, "lobby:"+lobbyID, fmt.Sprintf("%T", e), e)
+    payload := LobbyUpdatedPayload{
+		LobbyID: lobby.LobbyID,
+		Players: lobby.Players,
+		Status:  "waiting",
 	}
-	lobby.ClearEvents() 
+
+    payloadBytes, err := json.Marshal(payload)
+if err != nil {
+    return err
+}
+	s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{ Topic:   "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+
+    s.bus.Publish(ctx, "global:lobbies", events.Event{
+    Topic:   "lobby:" + lobbyID,
+    Type:    "lobby_updated",
+    Payload: payloadBytes,
+})
+
 
 	return nil
 }
@@ -124,10 +171,24 @@ func (s *LobbyService) SetPlayerReady(ctx context.Context, lobbyID string, userI
         return err
     }
 
-	for _, e := range lobby.Events() {
-		s.publishLobbyEvent(ctx, "lobby:"+lobbyID, fmt.Sprintf("%T", e), e)
+    payload := LobbyUpdatedPayload{
+		LobbyID: lobby.LobbyID,
+		Players: lobby.Players,
+		Status:  "waiting",
 	}
-	lobby.ClearEvents() 
+
+    payloadBytes, err := json.Marshal(payload)
+if err != nil {
+    return err
+}
+
+    s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{ Topic:   "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+
+    s.bus.Publish(ctx, "global:lobbies", events.Event{
+    Topic:   "lobby:" + lobbyID,
+    Type:    "lobby_updated",
+    Payload: payloadBytes,
+})
 
 	return nil
 }
@@ -143,45 +204,19 @@ func (s *LobbyService) GetLobbyPlayers(ctx context.Context, lobbyID string) ([]L
     return lobby.Players, nil
 }
 
-func (s *LobbyService) GetAllLobbies(ctx context.Context) ([]LobbyResponse, error) {
+func (s *LobbyService) GetAllLobbies(ctx context.Context) ([]*Lobby, error) {
     lobbies, err := s.lobbyRepo.GetAllLobbies(ctx)
     if err != nil {
         return nil, err
     }
 
-    response := make([]LobbyResponse, len(lobbies))
-    for i, l := range lobbies {
-        response[i] = LobbyResponse{
-            LobbyID:     l.LobbyID,
-            Name:        l.Name,
-            HostID:      int(l.HostID),
-            PlayerLimit: l.PlayerLimit,
-            IsPrivate:   l.IsPrivate,
-            CreatedAt:   l.CreatedAt.Format(time.RFC3339),
-        }
-    }
-
-    return response, nil
+    return lobbies, nil
 }
 
-
-
-
-func (s *LobbyService) publishLobbyEvent(ctx context.Context, channel string, eventType string, payload any) {
-    data, err := json.Marshal(payload)
+func (s *LobbyService) GetLobby(ctx context.Context, lobbyID string) (*Lobby, error) {
+    lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)    
     if err != nil {
-        fmt.Println("failed to marshal event payload:", err)
-        return
+        return nil, err
     }
-
-    e := events.Event{
-        Type:    eventType,
-        Payload: data,
-    }
-
-    if err := s.bus.Publish(ctx, channel, e); err != nil {
-        fmt.Println("failed to publish event:", err)
-    } else {
-        fmt.Printf("Published event to channel %s: %s\n", channel, string(data))
-    }
+    return lobby, nil
 }

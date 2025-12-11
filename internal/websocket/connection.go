@@ -29,7 +29,7 @@ type ConnectionList map[*Connection]bool
 type Connection struct {
 	ws       *websocket.Conn
 	manager  *Manager
-	egress   chan events.Event
+	egress   chan BroadcastEvent
 	userID   int
 	username string
 }
@@ -39,13 +39,13 @@ func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username st
 	return &Connection{
 		ws:       ws,
 		manager:  manager,
-		egress:   make(chan events.Event, 100),
+		egress:   make(chan BroadcastEvent, 100),
 		userID:   userID,
 		username: username,
 	}
 }
 
-func (c *Connection) Send(event events.Event) {
+func (c *Connection) Send(event BroadcastEvent) {
 	slog.Info("Sending event to WS", "userID", c.userID, "type", event.Type)
 	select {
 	case c.egress <- event:
@@ -86,20 +86,22 @@ func (c *Connection) readMessage() {
 			break // Break the loop to close conn & Cleanup
 		}
 
-		var request events.Event
-		if err := json.Unmarshal(payload, &request); err != nil {
+		var event events.Event
+		if err := json.Unmarshal(payload, &event); err != nil {
 			log.Printf("error marshalling message: %v", err)
 
 		}
 
 		slog.Info("got message", "message", string(payload))
-		// Route the Event
+		
 
-		c.manager.eventBus.Publish(context.Background(), "global:lobbies", request)
+		topic := event.Topic 
+		if topic == "" {
+			
+			topic = "global:lobbies"
+		}
 
-		// if err := c.manager.routeEvent(request, c); err != nil {
-		// 	log.Println("Error handeling Message: ", err)
-		// }
+		c.manager.eventBus.Publish(context.Background(), topic, event)
 
 	}
 }

@@ -2,7 +2,6 @@ package game
 
 import (
 	"context"
-	"dango/internal/events"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -245,10 +244,10 @@ func (s *GameService) botMakeMove(ctx context.Context, state *GameState, playerI
 	state.Grids = flattenGrid(engine.Grid)
 
 	// Publish human move
-	channel := fmt.Sprintf("game:%d", *state.Game.GameId)
-	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, state); err != nil {
-		slog.Error("failed to publish human move", "error", err)
-	}
+	// channel := fmt.Sprintf("game:%d", *state.Game.GameId)
+	// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, state); err != nil {
+	// 	slog.Error("failed to publish human move", "error", err)
+	// }
 
 	// If it's now a bot turn, let the bot play
 	currentPlayer := state.Game.Players[*state.Game.CurrentTurn]
@@ -267,9 +266,9 @@ func (s *GameService) botMakeMove(ctx context.Context, state *GameState, playerI
 			gs.Grids = flattenGrid(engine.Grid)
 
 			// Publish bot move
-			if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gs); err != nil {
-				slog.Error("failed to publish bot move", "error", err)
-			}
+			// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gs); err != nil {
+			// 	slog.Error("failed to publish bot move", "error", err)
+			// }
 
 			return gs, nil
 		}); err != nil {
@@ -283,7 +282,7 @@ func (s *GameService) botMakeMove(ctx context.Context, state *GameState, playerI
 // ---------------------- DB Move Logic ----------------------
 
 func (s *GameService) dbMakeMove(ctx context.Context, gameID, playerID, row, col int, edge string) (*GameState, error) {
-	channel := fmt.Sprintf("game:%d", gameID)
+	// channel := fmt.Sprintf("game:%d", gameID)
 	gameState, err := s.GetGameState(ctx, gameID)
 	if err != nil {
 		return nil, err
@@ -300,9 +299,9 @@ func (s *GameService) dbMakeMove(ctx context.Context, gameID, playerID, row, col
 		return nil, err
 	}
 
-	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
-		slog.Error("failed to publish move", "error", err)
-	}
+	// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gameState); err != nil {
+	// 	slog.Error("failed to publish move", "error", err)
+	// }
 
 	return s.GetGameState(ctx, gameID)
 }

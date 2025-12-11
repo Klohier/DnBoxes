@@ -2,14 +2,7 @@ package chat
 
 import (
 	"context"
-	"dango/internal/events"
-	"log/slog"
-
-	// "dango/internal/websocket"
-
 	"errors"
-
-	// "log/slog"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -26,17 +19,17 @@ func NewChatService(chatRepo ChatRepository, RedisClient *redis.Client) *ChatSer
 	}
 }
 
-func (s *ChatService) SaveMessage(ctx context.Context, msg events.Message, channel string) error {
-	if err := s.chatRepo.SaveMessage(ctx, msg.UserID, msg.Message, msg.TimeStamp, msg.SessionID); err != nil {
-		slog.Error("failed to send message:", "error", err)
-	}
+// func (s *ChatService) SaveMessage(ctx context.Context, msg events.Message, channel string) error {
+// 	if err := s.chatRepo.SaveMessage(ctx, msg.UserID, msg.Message, msg.TimeStamp, msg.SessionID); err != nil {
+// 		slog.Error("failed to send message:", "error", err)
+// 	}
 
-	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, msg); err != nil {
-		slog.Error("failed to publish message:", "error", err)
-	}
+// 	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, msg); err != nil {
+// 		slog.Error("failed to publish message:", "error", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (s *ChatService) GetAllGameMessage(ctx context.Context, gameId int) ([]Message, error) {
 	msg, err := s.chatRepo.GetGameMessage(ctx, gameId)

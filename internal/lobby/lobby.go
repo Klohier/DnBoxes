@@ -33,7 +33,7 @@ type Lobby struct {
 	PlayerLimit int `json:"player_limit"`
 	IsPrivate   bool `json:"is_private"`
 	CreatedAt   time.Time `json:"created_at"`
-	Players     []LobbyPlayer
+	Players     []LobbyPlayer `json:"players"`
 	events []DomainEvent
 }
 
@@ -55,7 +55,7 @@ func (l *Lobby) AddPlayer(userID int64) error {
         return ErrLobbyFull
     }
     l.Players = append(l.Players, LobbyPlayer{UserID: userID, IsReady: false})
-	l.events = append(l.events, PlayerJoinedEvent{UserID: userID}) // emit event
+	l.events = append(l.events, PlayerJoinedEvent{LobbyID: l.LobbyID , UserID: userID}) // emit event
 
     return nil
 }

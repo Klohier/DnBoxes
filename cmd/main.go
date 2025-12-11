@@ -70,6 +70,12 @@ func main() {
 		DB:       0,
 	})
 
+	if err := rdb.FlushDB(context.Background()).Err(); err != nil {
+    slog.Error("Failed to flush Redis DB", "error", err)
+} else {
+    slog.Info("Redis database flushed successfully")
+}
+
 	eventBus := infra.NewRedisEventBus(rdb)
 
 
@@ -131,13 +137,11 @@ func main() {
 
 	lobbyRepo :=  infra.NewRedisLobbyRepository(rdb)
 	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
-	lobbyHandler := lobby.NewLobbyHandler(eventBus, lobbyService)
-
+	
 
 	manager := websocket.NewManager(eventBus)
-
+lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 	go manager.Run()
-	manager.ListenEventBus("global:lobbies")
 key := []byte(os.Getenv("TOKEN_KEY"))
 	// Group Routes Behind a common prefix   (Possibly want to create another group that has middleware to check for authentication before accessing route?)
 	api := app.Group("/api/v1")
@@ -158,7 +162,9 @@ key := []byte(os.Getenv("TOKEN_KEY"))
 	//Lobby
 	api.GET("/lobbies", lobbyHandler.GetAllLobbies)
 	api.POST("/lobbies", lobbyHandler.CreateLobby)
-	// api.POST("/lobbies/:lobbyId/join", lobbyHandler.JoinLobby)
+	api.POST("/lobbies/:lobbyId/join", lobbyHandler.JoinLobby)
+	api.GET("/lobbies/:lobbyId", lobbyHandler.GetLobby)
+
 	// api.POST("/lobbies/:lobbyId/ready", lobbyHandler.SetPlayerReady)
 	// api.POST("/lobbies/:lobbyId/leave", lobbyHandler.LeaveLobby)
 
