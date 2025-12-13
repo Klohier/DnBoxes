@@ -48,10 +48,11 @@ func (repo *PgGameRepository) FindAll(ctx context.Context) ([]Game, error) {
 
 func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, error) {
 	var game Game
-	query := `SELECT game_id, name, board_size, winner_id, current_turn, created_at, session_id
+	// Removed session_id from SELECT and Scan
+	query := `SELECT game_id, name, board_size, winner_id, current_turn, created_at
 			  FROM games
 			  WHERE game_id = $1`
-	err := repo.db.QueryRow(ctx, query, gameID).Scan(&game.GameId, &game.GameName, &game.BoardSize, &game.WinnerId, &game.CurrentTurn, &game.CreatedAt, &game.SessionId)
+	err := repo.db.QueryRow(ctx, query, gameID).Scan(&game.GameId, &game.GameName, &game.BoardSize, &game.WinnerId, &game.CurrentTurn, &game.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find game %d : %w", gameID, err)
 	}
@@ -103,7 +104,8 @@ func (repo *PgGameRepository) GetPlayersForGame(ctx context.Context, gameId int)
 	return players, nil
 }
 
-func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, boardSize int, sessionID int) (*Game, error) {
+// Updated signature - removed sessionID parameter
+func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, boardSize int) (*Game, error) {
 	// Start a new transaction
 	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -119,10 +121,11 @@ func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, board
 
 	var game Game
 
-	query := `INSERT INTO games (board_size, session_id) 
-			   VALUES ($1, $2) 
-			   RETURNING game_id, board_size, session_id`
-	err = tx.QueryRow(ctx, query, boardSize, sessionID).Scan(&game.GameId, &game.BoardSize, &game.SessionId)
+	// Removed session_id from INSERT and RETURNING
+	query := `INSERT INTO games (board_size) 
+			   VALUES ($1) 
+			   RETURNING game_id, board_size`
+	err = tx.QueryRow(ctx, query, boardSize).Scan(&game.GameId, &game.BoardSize)
 	if err != nil {
 		return nil, errors.New("Failed to create game: " + err.Error())
 	}

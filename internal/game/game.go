@@ -13,12 +13,13 @@ type Player struct {
 
 type Game struct {
 	GameId      *int      `json:"game_id"`
-	SessionId   int       `json:"session_id"`
 	GameName    *string   `json:"game_name"`
-	Players     []Player  `json:"players"`
-	BoardSize   int       `json:"board_size"`
-	WinnerId    *int      `json:"winner"`
 	CreatedAt   time.Time `json:"created_at"`
+	BoardSize   int       `json:"board_size"`
+
+
+	Players     []Player  `json:"players"`
+	WinnerId    *int      `json:"winner"`
 	CurrentTurn *int      `json:"current_turn"`
 }
 

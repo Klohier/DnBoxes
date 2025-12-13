@@ -32,7 +32,7 @@ func TestLobbyServiceWithRedisEventBus(t *testing.T) {
 	service := lobby.NewLobbyService(repo, eventBus)
 
 	// --- Create lobby ---
-	lobbyObj, err := service.CreateLobby(ctx, 1, "TestLobby", 2, false)
+	lobbyObj, err := service.CreateLobby(ctx, 1, "Bob", "TestLobby", 2, false, 5, )
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ if err != nil {
 }
 
 	// --- Join player 2 ---
-	if err := service.JoinLobby(ctx, lobbyObj.LobbyID, 2); err != nil {
+	if err := service.JoinLobby(ctx, lobbyObj.LobbyID, 2, "mandy"); err != nil {
 		t.Fatal(err)
 	}
 

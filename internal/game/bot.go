@@ -22,7 +22,7 @@ func NewBotService() *BotService {
 }
 
 // CreateBotGame creates a new in-memory bot game
-func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int, sessionID int) (*GameState, error) {
+func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int) (*GameState, error) {
 	if boardSize <= 4 || boardSize >= 20 {
 		return nil, fmt.Errorf("invalid board size: must be >4 and <20")
 	}
@@ -66,7 +66,7 @@ func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int, 
 
 	game := &Game{
 		GameId:      &gameID,
-		SessionId:   sessionID,
+		// SessionId:   sessionID,
 		Players:     players,
 		BoardSize:   boardSize,
 		WinnerId:    nil,

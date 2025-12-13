@@ -7,14 +7,12 @@ import Grid from "../../components/Grid";
 import { useWebSocket } from "@/WebSocketContext";
 import {
   Dialog,
-  // DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { GamePlayer, GameStatePayload, Message } from "@/types/websocket";
-import PlayerLobby from "@/components/PlayerLobby";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
@@ -51,16 +49,16 @@ function RouteComponent() {
   const { queryClient } = Route.useRouteContext();
   const { user } = useAuth();
 
-  const { data: gameState } = useQuery({
+  const { data: gameState, refetch } = useQuery({
     ...gameDetailQuery(params.gameID),
     initialData: initialGameState,
   });
+
   console.log("gameState", gameState);
   const navigate = useNavigate();
-  // const [winnerUsername, setWinnerUsername] = useState<string | null>(null);
   const { send, subscribe, connected } = useWebSocket();
   const [userColors, setUserColors] = useState<Record<string, string>>({});
-  // const [winnerId, setWinnerId] = useState<number | null>(null);
+  const [isProcessingMove, setIsProcessingMove] = useState(false);
 
   const winnerPlayer = gameState?.game.players.find(
     (p) => p.user_id === gameState.game.winner
@@ -85,133 +83,189 @@ function RouteComponent() {
     setUserColors(colorMap);
   }, [gameState]);
 
+  // Ensure game state is fetched when WebSocket connects (for refresh scenarios)
   useEffect(() => {
-    if (!connected) return;
-    const colors: string[] = [
-      "red",
-      "blue",
-      "green",
-      "purple",
-      "orange",
-      "pink",
-    ];
+    if (connected && params.gameID) {
+      console.log(
+        "WebSocket connected, refetching game state to subscribe to room"
+      );
+      refetch();
+    }
+  }, [connected, params.gameID, refetch]);
+
+  // WebSocket listener for real-time updates
+  useEffect(() => {
+    console.log("WebSocket connection status:", {
+      connected,
+      gameID: params.gameID,
+      hasGameState: !!gameState,
+    });
+
+    if (!params.gameID) {
+      console.warn("No gameID available");
+      return;
+    }
+
+    if (!connected) {
+      console.warn("WebSocket not connected yet, waiting...");
+      return;
+    }
+
+    console.log("Setting up WebSocket listener for game:", params.gameID);
 
     const unsubscribe = subscribe((message: Message) => {
-      if (message.type === "game:state") {
+      console.log("WebSocket message received:", message);
+
+      // Listen for game state updates from EventBus
+      if (
+        message.topic === `game:${params.gameID}` &&
+        message.type === "game:state"
+      ) {
+        console.log("Game state updated via WebSocket:", message.payload);
+
+        // Update the game state in React Query cache
         queryClient.setQueryData(["game", params.gameID], message.payload);
-        if (gameState?.game.players) {
-          const colorMap: Record<GamePlayer["user_id"], string> = {};
-          gameState.game.players.forEach((player, index) => {
-            colorMap[player.user_id] = colors[index % colors.length];
-          });
-          setUserColors(colorMap);
-        }
-      }
 
-      if (message.type === "winner_set") {
-        // const winnerId = message.payload.winnerId;
-        const winnerUsername = message.payload.winnerUsername;
-        // setWinnerId(winnerId);
-        // setWinnerUsername(winnerUsername);
-        toast.success(`Player ${winnerUsername} has won the game!`);
-      }
-
-      if (message.type === "your_turn") {
-        toast.info("It's your turn!", {
-          description: "Make your move now.",
-        });
-      }
-
-      if (message.type === "invalid_move") {
-        toast.error("Invalid Move: Not your turn or already selected.");
-      }
-
-      if (message.type === "game:quit") {
-        console.log("A user quit the game");
+        toast.success("Game updated!");
+        return;
       }
     });
 
     return () => {
+      console.log("Cleaning up WebSocket listener for game:", params.gameID);
       unsubscribe();
     };
-  }, [subscribe, gameState, connected]);
+  }, [subscribe, params.gameID, connected, queryClient, gameState]);
 
-  useEffect(() => {
-    send({
-      type: "page:join",
-      payload: { topic: `game:${params.gameID}` },
-    });
-
-    return () => {
-      send({
-        type: "page:leave",
-        payload: { topic: `game:${params.gameID}` },
-      });
-    };
-  }, [send, params.gameID]);
-
+  //TODO: Change to a HTTP request
   const handleQuitGame = () => {
-    if (gameState?.game.session_id && user?.userID) {
+    if (gameState?.game.game_id && user?.userID) {
       send({
         type: "game:quit",
         payload: {
           gameId: gameState.game.game_id,
           playerId: user.userID,
-          session_id: gameState.game.session_id,
+          // session_id: gameState.game.session_id,
         },
       });
     }
-    // navigate("/home");
+    navigate({ to: "/" });
   };
 
-  const handleClick = (
+  const handleClick = async (
     gameId: number,
     playerId: number,
     row: number,
     col: number,
     edge: string
   ) => {
-    const payload = {
-      gameId,
-      playerId,
-      row,
-      col,
-      edge,
-    };
+    if (isProcessingMove) {
+      console.log("Move already in progress, ignoring click");
+      return;
+    }
 
-    console.log(payload);
+    setIsProcessingMove(true);
 
-    send({
-      type: "game:move",
-      payload,
-    });
+    try {
+      console.log("Making move:", { gameId, playerId, row, col, edge });
+
+      const response = await fetch(`/api/v1/games/${gameId}/move`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId: playerId,
+          row: row,
+          col: col,
+          edge: edge,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to make move");
+      }
+
+      const result = await response.json();
+      console.log("Move successful:", result);
+
+      // Optimistically update local state
+      if (result.gameState) {
+        queryClient.setQueryData(["game", params.gameID], result.gameState);
+      }
+
+      // The backend will broadcast the update via WebSocket to all other players
+      // We'll receive it via the WebSocket listener
+    } catch (error) {
+      console.error("Failed to make move:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to make move"
+      );
+    } finally {
+      setIsProcessingMove(false);
+    }
   };
 
   if (!gameState || !user) {
-    return <div>Loading game...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-lg">Loading game...</p>
+          {!connected && (
+            <p className="text-sm text-gray-500 mt-2">
+              Connecting to server...
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   const currentTurn = gameState.game.current_turn;
-  const currentPlayer = gameState.game.players.find(
+  const currentTurnPlayer = gameState.game.players.find(
     (p) => p.turn_order === currentTurn
-  )?.username;
+  );
+
+  // Determine if it's the current user's turn
+  const isMyTurn = currentTurnPlayer?.user_id === user.userID;
+
+  // Display text based on whose turn it is
+  const turnDisplayText = isMyTurn
+    ? "Your Turn"
+    : `${currentTurnPlayer?.username || `Player ${currentTurn}`}'s Turn`;
 
   return (
     <div className="flex flex-col md:flex-row h-screen p-4 gap-4">
       <Toaster position="top-right" richColors />
 
+      {/* Connection status indicator */}
+      {!connected && (
+        <div className="fixed top-4 right-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded">
+          Reconnecting...
+        </div>
+      )}
+
       {/* Grid section */}
       <div className="w-full md:w-2/3 flex flex-col items-center">
         <div className="flex justify-between items-center w-full max-w-[700px] px-4 mb-2">
-          <p className="text-lg font-medium">
-            Current Turn: {currentPlayer ?? `Player ${currentTurn.toString()}`}
+          <p
+            className={`text-lg font-medium ${
+              isMyTurn ? "text-green-600 font-bold" : ""
+            }`}
+          >
+            Current Turn: {turnDisplayText}
           </p>
           <div className="mt-2">
             <h3 className="font-semibold mb-1">Scores:</h3>
             <ul className="text-sm space-y-1">
               {gameState.game.players.map((player) => (
-                <li key={player.user_id}>
-                  {player.username}: {player.score}
+                <li
+                  key={player.user_id}
+                  className={player.user_id === user.userID ? "font-bold" : ""}
+                >
+                  {player.user_id === user.userID ? "You" : player.username}:{" "}
+                  {player.score}
                 </li>
               ))}
             </ul>
@@ -234,15 +288,14 @@ function RouteComponent() {
 
       {/* Right side: PlayerLobby + Chatbox in column */}
       <div className="w-full md:w-1/3 flex flex-col gap-4">
-        <div className="flex-1 overflow-y-auto">
-          <PlayerLobby />
-        </div>
+        <div className="flex-1 overflow-y-auto">{/* <PlayerLobby /> */}</div>
         <div className="h-150">
-          {gameState.game.session_id && (
-            <Chatbox sessionID={gameState.game.session_id} />
+          {gameState.game.game_id && (
+            <Chatbox sessionID={gameState.game.game_id} />
           )}
         </div>
       </div>
+
       <Dialog open={!!gameState.game.winner}>
         <DialogContent>
           <DialogHeader>
@@ -268,8 +321,6 @@ function RouteComponent() {
           <DialogFooter>
             <Button
               onClick={() => {
-                // setWinnerId(null);
-                // setWinnerUsername(null);
                 void navigate({ to: "/" });
               }}
             >

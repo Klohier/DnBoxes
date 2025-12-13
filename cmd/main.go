@@ -128,9 +128,9 @@ func main() {
 	chatHandler := chat.NewChatHandler(chatService)
 	gameRepo := game.NewPgGameRepository(db)
 	botService := game.NewBotService()
-	gameService := game.NewGameService(gameRepo, rdb, botService)
+	gameService := game.NewGameService(gameRepo, eventBus, botService)
 	
-	gameHandler := game.NewGameHandler(gameService, botService)
+	
 	sessionRepo := session.NewPgSessionRepository(db)
 	sessionService := session.NewSessionService(sessionRepo)
 	sessionHandler := session.NewSessionHandler(sessionService)
@@ -140,6 +140,7 @@ func main() {
 	
 
 	manager := websocket.NewManager(eventBus)
+	gameHandler := game.NewGameHandler(gameService, botService, manager)
 lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 	go manager.Run()
 key := []byte(os.Getenv("TOKEN_KEY"))
@@ -156,7 +157,7 @@ key := []byte(os.Getenv("TOKEN_KEY"))
 	//Users
 	api.GET("/users/:userId", userHandler.FindByID)
 	api.GET("/users/me", userHandler.GetMe)
-	api.POST("/users", userHandler.CreateUser)
+	public.POST("/users", userHandler.CreateUser)
 	api.GET("/users", userHandler.GetAllUsers)
 
 	//Lobby
@@ -165,7 +166,7 @@ key := []byte(os.Getenv("TOKEN_KEY"))
 	api.POST("/lobbies/:lobbyId/join", lobbyHandler.JoinLobby)
 	api.GET("/lobbies/:lobbyId", lobbyHandler.GetLobby)
 
-	// api.POST("/lobbies/:lobbyId/ready", lobbyHandler.SetPlayerReady)
+	api.POST("/lobbies/:lobbyId/ready", lobbyHandler.ToggleReady)
 	// api.POST("/lobbies/:lobbyId/leave", lobbyHandler.LeaveLobby)
 
 	//Auth

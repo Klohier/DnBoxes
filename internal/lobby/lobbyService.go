@@ -31,12 +31,13 @@ func NewLobbyService(lobbyRepo LobbyRepository, bus events.EventBus) *LobbyServi
 	return &LobbyService{lobbyRepo: lobbyRepo, bus: bus}
 }
 
-func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name string, limit int, isPrivate bool) (*Lobby, error) {
+func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, username string, name string, limit int, isPrivate bool, boardSize int) (*Lobby, error) {
 	lobbyID := uuid.New().String()
 	lobby := &Lobby{
 		LobbyID:     lobbyID,
 		HostID:      hostID,
 		Name:        name,
+        BoardSize:   boardSize,
 		PlayerLimit: limit,
 		IsPrivate:   isPrivate,
 		CreatedAt:   time.Now(),
@@ -44,7 +45,7 @@ func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, name strin
 	}
 
 	// Add host as first player
-	   if err := lobby.AddPlayer(hostID); err != nil {
+	   if err := lobby.AddPlayer(hostID, username); err != nil {
         return nil, err
     }
 
@@ -64,7 +65,7 @@ if err != nil {
 	return lobby, nil
 }
 
-func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int64) error {
+func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int64, username string) error {
 
 	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
 	if err != nil {
@@ -74,7 +75,7 @@ func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int
         return ErrLobbyNotFound
     }
 
-	if err := lobby.AddPlayer(userID); err != nil {
+	if err := lobby.AddPlayer(userID, username); err != nil {
         return err
     }
 

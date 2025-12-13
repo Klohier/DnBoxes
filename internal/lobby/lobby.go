@@ -29,6 +29,7 @@ type PlayerReadyEvent struct {
 type Lobby struct {
 	LobbyID     string `json:"lobby_id"`
 	HostID      int64 `json:"host_id"`
+    BoardSize   int `json:"board_size"`
 	Name        string `json:"name"`
 	PlayerLimit int `json:"player_limit"`
 	IsPrivate   bool `json:"is_private"`
@@ -40,6 +41,7 @@ type Lobby struct {
 type LobbyPlayer struct {
 	IsReady bool `json:"is_ready"`
 	UserID  int64 `json:"userID"`
+    Username string `json:"username"`
 }
 
 func (l *Lobby) Events() []DomainEvent {
@@ -50,11 +52,11 @@ func (l *Lobby) ClearEvents() {
 	l.events = nil
 }
 
-func (l *Lobby) AddPlayer(userID int64) error {
+func (l *Lobby) AddPlayer(userID int64, username string) error {
     if len(l.Players) >= l.PlayerLimit {
         return ErrLobbyFull
     }
-    l.Players = append(l.Players, LobbyPlayer{UserID: userID, IsReady: false})
+    l.Players = append(l.Players, LobbyPlayer{UserID: userID, IsReady: false, Username: username})
 	l.events = append(l.events, PlayerJoinedEvent{LobbyID: l.LobbyID , UserID: userID}) // emit event
 
     return nil

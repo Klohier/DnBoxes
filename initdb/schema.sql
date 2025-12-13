@@ -8,9 +8,14 @@ CREATE TABLE IF NOT EXISTS public.chats
     message_id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
     user_id bigint NOT NULL,
     message text COLLATE pg_catalog."default",
-    sent_at timestamp with time zone,
-    session_id bigint,
-    CONSTRAINT chats_pkey PRIMARY KEY (message_id)
+    sent_at timestamp with time zone DEFAULT now(),
+    game_id bigint,
+    lobby_id character varying COLLATE pg_catalog."default",
+    CONSTRAINT chats_pkey PRIMARY KEY (message_id),
+    CONSTRAINT chats_check_one_parent CHECK (
+        (game_id IS NOT NULL AND lobby_id IS NULL) OR 
+        (game_id IS NULL AND lobby_id IS NOT NULL)
+    )
 );
 
 CREATE TABLE IF NOT EXISTS public.game_details
@@ -31,7 +36,6 @@ CREATE TABLE IF NOT EXISTS public.games
     current_turn bigint,
     name character varying COLLATE pg_catalog."default",
     created_at timestamp with time zone DEFAULT now(),
-    session_id bigint,
     ended_at timestamp with time zone,
     CONSTRAINT games_pkey PRIMARY KEY (game_id)
 );
@@ -51,45 +55,7 @@ CREATE TABLE IF NOT EXISTS public.grids
     CONSTRAINT grids_pkey PRIMARY KEY (box_id)
 );
 
-CREATE TABLE IF NOT EXISTS public.lobbies
-(
-    lobby_id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
-    host_user_id integer,
-    player_limit integer DEFAULT 2,
-    is_private boolean DEFAULT false,
-    name character varying COLLATE pg_catalog."default",
-    created_at timestamp with time zone DEFAULT now(),
-    session_id bigint,
-    CONSTRAINT lobbies_pkey PRIMARY KEY (lobby_id),
-    CONSTRAINT lobbies_host_user_id_key UNIQUE (host_user_id)
-);
 
-CREATE TABLE IF NOT EXISTS public.lobby_details
-(
-    lobby_id bigint NOT NULL,
-    is_ready boolean DEFAULT false,
-    user_id bigint NOT NULL,
-    CONSTRAINT lobby_details_pkey PRIMARY KEY (lobby_id)
-);
-
-CREATE TABLE IF NOT EXISTS public.session_users
-(
-    session_id bigint NOT NULL,
-    user_id bigint NOT NULL,
-    connection_status character varying COLLATE pg_catalog."default" NOT NULL,
-    joined_at timestamp with time zone,
-    CONSTRAINT session_users_pkey PRIMARY KEY (session_id, user_id),
-    CONSTRAINT session_users_user_id_key UNIQUE (user_id)
-);
-
-CREATE TABLE IF NOT EXISTS public.sessions
-(
-    session_id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
-    status character varying COLLATE pg_catalog."default",
-    created_at timestamp with time zone,
-    session_type character varying COLLATE pg_catalog."default",
-    CONSTRAINT sessions_pkey PRIMARY KEY (session_id)
-);
 
 CREATE TABLE IF NOT EXISTS public.users
 (
@@ -102,19 +68,21 @@ CREATE TABLE IF NOT EXISTS public.users
 );
 
 ALTER TABLE IF EXISTS public.chats
-    ADD CONSTRAINT chats_session_id_fkey FOREIGN KEY (session_id)
-    REFERENCES public.sessions (session_id) MATCH SIMPLE
+
+    ADD CONSTRAINT chats_game_id_fkey FOREIGN KEY (game_id)
+    REFERENCES public.games (game_id) MATCH SIMPLE
     ON UPDATE NO ACTION
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     NOT VALID;
 
 
 ALTER TABLE IF EXISTS public.chats
-    ADD CONSTRAINT user_id FOREIGN KEY (user_id)
+    ADD CONSTRAINT chats_user_id_fkey FOREIGN KEY (user_id)
     REFERENCES public.users (user_id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION
     NOT VALID;
+
 
 
 ALTER TABLE IF EXISTS public.game_details
@@ -134,19 +102,14 @@ ALTER TABLE IF EXISTS public.game_details
 
 
 ALTER TABLE IF EXISTS public.games
-    ADD CONSTRAINT games_session_id_fkey FOREIGN KEY (session_id)
-    REFERENCES public.sessions (session_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
 
-
-ALTER TABLE IF EXISTS public.games
-    ADD CONSTRAINT "user" FOREIGN KEY (winner_id)
+    ADD CONSTRAINT games_winner_id_fkey FOREIGN KEY (winner_id)
     REFERENCES public.users (user_id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION
     NOT VALID;
+
+
 
 
 ALTER TABLE IF EXISTS public.grids
@@ -165,57 +128,5 @@ ALTER TABLE IF EXISTS public.grids
     NOT VALID;
 
 
-ALTER TABLE IF EXISTS public.lobbies
-    ADD CONSTRAINT lobbies_host_user_id_fkey FOREIGN KEY (host_user_id)
-    REFERENCES public.users (user_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-CREATE INDEX IF NOT EXISTS lobbies_host_user_id_key
-    ON public.lobbies(host_user_id);
-
-
-ALTER TABLE IF EXISTS public.lobbies
-    ADD CONSTRAINT lobbies_session_id_fkey FOREIGN KEY (session_id)
-    REFERENCES public.sessions (session_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-
-
-ALTER TABLE IF EXISTS public.lobby_details
-    ADD CONSTRAINT lobby_details_lobby_id_fkey FOREIGN KEY (lobby_id)
-    REFERENCES public.lobbies (lobby_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-CREATE INDEX IF NOT EXISTS lobby_details_pkey
-    ON public.lobby_details(lobby_id);
-
-
-ALTER TABLE IF EXISTS public.lobby_details
-    ADD CONSTRAINT lobby_details_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES public.users (user_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-
-
-ALTER TABLE IF EXISTS public.session_users
-    ADD CONSTRAINT session_users_session_id_fkey FOREIGN KEY (session_id)
-    REFERENCES public.sessions (session_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-
-
-ALTER TABLE IF EXISTS public.session_users
-    ADD CONSTRAINT session_users_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES public.users (user_id) MATCH SIMPLE
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION
-    NOT VALID;
-CREATE INDEX IF NOT EXISTS session_users_user_id_key
-    ON public.session_users(user_id);
 
 END;

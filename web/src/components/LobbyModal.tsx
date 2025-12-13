@@ -19,6 +19,10 @@ const LobbySchema = z.object({
     .number()
     .min(2, "Minimum 2 players")
     .max(10, "Maximum 10 players"),
+  board_size: z
+    .number()
+    .min(4, "Minimum board size is 5")
+    .max(16, "Maximum board size is 10"),
   is_private: z.boolean(),
 });
 
@@ -36,6 +40,7 @@ export function LobbyModal({ open, onClose, onSubmit }: LobbyModalProps) {
     defaultValues: {
       name: "",
       player_limit: 4,
+      board_size: 5,
       is_private: false,
     },
   });
@@ -74,6 +79,20 @@ export function LobbyModal({ open, onClose, onSubmit }: LobbyModalProps) {
             {form.formState.errors.player_limit && (
               <p className="text-red-500 text-sm">
                 {form.formState.errors.player_limit.message}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="board_size">Board Size</Label>
+            <Input
+              id="board_size"
+              type="number"
+              {...form.register("board_size", { valueAsNumber: true })}
+            />
+            {form.formState.errors.board_size && (
+              <p className="text-red-500 text-sm">
+                {form.formState.errors.board_size.message}
               </p>
             )}
           </div>

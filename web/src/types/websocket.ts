@@ -12,9 +12,13 @@ export interface Player {
   status: string;
 }
 
+export interface LobbyPlayer extends Player {
+  is_ready: boolean;
+}
+
 export interface Game {
   game_id: number;
-  session_id: number;
+  // session_id: number;
   game_name?: string;
   players: GamePlayer[];
   board_size: number;
@@ -81,7 +85,7 @@ export interface ChatMessagePayload {
 export interface GameQuitPayload {
   gameId: number;
   playerId: number;
-  session_id: number;
+  // session_id: number;
 }
 
 export interface GameMovePayload {
@@ -94,15 +98,22 @@ export interface GameMovePayload {
 
 export interface LobbyCreatedPayload {
   lobby_id: string;
+  board_size: number;
   name: string;
   host_id: number;
   player_limit: number;
   is_private: boolean;
   created_at: string;
+  players: LobbyPlayer[];
 }
 
 export interface LobbyUpdatedPayload {
   lobby_id: string;
+  players?: LobbyPlayer[];
+  status?: string;
+  board_size?: number;
+  host_id?: number;
+  created_at?: string;
   name?: string;
   player_limit?: number;
   is_private?: boolean;
