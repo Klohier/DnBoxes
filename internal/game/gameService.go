@@ -88,69 +88,69 @@ func (s *GameService) MakeMove(ctx context.Context, gameID int, playerID int, ro
 	}
 
 	// Check if bot game
-	if state, err := s.botService.GetBotGameState(gameID); err == nil {
-		return s.botMakeMove(ctx, state, playerID, row, col, edge)
-	}
+	// if state, err := s.botService.GetBotGameState(gameID); err == nil {
+	// 	return s.botMakeMove(ctx, state, playerID, row, col, edge)
+	// }
 
 	// Normal DB-backed game
 	return s.dbMakeMove(ctx, gameID, playerID, row, col, edge)
 }
 
-func (s *GameService) botMakeMove(ctx context.Context, state *GameState, playerID, row, col int, edge string) (*GameState, error) {
-	engine := NewEngine(state)
+// func (s *GameService) botMakeMove(ctx context.Context, state *GameState, playerID, row, col int, edge string) (*GameState, error) {
+// 	game := NewGame(state)
 
-	// Apply the human move
-	move := Move{Row: row, Col: col, Edge: edge, UserID: playerID}
-	result, err := engine.ApplyMove(move)
-	if err != nil {
-		return nil, err
-	}
+// 	// Apply the human move
+// 	move := Move{Row: row, Col: col, Edge: edge, UserID: playerID}
+// 	result, err := game.ApplyMove(move)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
 	
 
-	// Update bot game state
-	state.Game.CurrentTurn = &result.NextTurn
-	state.Game.WinnerId = result.WinnerID
-	state.Game.Players = engine.Players
-	state.Grids = flattenGrid(engine.Grid)
+// 	// Update bot game state
+// 	state.Game.CurrentTurn = &result.NextTurn
+// 	state.Game.WinnerId = result.WinnerID
+// 	state.Game.Players = game.Players
+// 	state.Grids = flattenGrid(game.Grid)
 
-	// Publish human move
-	// channel := fmt.Sprintf("game:%d", *state.Game.GameId)
-	// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, state); err != nil {
-	// 	slog.Error("failed to publish human move", "error", err)
-	// }
-	s.publishGameUpdate(ctx, *state.Game.GameId, state)
+// 	// Publish human move
+// 	// channel := fmt.Sprintf("game:%d", *state.Game.GameId)
+// 	// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, state); err != nil {
+// 	// 	slog.Error("failed to publish human move", "error", err)
+// 	// }
+// 	s.publishGameUpdate(ctx, *state.Game.GameId, state)
 
-	// If it's now a bot turn, let the bot play
-	currentPlayer := state.Game.Players[*state.Game.CurrentTurn]
-	if isBot(currentPlayer.UserID) {
-		if err := s.botService.PlayBotTurn(ctx, *state.Game.GameId, currentPlayer.UserID, func(gs *GameState, mv *Move) (*GameState, error) {
-			engine := NewEngine(gs)
-			res, err := engine.ApplyMove(*mv)
-			if err != nil {
-				return nil, err
-			}
+// 	// If it's now a bot turn, let the bot play
+// 	currentPlayer := state.Game.Players[*state.Game.CurrentTurn]
+// 	if isBot(currentPlayer.UserID) {
+// 		if err := s.botService.PlayBotTurn(ctx, *state.Game.GameId, currentPlayer.UserID, func(gs *GameState, mv *Move) (*GameState, error) {
+// 			game := NewGame(gs)
+// 			res, err := game.ApplyMove(*mv)
+// 			if err != nil {
+// 				return nil, err
+// 			}
 
-			// Update state
-			gs.Game.CurrentTurn = &res.NextTurn
-			gs.Game.WinnerId = res.WinnerID
-			gs.Game.Players = engine.Players
-			gs.Grids = flattenGrid(engine.Grid)
+// 			// Update state
+// 			gs.Game.CurrentTurn = &res.NextTurn
+// 			gs.Game.WinnerId = res.WinnerID
+// 			gs.Game.Players = game.Players
+// 			gs.Grids = flattenGrid(game.Grid)
 
-			// Publish bot move
-			s.publishGameUpdate(ctx, *gs.Game.GameId, gs)
-			// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gs); err != nil {
-			// 	slog.Error("failed to publish bot move", "error", err)
-			// }
+// 			// Publish bot move
+// 			s.publishGameUpdate(ctx, *gs.Game.GameId, gs)
+// 			// if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, gs); err != nil {
+// 			// 	slog.Error("failed to publish bot move", "error", err)
+// 			// }
 
-			return gs, nil
-		}); err != nil {
-			return nil, err
-		}
-	}
+// 			return gs, nil
+// 		}); err != nil {
+// 			return nil, err
+// 		}
+// 	}
 
-	return state, nil
-}
+// 	return state, nil
+// }
 
 // ---------------------- DB Move Logic ----------------------
 
@@ -161,14 +161,14 @@ func (s *GameService) dbMakeMove(ctx context.Context, gameID, playerID, row, col
 		return nil, err
 	}
 
-	engine := NewEngine(gameState)
+	game := NewGame(gameState)
 	move := Move{Row: row, Col: col, Edge: edge, UserID: playerID}
-	result, err := engine.ApplyMove(move)
+	result, err := game.ApplyMove(move)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.persistMove(ctx, gameID, playerID, engine, result); err != nil {
+	if err := s.persistMove(ctx, gameID, playerID, game, result); err != nil {
 		return nil, err
 	}
 
@@ -237,10 +237,10 @@ func validateEdge(edge string) error {
     }
 }
 
-func (s *GameService) persistMove(ctx context.Context, gameId, playerId int, engine *Engine, result MoveResult) error {
-    for r := 0; r < engine.BoardSize; r++ {
-        for c := 0; c < engine.BoardSize; c++ {
-            box := engine.Grid[r][c]
+func (s *GameService) persistMove(ctx context.Context, gameId, playerId int, game *Game, result MoveResult) error {
+    for r := 0; r < game.BoardSize; r++ {
+        for c := 0; c < game.BoardSize; c++ {
+            box := game.Grid[r][c]
             if box.TopEdge {
                 if _, err := s.gameRepo.UpdateGrid(ctx, gameId, r, c, "top_edge"); err != nil {
                     return err

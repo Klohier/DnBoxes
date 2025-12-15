@@ -152,7 +152,7 @@ func (repo *PgGameRepository) Create(ctx context.Context, playerIds []int, board
 	}
 
 	currentTurn := 0
-	game.CurrentTurn = &currentTurn
+	game.CurrentTurn = currentTurn
 
 	// Create the boxes associated with the game
 	for i := 0; i < boardSize; i++ {

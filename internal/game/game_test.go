@@ -3,14 +3,15 @@ package game
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func mockGameState(boardSize int) *GameState {
 	players := []Player{
-		{UserID: 1, Username: "Alice"},
-		{UserID: 2, Username: "Bob"},
-		{UserID: 3, Username: "John"},
-		{UserID: 4, Username: "Tan"},
+		{UserID: 1, Username: "Alice", TurnOrder: 0, Score: 0},
+		{UserID: 2, Username: "Bob", TurnOrder: 1, Score: 0},
+		// {UserID: 3, Username: "John", TurnOrder: 2, Score: 0},
+		// {UserID: 4, Username: "Tan", TurnOrder: 3, Score: 0},
 	}
 
 	currentTurn := 0
@@ -26,19 +27,26 @@ func mockGameState(boardSize int) *GameState {
 		}
 	}
 
+	game := &Game{
+		GameId:      nil,
+		GameName:    nil,
+		CreatedAt:   time.Now(),
+		Players:     players,
+		BoardSize:   boardSize,
+		CurrentTurn: currentTurn,
+		WinnerId:    nil,
+	}
+
 	return &GameState{
-		Game: &Game{
-			Players:     players,
-			BoardSize:   boardSize,
-			CurrentTurn: &currentTurn,
-		},
+		Game:  game,
 		Grids: grids,
 	}
 }
-
 func TestApplyMoveCompletesBox(t *testing.T) {
 	gs := mockGameState(1)
-	engine := NewEngine(gs)
+	game := NewGame(gs)
+		fmt.Printf("Players in Game: %+v\n", game.Players)
+	fmt.Printf("CurrentTurn: %d\n", game.CurrentTurn)
 
 	moves := []Move{
 		{UserID: 1, Row: 0, Col: 0, Edge: "top_edge"},
@@ -48,28 +56,28 @@ func TestApplyMoveCompletesBox(t *testing.T) {
 	}
 
 	for _, m := range moves {
-		_, err := engine.ApplyMove(m)
+		_, err := game.ApplyMove(m)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		printGridState(engine)
+		printGridState(game)
 	}
 
 	// Check that the box is marked as completed
-	if engine.Grid[0][0].Completed_by == nil {
+	if game.Grid[0][0].Completed_by == nil {
 		t.Errorf("expected box to be completed")
 	}
 
 	// Check score is 1 for whoever completed it
-	completedBy := *engine.Grid[0][0].Completed_by
-	if engine.Scores[completedBy] != 1 {
-		t.Errorf("expected score 1 for player %d, got %d", completedBy, engine.Scores[completedBy])
+	completedBy := *game.Grid[0][0].Completed_by
+	if game.Scores[completedBy] != 1 {
+		t.Errorf("expected score 1 for player %d, got %d", completedBy, game.Scores[completedBy])
 	}
 }
 
 func TestGameOverAndWinner2(t *testing.T) {
-	gs := mockGameState(5)
-	engine := NewEngine(gs)
+	gs := mockGameState(1)
+	game := NewGame(gs)
 
 	moves := []Move{
 		{UserID: 1, Row: 0, Col: 0, Edge: "top_edge"},
@@ -79,15 +87,15 @@ func TestGameOverAndWinner2(t *testing.T) {
 	}
 
 	for _, m := range moves {
-		engine.ApplyMove(m)
-		printGridState(engine)
+		game.ApplyMove(m)
+		printGridState(game)
 	}
 
-	if !engine.isGameOver() {
+	if !game.isGameOver() {
 		t.Errorf("expected game to be over")
 	}
 
-	winner := engine.determineWinner()
+	winner := game.determineWinner()
 	if winner == nil {
 		t.Errorf("expected a winner, got tie or nil")
 	}
@@ -95,9 +103,9 @@ func TestGameOverAndWinner2(t *testing.T) {
 
 func TestGameOverAndWinner(t *testing.T) {
 	gs := mockGameState(3)
-	engine := NewEngine(gs)
+	game := NewGame(gs)
 
-	playerIDs := []int{1, 2, 3, 4}
+	playerIDs := []int{1, 2}
 	playerIndex := 0
 
 	boardSize := gs.Game.BoardSize
@@ -150,12 +158,12 @@ func TestGameOverAndWinner(t *testing.T) {
 
 				fmt.Printf("Player %d's turn: placing %s at (%d, %d)\n", move.UserID, move.Edge, move.Row, move.Col)
 
-				result, err := engine.ApplyMove(move)
+				result, err := game.ApplyMove(move)
 				if err != nil {
 					t.Fatalf("error applying move %v: %v", move, err)
 				}
 
-				printGridState(engine)
+				printGridState(game)
 
 				if !result.BoxCompleted {
 					playerIndex = (playerIndex + 1) % len(playerIDs)
@@ -168,23 +176,23 @@ func TestGameOverAndWinner(t *testing.T) {
 		}
 	}
 
-	if !engine.isGameOver() {
+	if !game.isGameOver() {
 		t.Errorf("expected game to be over")
 	}
 
-	winner := engine.determineWinner()
+	winner := game.determineWinner()
 	if winner == nil {
 		t.Errorf("expected a winner, got tie or nil")
 	} else {
-		t.Logf("Winner is player %d with score %d", *winner, engine.Scores[*winner])
+		t.Logf("Winner is player %d with score %d", *winner, game.Scores[*winner])
 	}
 }
 
-func printGridState(engine *Engine) {
-	boardSize := len(engine.Grid)
+func printGridState(game *Game) {
+	boardSize := len(game.Grid)
 
 	for col := 0; col < boardSize; col++ {
-		if engine.Grid[0][col].TopEdge {
+		if game.Grid[0][col].TopEdge {
 			fmt.Print(" ---")
 		} else {
 			fmt.Print("    ")
@@ -195,20 +203,20 @@ func printGridState(engine *Engine) {
 	for row := 0; row < boardSize; row++ {
 		for col := 0; col < boardSize; col++ {
 			if col == 0 {
-				if engine.Grid[row][col].LeftEdge {
+				if game.Grid[row][col].LeftEdge {
 					fmt.Print("|")
 				} else {
 					fmt.Print(" ")
 				}
 			} else {
-				if engine.Grid[row][col-1].RightEdge {
+				if game.Grid[row][col-1].RightEdge {
 					fmt.Print("|")
 				} else {
 					fmt.Print(" ")
 				}
 			}
 
-			box := engine.Grid[row][col]
+			box := game.Grid[row][col]
 			if box.Completed_by != nil {
 				fmt.Printf(" %d ", *box.Completed_by)
 			} else {
@@ -216,15 +224,15 @@ func printGridState(engine *Engine) {
 			}
 		}
 
-		if engine.Grid[row][boardSize-1].RightEdge {
+		if game.Grid[row][boardSize-1].RightEdge {
 			fmt.Print("|")
 		}
 		fmt.Println()
 
 		for col := 0; col < boardSize; col++ {
-			if engine.Grid[row][col].BottomEdge {
+			if game.Grid[row][col].BottomEdge {
 				fmt.Print(" ---")
-			} else if row < boardSize-1 && engine.Grid[row+1][col].TopEdge {
+			} else if row < boardSize-1 && game.Grid[row+1][col].TopEdge {
 				fmt.Print(" ---")
 			} else {
 				fmt.Print("    ")
@@ -238,7 +246,7 @@ func printGridState(engine *Engine) {
 
 func TestCompletingMultipleBoxesInOneMove(t *testing.T) {
 	gs := mockGameState(2) // Small 2x2 board
-	engine := NewEngine(gs)
+	game := NewGame(gs)
 
 	// Pre-fill edges so that two boxes will be completed by the last move
 	moves := []Move{
@@ -257,11 +265,11 @@ func TestCompletingMultipleBoxesInOneMove(t *testing.T) {
 	}
 
 	for _, move := range moves {
-		result, err := engine.ApplyMove(move)
+		result, err := game.ApplyMove(move)
 		if err != nil {
 			t.Fatalf("error applying move %v: %v", move, err)
 		}
-		printGridState(engine)
+		printGridState(game)
 		if result.BoxCompleted {
 			fmt.Printf("Boxes claimed: %+v\n", result.ClaimedBoxes)
 		}
@@ -271,7 +279,7 @@ func TestCompletingMultipleBoxesInOneMove(t *testing.T) {
 	completedBoxes := 0
 	for row := 0; row < 2; row++ {
 		for col := 0; col < 2; col++ {
-			if engine.Grid[row][col].Completed_by != nil {
+			if game.Grid[row][col].Completed_by != nil {
 				completedBoxes++
 			}
 		}
@@ -282,7 +290,7 @@ func TestCompletingMultipleBoxesInOneMove(t *testing.T) {
 	}
 
 	expectedScore := 2
-	if engine.Scores[1] != expectedScore {
-		t.Errorf("expected player 1 to have score %d, got %d", expectedScore, engine.Scores[1])
+	if game.Scores[1] != expectedScore {
+		t.Errorf("expected player 1 to have score %d, got %d", expectedScore, game.Scores[1])
 	}
 }

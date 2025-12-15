@@ -71,7 +71,7 @@ func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int) 
 		BoardSize:   boardSize,
 		WinnerId:    nil,
 		CreatedAt:   now,
-		CurrentTurn: &turnIndex,
+		CurrentTurn: turnIndex,
 	}
 
 	// Create empty boxes
@@ -114,8 +114,8 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int, botID int, app
 			return err
 		}
 
-		engine := NewEngine(gameState)
-		move := engine.GenerateBotMove(botID)
+		game := NewGame(gameState)
+		move := game.GenerateBotMove(botID)
 		if move == nil {
 			slog.Info("Bot has no valid moves")
 			break
@@ -126,7 +126,7 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int, botID int, app
 			return fmt.Errorf("bot move failed: %w", err)
 		}
 
-		currentPlayer := gameState.Game.Players[*gameState.Game.CurrentTurn]
+		currentPlayer := gameState.Game.Players[gameState.Game.CurrentTurn]
 		if currentPlayer.UserID != botID {
 			break
 		}

@@ -40,7 +40,7 @@ type Lobby struct {
 
 type LobbyPlayer struct {
 	IsReady bool `json:"is_ready"`
-	UserID  int64 `json:"userID"`
+	UserID  int64 `json:"user_id"`
     Username string `json:"username"`
 }
 
