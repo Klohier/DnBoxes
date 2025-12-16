@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"dango/internal/events"
+	"dango/internal/metrics"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,15 +15,17 @@ type GameService struct {
 	gameRepo    GameRepository
 	// mu          sync.RWMutex
 	// botGames    map[int]*GameState
+	metrics     *metrics.Metrics
 	bus        events.EventBus
 	botService  *BotService
 	// nextID      int
 }
 
-func NewGameService(gameRepo GameRepository, bus events.EventBus, botService *BotService) *GameService {
+func NewGameService(gameRepo GameRepository, bus events.EventBus, botService *BotService, metrics *metrics.Metrics) *GameService {
 	return &GameService{
 		gameRepo:    gameRepo,
 		botService:  botService,
+		metrics:     metrics,
 		// botGames:    make(map[int]*GameState),
 		// nextID:      10000,
 		bus:        bus,
@@ -75,6 +78,7 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 		return nil, err
 	}
 
+	s.metrics.IncrementGames()
 	slog.Info("New Game Created")
 
 	return game, nil
@@ -91,6 +95,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameID int, playerID int, ro
 	// if state, err := s.botService.GetBotGameState(gameID); err == nil {
 	// 	return s.botMakeMove(ctx, state, playerID, row, col, edge)
 	// }
+	s.metrics.IncrementMoves()
 
 	// Normal DB-backed game
 	return s.dbMakeMove(ctx, gameID, playerID, row, col, edge)
@@ -208,6 +213,9 @@ func (s *GameService) SetWinner(ctx context.Context, gameId int, winnerId *int) 
 	if err != nil {
 		return fmt.Errorf("failed to set winner for game %d: %v", gameId, err)
 	}
+
+		s.metrics.DecrementGames()
+		slog.Info("Game completed", "gameID", gameId, "winnerID", winnerId)
 	return nil
 
 }

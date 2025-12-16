@@ -3,9 +3,11 @@ package websocket
 import (
 	"context"
 	"dango/internal/events"
+	"dango/internal/metrics"
 	"encoding/json"
 	"errors"
 	"log/slog"
+
 	"sync"
 	// "sync"
 )
@@ -30,16 +32,18 @@ type Manager struct {
 	unregister chan *Connection
 	broadcast   chan BroadcastEvent
 	eventBus  events.EventBus
+	metrics	 *metrics.Metrics
 	subscribe   chan subscribeRequest
 	mu          sync.RWMutex 
 }
 
-func NewManager(eventBus events.EventBus) *Manager {
+func NewManager(eventBus events.EventBus, metrics *metrics.Metrics) *Manager {
 	m := &Manager{
 		connections:    make(ConnectionList),
 		userConns:   make(map[int]*Connection),
 		rooms:          make(map[string]ConnectionList),
 		eventBus:    eventBus,
+		metrics: metrics,
 		register: make(chan *Connection),
 		unregister: make(chan *Connection),
 		broadcast:   make(chan BroadcastEvent, 100),
@@ -55,10 +59,12 @@ func (m *Manager) Run() {
         case conn := <-m.register:
             m.connections[conn] = true
 			m.userConns[conn.userID] = conn
+			m.metrics.IncrementConnections()
 			slog.Info("Connection registered", "userID", conn.userID, "total", len(m.connections))
         case conn := <-m.unregister:
             delete(m.connections, conn)
 			delete(m.userConns, conn.userID)
+			m.metrics.DecrementConnections()
             m.UnsubscribeAll(conn)
 		case req := <-m.subscribe:
 			if m.rooms[req.topic] == nil {
@@ -74,6 +80,7 @@ func (m *Manager) Run() {
 
 
         case msg := <-m.broadcast:
+			m.metrics.IncrementMessages()
 			slog.Info("Broadcasting message", 
 				"topic", msg.Topic, 
 				"type", msg.Type,
@@ -177,4 +184,15 @@ func (m *Manager) SubscribeUser(userID int, topic string) {
 	
 	m.Subscribe(topic, conn)
 	slog.Info("User subscribed to topic", "userID", userID, "topic", topic)
+}
+
+func (m *Manager) GetStats() map[string]int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	return map[string]int{
+		"total_connections": len(m.connections),
+		"total_rooms":       len(m.rooms),
+		"total_users":       len(m.userConns),
+	}
 }
