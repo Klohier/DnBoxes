@@ -70,7 +70,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     },
     onSuccess: async () => {
+      queryClient.setQueryData(["me"], null);
       await queryClient.invalidateQueries({ queryKey: ["me"] });
+      await router.invalidate();
       await router.navigate({ to: "/login" });
     },
   });
@@ -112,9 +114,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await queryClient.invalidateQueries({ queryKey: ["me"] });
 
         console.log("Auto-login successful");
-
-        // Optionally navigate to a specific page after registration
-        // await router.navigate({ to: "/dashboard" }); // or wherever you want
       } catch (error) {
         console.error("Auto-login failed after registration:", error);
 

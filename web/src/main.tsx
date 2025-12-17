@@ -34,6 +34,10 @@ declare module "@tanstack/react-router" {
 function AppRouter() {
   const authentication = useAuth();
 
+  if (authentication.loading && !authentication.user) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <RouterProvider router={router} context={{ authentication, queryClient }} />
   );

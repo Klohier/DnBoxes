@@ -8,9 +8,6 @@ export const Route = createFileRoute("/_authenticated")({
     redirect: z.string().optional().catch(""),
   }),
   beforeLoad: ({ context, location }) => {
-    if (context.authentication.loading) {
-      return <div>Loading...</div>;
-    }
     if (!context.authentication.isAuthenticated) {
       redirect({
         to: "/login",
