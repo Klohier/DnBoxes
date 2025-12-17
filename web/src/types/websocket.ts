@@ -1,7 +1,6 @@
 export interface GamePlayer extends Player {
   turn_order: number;
-  is_spectator?: boolean;
-  is_connected?: boolean;
+
   score: number;
 }
 
@@ -9,6 +8,7 @@ export interface Player {
   user_id: number;
   username: string;
   avatarUrl: string;
+  is_anonymous: boolean;
   status: string;
 }
 
@@ -22,30 +22,29 @@ export interface Game {
   game_name?: string;
   players: GamePlayer[];
   board_size: number;
-  winner?: number;
+  winner_id: number | null;
   created_at: Date;
   current_turn: number;
+  grid: Box[][];
 }
 
 export interface Box {
-  box_id: number;
-  game_id: number;
-  top_edge: boolean;
-  left_edge: boolean;
-  right_edge: boolean;
-  bottom_edge: boolean;
   row: number;
   col: number;
-  completed: boolean | null;
-  completed_by: number | null;
+  top_edge: boolean;
+  right_edge: boolean;
+  bottom_edge: boolean;
+  left_edge: boolean;
+  owner_turn: number | null;
 }
 
-export interface GameStatePayload {
-  // gameID?: number;
-  game: Game;
-  grids: Box[];
-}
+// export interface GameStatePayload {
+//   // gameID?: number;
+//   game: Game;
+//   grids: Box[];
+// }
 
+export type GameStatePayload = Game;
 export interface WinnerPayload {
   winnerId: number;
   winnerUsername: string;

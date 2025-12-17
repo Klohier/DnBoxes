@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -13,134 +12,93 @@ import (
 )
 
 type GameHandler struct {
-	gameService *GameService
+	gameService  *GameService
 	wsSubscriber events.WebSocketSubscriber
-	botService  *BotService
-	logger      *slog.Logger
+	logger       *slog.Logger
 }
 
-type GameResponse struct {
-	UserID int `json:"userID"`
-}
-
-type GameRequest struct {
-	GameId int `json:"gameId"`
-}
-
-func NewGameHandler(userService *GameService, botService *BotService, wsSubscriber events.WebSocketSubscriber) *GameHandler {
-	return &GameHandler{gameService: userService,
-		botService:  botService,
+func NewGameHandler(gameService *GameService, wsSubscriber events.WebSocketSubscriber) *GameHandler {
+	return &GameHandler{
+		gameService:  gameService,
 		wsSubscriber: wsSubscriber,
-		logger: slog.New(slog.NewJSONHandler(os.Stdout, nil))}
+		logger:       slog.Default(),
+	}
 }
 
-// CreateGame
 func (h *GameHandler) CreateGame(c echo.Context) error {
-
 	var req struct {
-		PlayerIds []int `json:"player_ids"`
+		PlayerIDs []int `json:"player_ids"`
 		BoardSize int   `json:"board_size"`
-		// SessionID int   `json:"session_id"`
 	}
+	
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
-
-	if len(req.PlayerIds) < 2 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "At least two players are required to start a game"})
-	}
-
-	game, err := h.gameService.CreateGame(c.Request().Context(), req.PlayerIds, req.BoardSize)
+	
+	game, err := h.gameService.CreateGame(c.Request().Context(), req.PlayerIDs, req.BoardSize)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create game" + err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-	if game.GameId != nil {
-		gameTopic := fmt.Sprintf("game:%d", *game.GameId)
-		for _, playerID := range req.PlayerIds {
-			h.wsSubscriber.SubscribeUser(playerID, gameTopic)
-			slog.Info("Subscribed player to game room", "playerID", playerID, "topic", gameTopic)
+	
+	// Subscribe players to game room
+	if game.GameID != nil {
+		topic := fmt.Sprintf("game:%d", *game.GameID)
+		for _, playerID := range req.PlayerIDs {
+			h.wsSubscriber.SubscribeUser(playerID, topic)
 		}
 	}
-
+	
 	return c.JSON(http.StatusOK, game)
 }
 
 func (h *GameHandler) GetGameState(c echo.Context) error {
-	gameId := c.Param("gameId")
-	if gameId == "" {
-		return c.JSON(http.StatusBadRequest, "error: gameId is required")
-	}
-
-	gameIDInt, err := strconv.Atoi(gameId)
+	gameID, err := strconv.Atoi(c.Param("gameId"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "error: invalid gameId")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
 	}
-
-	// Extract user from JWT and subscribe them to the game room
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-	userIDFloat, ok := claims["sub"].(float64)
-	if ok {
-		userID := int(userIDFloat)
-		gameTopic := fmt.Sprintf("game:%d", gameIDInt)
-		
-		// Subscribe user to game WebSocket room
-		h.wsSubscriber.SubscribeUser(userID, gameTopic)
-		slog.Info("Subscribed user to game room", "userID", userID, "topic", gameTopic)
+	
+	// Subscribe user to game
+	if userToken := c.Get("user"); userToken != nil {
+		if claims := userToken.(*jwt.Token).Claims.(jwt.MapClaims); claims != nil {
+			if userIDFloat, ok := claims["sub"].(float64); ok {
+				userID := int(userIDFloat)
+				topic := fmt.Sprintf("game:%d", gameID)
+				h.wsSubscriber.SubscribeUser(userID, topic)
+			}
+		}
 	}
-
-	// Check for bot game first
-	gameState, err := h.botService.GetBotGameState(gameIDInt)
-	if err == nil {
-		return c.JSON(http.StatusOK, gameState)
-	}
-
-	// Normal DB-backed game
-	gameState, err = h.gameService.GetGameState(c.Request().Context(), gameIDInt)
+	
+	game, err := h.gameService.GetGame(c.Request().Context(), gameID)
 	if err != nil {
-		h.logger.Error("failed to get game state", "error", err)
-		return c.JSON(http.StatusInternalServerError, "error: failed to fetch game state")
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Game not found"})
 	}
-
-	return c.JSON(http.StatusOK, gameState)
+	
+	return c.JSON(http.StatusOK, game)
 }
 
 func (h *GameHandler) MakeMove(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
+	}
+	
 	var req struct {
-		PlayerId int    `json:"playerId"`
+		PlayerID int    `json:"playerId"`
 		Row      int    `json:"row"`
 		Col      int    `json:"col"`
 		Edge     string `json:"edge"`
 	}
-
-	gameIdStr := c.Param("gameId")
-	if gameIdStr == "" {
-		return c.JSON(http.StatusBadRequest, "error: gameId is required")
-	}
-
-	gameId, err := strconv.Atoi(gameIdStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, "error invalid gameId")
-	}
-
+	
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, "error: Invalid request body")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
-
-	type MakeMoveResponse struct {
-		GameState *GameState `json:"gameState"`
-	}
-	// Call the service to make the move
-	gameState, err := h.gameService.MakeMove(c.Request().Context(), gameId, req.PlayerId, req.Row, req.Col, req.Edge)
+	
+	game, err := h.gameService.MakeMove(c.Request().Context(), gameID, req.PlayerID, req.Row, req.Col, req.Edge)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, "error: Failed to make move: "+err.Error())
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-
-	response := MakeMoveResponse{
-		GameState: gameState,
-	}
-
-	return c.JSON(http.StatusOK, response)
+	
+	return c.JSON(http.StatusOK, game)
 }
 
 func (h *GameHandler) CreateBotGame(c echo.Context) error {
@@ -148,7 +106,6 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 		HumanPlayerID int `json:"human_player_id"`
 		BoardSize     int `json:"board_size"`
 		NumBots       int `json:"num_bots"`
-		// SessionID     int `json:"session_id"`
 	}
 
 	if err := c.Bind(&req); err != nil {
@@ -163,23 +120,22 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 	if req.BoardSize <= 4 || req.BoardSize >= 20 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "board_size must be >4 and <20"})
 	}
-	if req.NumBots <= 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "num_bots must be greater than 0"})
+	if req.NumBots <= 0 || req.NumBots > 3 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "num_bots must be 1-3"})
 	}
 
-	// -1 meaning bot id
-	playerIDs := []int{req.HumanPlayerID, -1}
+	playerIDs := []int{req.HumanPlayerID}
 
-	game, err := h.botService.CreateBotGame( playerIDs, req.NumBots, req.BoardSize)
+	game, err := h.gameService.botService.CreateBotGame(playerIDs, req.NumBots, req.BoardSize)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
 	}
 
-	gameState, err := h.botService.GetBotGameState(*game.Game.GameId)
-	if err != nil {
-		slog.Error("Failed to fetch bot game state", "game_id", *game.Game.GameId, "error", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch game state"})
+	if game.GameID != nil {
+		topic := fmt.Sprintf("game:%d", *game.GameID)
+		h.wsSubscriber.SubscribeUser(req.HumanPlayerID, topic)
+		slog.Info("Subscribed player to bot game room", "playerID", req.HumanPlayerID, "topic", topic)
 	}
 
-	return c.JSON(http.StatusOK, gameState)
+	return c.JSON(http.StatusOK, game)
 }

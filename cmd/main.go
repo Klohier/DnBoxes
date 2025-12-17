@@ -204,8 +204,8 @@ func (app *App) setupServices(cfg *Config) error {
 	userService := user.NewUserService(userRepo)
 	loginService := auth.NewLoginService(userRepo)
 	chatService := chat.NewChatService(chatRepo, app.redis)
-	botService := game.NewBotService()
-	gameService := game.NewGameService(gameRepo, eventBus, botService)
+	botService := game.NewBotService(eventBus)
+	gameService := game.NewGameService(gameRepo, eventBus,botService)
 	sessionService := session.NewSessionService(sessionRepo)
 	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
 
@@ -217,7 +217,7 @@ func (app *App) setupServices(cfg *Config) error {
 	
 	// Initialize WebSocket manager
 	manager := websocket.NewManager(eventBus)
-	gameHandler := game.NewGameHandler(gameService, botService, manager)
+	gameHandler := game.NewGameHandler(gameService, manager)
 	lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 	
 	go manager.Run()

@@ -1,64 +1,66 @@
 import { AuthContextType, useAuth } from "@/AuthContext";
 import { Button } from "@/components/ui/button";
-// import { GameStatePayload } from "@/types/websocket";
+import { Game } from "@/types/websocket"; // Changed from GameStatePayload
 import { QueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import {
   createRootRouteWithContext,
   Link,
   Outlet,
-  // useRouteContext,
-  // useRouter,
+  useRouter, // Added missing import
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-// import axios from "axios";
-import { useEffect } from "react";
+import axios from "axios"; // Added missing import
+import { useState, useEffect } from "react"; // Added useState
 
 interface RouterContext {
   authentication: AuthContextType;
   queryClient: QueryClient;
 }
+
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: Root,
 });
 
 function Root() {
-  // const router = useRouter();
+  const router = useRouter();
   const auth = useAuth();
-  // const [loading, setLoading] = useState<boolean>();
+  const [loading, setLoading] = useState<boolean>(false); // Fixed: added initial value
 
-  // async function handleCreateBotGame() {
-  //   if (!auth.isAuthenticated) {
-  //     alert("User not authenticated");
-  //     return;
-  //   }
-  //   setLoading(true);
+  async function handleCreateBotGame() {
+    if (!auth.isAuthenticated) {
+      toast.error("Please login to play");
+      return;
+    }
+    setLoading(true);
 
-  //   try {
-  //     const response = await axios.post<GameStatePayload>(
-  //       `/api/v1/games/create-bot-game`,
-  //       {
-  //         human_player_id: auth.user?.userID,
-  //         board_size: 5,
-  //         num_bots: 1,
-  //         session_id: Date.now() - Math.floor(Math.random() * 100000),
-  //       },
-  //       {
-  //         headers: { "Content-Type": "application/json" },
-  //       }
-  //     );
+    try {
+      const response = await axios.post<Game>( // Changed from GameStatePayload
+        `/api/v1/games/create-bot-game`,
+        {
+          human_player_id: auth.user?.userID,
+          board_size: 5,
+          num_bots: 1,
+          // Removed session_id - no longer needed
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
-  //     const game = response.data;
-  //     await router.navigate({
-  //       to: "/game/$gameID",
-  //       params: { gameID: String(game.game.game_id) },
-  //     });
-  //   } catch (error) {
-  //     alert("Error creating bot game: " + String(error));
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }
+      const game = response.data;
+      toast.success("Bot game created!");
+      await router.navigate({
+        to: "/game/$gameID",
+        params: { gameID: String(game.game_id) }, // Changed from game.game.game_id
+      });
+    } catch (error) {
+      alert("Error creating bot game: " + String(error));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     console.log("Auth Debug:", {
@@ -66,7 +68,7 @@ function Root() {
       isAuthenticated: auth.isAuthenticated,
       user: auth.user,
     });
-  }, [auth.loading]);
+  }, [auth.loading, auth.isAuthenticated, auth.user]); // Added missing dependencies
 
   return (
     <>
@@ -92,12 +94,12 @@ function Root() {
             <Button onClick={auth.logout} variant={"destructive"}>
               Logout
             </Button>
-            {/* <Button
+            <Button
               onClick={() => void handleCreateBotGame()}
               disabled={loading}
             >
               {loading ? "Creating Game..." : "Create Bot Game"}
-            </Button> */}
+            </Button>
           </>
         ) : null}
       </div>

@@ -1,20 +1,18 @@
 import Edge from "./Edge";
 
 interface BoxData {
-  box_id: number;
   row: number;
   col: number;
   top_edge: boolean;
   left_edge: boolean;
   right_edge: boolean;
   bottom_edge: boolean;
-  completed: boolean | null;
-  completed_by: number | null;
+  owner_turn: number | null; // Changed from completed_by
 }
 
 interface BoxProps {
   box: BoxData;
-  userColors: Record<string, string>;
+  userColors: Record<number, string>; // Changed key type from string to number
   onEdgeClick: (
     gameID: number,
     userID: number,
@@ -25,6 +23,7 @@ interface BoxProps {
   currentUserId: number;
   gameID: number;
   boxSize: number;
+  turnToUserIdMap: Record<number, number>; // Added to map turn_order to user_id
 }
 
 const Box: React.FC<BoxProps> = ({
@@ -34,18 +33,10 @@ const Box: React.FC<BoxProps> = ({
   currentUserId,
   gameID,
   boxSize,
+  turnToUserIdMap,
 }) => {
-  const {
-    box_id,
-    row,
-    col,
-    top_edge,
-    left_edge,
-    right_edge,
-    bottom_edge,
-    completed,
-    completed_by,
-  } = box;
+  const { row, col, top_edge, left_edge, right_edge, bottom_edge, owner_turn } =
+    box;
 
   const x = col * boxSize;
   const y = row * boxSize;
@@ -56,11 +47,16 @@ const Box: React.FC<BoxProps> = ({
     onEdgeClick(gameID, currentUserId, row, col, edge);
   };
 
-  const color = completed_by ? userColors[completed_by] || "gray" : "gray";
+  // Check if box is completed
+  const isCompleted = owner_turn !== null;
+
+  // Get user_id from turn_order, then get color
+  const ownerId = owner_turn !== null ? turnToUserIdMap[owner_turn] : null;
+  const color = ownerId ? userColors[ownerId] || "gray" : "gray";
 
   return (
-    <g key={box_id}>
-      {completed && (
+    <g key={`${row}-${col}`}>
+      {isCompleted && (
         <>
           <rect x={x} y={y} width={boxSize} height={boxSize} fill={color} />
 
@@ -72,7 +68,7 @@ const Box: React.FC<BoxProps> = ({
             fontSize="12"
             fill="white"
           >
-            {completed_by}
+            {ownerId}
           </text>
         </>
       )}

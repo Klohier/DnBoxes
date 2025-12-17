@@ -1,8 +1,3 @@
-// import { useEffect, useState } from "react";
-// import { useUser } from "../UserContext";
-// import { useWebSocket } from "../WebSocketContext";
-// import { useNavigate } from "react-router-dom";
-// import { Toaster, toast } from "sonner";
 import Box from "./Box";
 import { Box as BoxType } from "@/types/websocket";
 
@@ -19,6 +14,7 @@ interface GridProps {
     col: number,
     edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge"
   ) => void;
+  turnToUserIdMap: Record<number, number>;
 }
 
 const Grid = ({
@@ -28,6 +24,7 @@ const Grid = ({
   boardSize,
   userID,
   handleClick,
+  turnToUserIdMap,
 }: GridProps) => {
   const boxSize = 70;
   return (
@@ -42,14 +39,14 @@ const Grid = ({
         >
           {boxes.map((box) => (
             <Box
-              key={box.box_id}
+              key={`${box.row}-${box.col}`}
               box={box}
               userColors={userColors}
               onEdgeClick={handleClick}
               currentUserId={userID}
               gameID={gameID}
               boxSize={boxSize}
-              // boardSize={boardSize}
+              turnToUserIdMap={turnToUserIdMap}
             />
           ))}
         </svg>

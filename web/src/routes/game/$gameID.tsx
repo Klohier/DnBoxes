@@ -1,7 +1,7 @@
 import { fetchGame } from "@/api/fetchGame";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Toaster, toast } from "sonner";
 import Grid from "../../components/Grid";
 import { useWebSocket } from "@/WebSocketContext";
@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { GamePlayer, GameStatePayload, Message } from "@/types/websocket";
+import { GamePlayer, Game, Message } from "@/types/websocket";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
@@ -23,7 +23,7 @@ export const gameDetailQuery = (id: string) => ({
 });
 
 interface LoaderData {
-  gameState: GameStatePayload | undefined;
+  gameState: Game | undefined;
 }
 
 export const Route = createFileRoute("/game/$gameID")({
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/game/$gameID")({
     const query = gameDetailQuery(params.gameID);
 
     const gameState =
-      context.queryClient.getQueryData<GameStatePayload>(query.queryKey) ??
+      context.queryClient.getQueryData<Game>(query.queryKey) ??
       (await context.queryClient.fetchQuery(query));
 
     return {
@@ -44,7 +44,6 @@ export const Route = createFileRoute("/game/$gameID")({
 
 function RouteComponent() {
   const params = Route.useParams();
-
   const { gameState: initialGameState } = Route.useLoaderData();
   const { queryClient } = Route.useRouteContext();
   const { user } = useAuth();
@@ -57,16 +56,29 @@ function RouteComponent() {
   console.log("gameState", gameState);
   const navigate = useNavigate();
   const { send, subscribe, connected } = useWebSocket();
-  const [userColors, setUserColors] = useState<Record<string, string>>({});
+  const [userColors, setUserColors] = useState<Record<number, string>>({});
   const [isProcessingMove, setIsProcessingMove] = useState(false);
 
-  const winnerPlayer = gameState?.game.players.find(
-    (p) => p.user_id === gameState.game.winner
+  const winnerPlayer = gameState?.players.find(
+    (p) => p.user_id === gameState.winner_id
   );
+
+  // Create mapping from turn_order to user_id
+  const turnToUserIdMap = useMemo(() => {
+    if (!gameState) return {};
+
+    return gameState.players.reduce(
+      (acc, player) => {
+        acc[player.turn_order] = player.user_id;
+        return acc;
+      },
+      {} as Record<number, number>
+    );
+  }, [gameState]);
 
   useEffect(() => {
     if (!gameState) return;
-    console.log("Setting boxes from gameState:", gameState.grids);
+    console.log("Setting boxes from gameState:", gameState.grid);
 
     const colors: string[] = [
       "red",
@@ -76,14 +88,13 @@ function RouteComponent() {
       "orange",
       "pink",
     ];
-    const colorMap: Record<GamePlayer["user_id"], string> = {};
-    gameState.game.players.forEach((player, index) => {
+    const colorMap: Record<number, string> = {};
+    gameState.players.forEach((player, index) => {
       colorMap[player.user_id] = colors[index % colors.length];
     });
     setUserColors(colorMap);
   }, [gameState]);
 
-  // Ensure game state is fetched when WebSocket connects (for refresh scenarios)
   useEffect(() => {
     if (connected && params.gameID) {
       console.log(
@@ -93,7 +104,6 @@ function RouteComponent() {
     }
   }, [connected, params.gameID, refetch]);
 
-  // WebSocket listener for real-time updates
   useEffect(() => {
     console.log("WebSocket connection status:", {
       connected,
@@ -116,7 +126,6 @@ function RouteComponent() {
     const unsubscribe = subscribe((message: Message) => {
       console.log("WebSocket message received:", message);
 
-      // Listen for game state updates from EventBus
       if (
         message.topic === `game:${params.gameID}` &&
         message.type === "game:state"
@@ -137,15 +146,13 @@ function RouteComponent() {
     };
   }, [subscribe, params.gameID, connected, queryClient, gameState]);
 
-  //TODO: Change to a HTTP request
   const handleQuitGame = () => {
-    if (gameState?.game.game_id && user?.userID) {
+    if (gameState?.game_id && user?.userID) {
       send({
         type: "game:quit",
         payload: {
-          gameId: gameState.game.game_id,
+          gameId: gameState.game_id,
           playerId: user.userID,
-          // session_id: gameState.game.session_id,
         },
       });
     }
@@ -190,13 +197,10 @@ function RouteComponent() {
       const result = await response.json();
       console.log("Move successful:", result);
 
-      // Optimistically update local state
-      if (result.gameState) {
-        queryClient.setQueryData(["game", params.gameID], result.gameState);
+      // Update local state with the returned game
+      if (result) {
+        queryClient.setQueryData(["game", params.gameID], result);
       }
-
-      // The backend will broadcast the update via WebSocket to all other players
-      // We'll receive it via the WebSocket listener
     } catch (error) {
       console.error("Failed to make move:", error);
       toast.error(
@@ -222,31 +226,30 @@ function RouteComponent() {
     );
   }
 
-  const currentTurn = gameState.game.current_turn;
-  const currentTurnPlayer = gameState.game.players.find(
+  const currentTurn = gameState.current_turn;
+  const currentTurnPlayer = gameState.players.find(
     (p) => p.turn_order === currentTurn
   );
 
-  // Determine if it's the current user's turn
   const isMyTurn = currentTurnPlayer?.user_id === user.userID;
 
-  // Display text based on whose turn it is
   const turnDisplayText = isMyTurn
     ? "Your Turn"
     : `${currentTurnPlayer?.username || `Player ${currentTurn}`}'s Turn`;
+
+  // Flatten the 2D grid back to 1D for the Grid component
+  const flattenedBoxes = gameState.grid.flat();
 
   return (
     <div className="flex flex-col md:flex-row h-screen p-4 gap-4">
       <Toaster position="top-right" richColors />
 
-      {/* Connection status indicator */}
       {!connected && (
         <div className="fixed top-4 right-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded">
           Reconnecting...
         </div>
       )}
 
-      {/* Grid section */}
       <div className="w-full md:w-2/3 flex flex-col items-center">
         <div className="flex justify-between items-center w-full max-w-[700px] px-4 mb-2">
           <p
@@ -259,7 +262,7 @@ function RouteComponent() {
           <div className="mt-2">
             <h3 className="font-semibold mb-1">Scores:</h3>
             <ul className="text-sm space-y-1">
-              {gameState.game.players.map((player) => (
+              {gameState.players.map((player) => (
                 <li
                   key={player.user_id}
                   className={player.user_id === user.userID ? "font-bold" : ""}
@@ -276,27 +279,25 @@ function RouteComponent() {
         </div>
         <div className="w-full max-w-[500px] md:max-w-[700px] lg:max-w-[650px]">
           <Grid
-            gameID={gameState.game.game_id}
-            boxes={gameState.grids}
+            gameID={gameState.game_id}
+            boxes={flattenedBoxes}
             userColors={userColors}
-            boardSize={gameState.game.board_size}
+            boardSize={gameState.board_size}
             userID={user.userID}
             handleClick={handleClick}
+            turnToUserIdMap={turnToUserIdMap}
           />
         </div>
       </div>
 
-      {/* Right side: PlayerLobby + Chatbox in column */}
       <div className="w-full md:w-1/3 flex flex-col gap-4">
         <div className="flex-1 overflow-y-auto">{/* <PlayerLobby /> */}</div>
         <div className="h-150">
-          {gameState.game.game_id && (
-            <Chatbox sessionID={gameState.game.game_id} />
-          )}
+          {gameState.game_id && <Chatbox sessionID={gameState.game_id} />}
         </div>
       </div>
 
-      <Dialog open={!!gameState.game.winner}>
+      <Dialog open={!!gameState.winner_id}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
@@ -305,13 +306,13 @@ function RouteComponent() {
             <p className="text-lg font-semibold">
               {winnerPlayer
                 ? `Congratulations to ${winnerPlayer.username}!`
-                : "We have a winner!"}
+                : "It's a tie!"}
             </p>
           </div>
           <div className="mt-4">
             <h4 className="font-semibold mb-2">Final Scores:</h4>
             <ul className="text-sm space-y-1">
-              {gameState.game.players.map((player) => (
+              {gameState.players.map((player) => (
                 <li key={player.user_id}>
                   {player.username}: {player.score}
                 </li>
