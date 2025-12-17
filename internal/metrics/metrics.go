@@ -10,6 +10,7 @@ import (
 type Metrics struct {
     activeConnections atomic.Int64
     activeGames       atomic.Int64
+	 activeLobbies     atomic.Int64
     totalMessages     atomic.Int64
     totalMoves        atomic.Int64
     
@@ -45,6 +46,15 @@ func (m *Metrics) DecrementGames() {
     m.activeGames.Add(-1)
 }
 
+func (m *Metrics) IncrementLobbies() {
+    m.activeLobbies.Add(1)
+}
+
+func (m *Metrics) DecrementLobbies() {
+    m.activeLobbies.Add(-1)
+}
+
+
 func (m *Metrics) IncrementMessages() {
     m.totalMessages.Add(1)
 }
@@ -78,6 +88,7 @@ func (m *Metrics) GetSnapshot() map[string]interface{} {
     return map[string]interface{}{
         "active_connections": m.activeConnections.Load(),
         "active_games":       m.activeGames.Load(),
+		"active_lobbies":     m.activeLobbies.Load(),
         "total_messages":     m.totalMessages.Load(),
         "total_moves":        m.totalMoves.Load(),
         "messages_per_sec":   m.messagesPerSec,

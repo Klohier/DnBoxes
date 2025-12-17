@@ -3,7 +3,6 @@ package game
 import (
 	"context"
 	"dango/internal/events"
-	"dango/internal/metrics"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,17 +14,15 @@ type GameService struct {
 	gameRepo    GameRepository
 	// mu          sync.RWMutex
 	// botGames    map[int]*GameState
-	metrics     *metrics.Metrics
 	bus        events.EventBus
 	botService  *BotService
 	// nextID      int
 }
 
-func NewGameService(gameRepo GameRepository, bus events.EventBus, botService *BotService, metrics *metrics.Metrics) *GameService {
+func NewGameService(gameRepo GameRepository, bus events.EventBus, botService *BotService,) *GameService {
 	return &GameService{
 		gameRepo:    gameRepo,
 		botService:  botService,
-		metrics:     metrics,
 		// botGames:    make(map[int]*GameState),
 		// nextID:      10000,
 		bus:        bus,
@@ -78,8 +75,19 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 		return nil, err
 	}
 
-	s.metrics.IncrementGames()
-	slog.Info("New Game Created")
+	slog.Info("New Game Created", "gameID", *game.GameId)
+
+	payloadBytes, err := json.Marshal(game)
+	if err != nil {
+		slog.Error("Failed to marshal game", "error", err)
+		return game, nil
+	}
+
+	s.bus.Publish(ctx, "global:games", events.Event{
+		Topic:   "global:games",
+		Type:    "game_created",
+		Payload: payloadBytes,
+	})
 
 	return game, nil
 
@@ -95,7 +103,6 @@ func (s *GameService) MakeMove(ctx context.Context, gameID int, playerID int, ro
 	// if state, err := s.botService.GetBotGameState(gameID); err == nil {
 	// 	return s.botMakeMove(ctx, state, playerID, row, col, edge)
 	// }
-	s.metrics.IncrementMoves()
 
 	// Normal DB-backed game
 	return s.dbMakeMove(ctx, gameID, playerID, row, col, edge)
@@ -199,11 +206,15 @@ func (s *GameService) publishGameUpdate(ctx context.Context, gameID int, gameSta
 		return
 	}
 
-	s.bus.Publish(ctx, topic, events.Event{
+	event := events.Event{
 		Topic:   topic,
 		Type:    "game:state",
 		Payload: payloadBytes,
-	})
+	}
+
+	s.bus.Publish(ctx, topic, event)
+
+	s.bus.Publish(ctx, "game:state_updated", event)
 }
 
 
@@ -214,8 +225,19 @@ func (s *GameService) SetWinner(ctx context.Context, gameId int, winnerId *int) 
 		return fmt.Errorf("failed to set winner for game %d: %v", gameId, err)
 	}
 
-		s.metrics.DecrementGames()
 		slog.Info("Game completed", "gameID", gameId, "winnerID", winnerId)
+
+		payload := map[string]interface{}{
+		"game_id":   gameId,
+		"winner_id": winnerId,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	s.bus.Publish(ctx, "global:games", events.Event{
+		Topic:   "global:games",
+		Type:    "game_completed",
+		Payload: payloadBytes,
+	})
 	return nil
 
 }

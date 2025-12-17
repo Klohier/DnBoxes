@@ -42,7 +42,7 @@ type App struct {
 	db     *pgxpool.Pool
 	redis  *redis.Client
 	logger *slog.Logger
-	metrics *metrics.Metrics
+	metrics *metrics.MetricsCollector
 }
 
 func main() {
@@ -80,7 +80,6 @@ func run() error {
 		db:     db,
 		redis:  rdb,
 		logger: logger,
-		metrics: metrics.New(),
 	}
 
 	// Setup middleware
@@ -191,6 +190,9 @@ func (app *App) setupServices(cfg *Config) error {
 	// Initialize event bus
 	eventBus := infra.NewRedisEventBus(app.redis)
 
+
+
+	app.metrics = metrics.NewMetricsCollector(context.Background(), eventBus)
 	// Initialize repositories
 	userRepo := user.NewPgUserRepository(app.db)
 	chatRepo := chat.NewPgChatRepository(app.db)
@@ -203,7 +205,7 @@ func (app *App) setupServices(cfg *Config) error {
 	loginService := auth.NewLoginService(userRepo)
 	chatService := chat.NewChatService(chatRepo, app.redis)
 	botService := game.NewBotService()
-	gameService := game.NewGameService(gameRepo, eventBus, botService, app.metrics)
+	gameService := game.NewGameService(gameRepo, eventBus, botService)
 	sessionService := session.NewSessionService(sessionRepo)
 	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
 
@@ -214,7 +216,7 @@ func (app *App) setupServices(cfg *Config) error {
 	sessionHandler := session.NewSessionHandler(sessionService)
 	
 	// Initialize WebSocket manager
-	manager := websocket.NewManager(eventBus, app.metrics)
+	manager := websocket.NewManager(eventBus)
 	gameHandler := game.NewGameHandler(gameService, botService, manager)
 	lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 	
@@ -293,6 +295,6 @@ func startPprofServer() {
 }
 
 func (app *App) handleMetrics(c echo.Context) error {
-    snapshot := app.metrics.GetSnapshot()
-    return c.JSON(http.StatusOK, snapshot)
+	snapshot := app.metrics.GetMetrics().GetSnapshot()
+	return c.JSON(http.StatusOK, snapshot)
 }
