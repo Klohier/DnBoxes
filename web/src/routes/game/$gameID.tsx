@@ -135,7 +135,6 @@ function RouteComponent() {
         // Update the game state in React Query cache
         queryClient.setQueryData(["game", params.gameID], message.payload);
 
-        toast.success("Game updated!");
         return;
       }
     });
@@ -144,7 +143,7 @@ function RouteComponent() {
       console.log("Cleaning up WebSocket listener for game:", params.gameID);
       unsubscribe();
     };
-  }, [subscribe, params.gameID, connected, queryClient, gameState]);
+  }, [subscribe, params.gameID, connected, queryClient]);
 
   const handleQuitGame = () => {
     if (gameState?.game_id && user?.userID) {
@@ -197,10 +196,10 @@ function RouteComponent() {
       const result = await response.json();
       console.log("Move successful:", result);
 
-      // Update local state with the returned game
-      if (result) {
-        queryClient.setQueryData(["game", params.gameID], result);
-      }
+      // // Update local state with the returned game
+      // if (result) {
+      //   queryClient.setQueryData(["game", params.gameID], result);
+      // }
     } catch (error) {
       console.error("Failed to make move:", error);
       toast.error(

@@ -36,13 +36,12 @@ function Root() {
     setLoading(true);
 
     try {
-      const response = await axios.post<Game>( // Changed from GameStatePayload
+      const response = await axios.post<Game>(
         `/api/v1/games/create-bot-game`,
         {
           human_player_id: auth.user?.userID,
           board_size: 5,
           num_bots: 1,
-          // Removed session_id - no longer needed
         },
         {
           headers: { "Content-Type": "application/json" },
@@ -53,7 +52,7 @@ function Root() {
       toast.success("Bot game created!");
       await router.navigate({
         to: "/game/$gameID",
-        params: { gameID: String(game.game_id) }, // Changed from game.game.game_id
+        params: { gameID: String(game.game_id) },
       });
     } catch (error) {
       alert("Error creating bot game: " + String(error));

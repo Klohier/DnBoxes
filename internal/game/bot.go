@@ -114,14 +114,21 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 		// Generate bot move
 		move := game.GenerateBotMove(currentPlayer.TurnOrder)
 		if move == nil {
-			slog.Info("Bot has no valid moves", "gameID", gameID, "botID", *currentPlayer.UserID)
-			break
+			slog.Warn("Bot has no valid moves, skipping", 
+				"gameID", gameID, 
+				"botID", *currentPlayer.UserID)
+			
+			game.CurrentTurn = (game.CurrentTurn + 1) % len(game.Players)
+			continue
 		}
 
 		// Apply bot move
 		result, err := game.ApplyMove(*move)
 		if err != nil {
-			return fmt.Errorf("bot move failed: %w", err)
+				slog.Error("Bot move failed", 
+				"gameID", gameID, 
+				"botID", *currentPlayer.UserID,
+				"error", err)
 		}
 
 		slog.Info("Bot made move",
@@ -133,26 +140,38 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 			"boxesCompleted", len(result.CompletedBoxes))
 
 		// If bot didn't complete a box, turn passes to next player
-		if len(result.CompletedBoxes) == 0 {
-			break
-		}
+		// if len(result.CompletedBoxes) == 0 {
+		// 	slog.Info("Bot didn't complete box, turn ending", "gameID", gameID)
+		// 	break
+		// }
 
 		b.publishGameState(ctx, gameID, game)
 
-		// Optional delay for better UX
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
+
+			if len(result.CompletedBoxes) > 0 {
+			slog.Info("Bot completed boxes, checking if it gets another turn", 
+				"gameID", gameID,
+				"boxCount", len(result.CompletedBoxes))
+		}
+
+		slog.Info("Bot completed boxes, taking another turn", "gameID", gameID, "boxCount", len(result.CompletedBoxes))
 	}
 
 	// Publish final state
-	game, _ := b.GetBotGameState(gameID)
-	if game != nil {
-		b.publishGameState(ctx, gameID, game)
-		
-		// If game is over, publish completion event
-		if game.IsGameOver() {
-			b.publishGameCompleted(ctx, gameID, game.WinnerID)
-		}
+	game, err := b.GetBotGameState(gameID)
+	if err != nil {
+		return err
 	}
+	
+	b.publishGameState(ctx, gameID, game)
+
+
+	if game.IsGameOver() {
+		b.publishGameCompleted(ctx, gameID, game.WinnerID)
+		slog.Info("Bot game completed", "gameID", gameID, "winner", game.WinnerID)
+	}
+
 
 	return nil
 }
