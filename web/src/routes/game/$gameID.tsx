@@ -5,6 +5,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Toaster, toast } from "sonner";
 import Grid from "../../components/Grid";
 import { useWebSocket } from "@/WebSocketContext";
+import { useSound } from "@/hooks/useSound";
+
 import {
   Dialog,
   DialogContent,
@@ -47,6 +49,9 @@ function RouteComponent() {
   const { gameState: initialGameState } = Route.useLoaderData();
   const { queryClient } = Route.useRouteContext();
   const { user } = useAuth();
+
+  const playEdgeClick = useSound("/click.mp3");
+  // const playBotMove = useSound("/click.mp3");
 
   const { data: gameState, refetch } = useQuery({
     ...gameDetailQuery(params.gameID),
@@ -132,6 +137,10 @@ function RouteComponent() {
       ) {
         console.log("Game state updated via WebSocket:", message.payload);
 
+        // if (!isProcessingMove) {
+        //   playBotMove();
+        // }
+
         // Update the game state in React Query cache
         queryClient.setQueryData(["game", params.gameID], message.payload);
 
@@ -143,7 +152,7 @@ function RouteComponent() {
       console.log("Cleaning up WebSocket listener for game:", params.gameID);
       unsubscribe();
     };
-  }, [subscribe, params.gameID, connected, queryClient]);
+  }, [subscribe, params.gameID, connected, queryClient, isProcessingMove]);
 
   const handleQuitGame = () => {
     if (gameState?.game_id && user?.userID) {
@@ -174,6 +183,8 @@ function RouteComponent() {
 
     try {
       console.log("Making move:", { gameId, playerId, row, col, edge });
+
+      playEdgeClick();
 
       const response = await fetch(`/api/v1/games/${gameId}/move`, {
         method: "POST",
