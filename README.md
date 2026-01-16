@@ -124,4 +124,4 @@ go test ./internal/lobby
 ## Status
 
 Actively developed. Core gameplay and multiplayer features are complete.
-Chat currently down
+Chat currently down due to iterating on it.
