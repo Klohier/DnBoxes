@@ -48,13 +48,13 @@ This will:
 
 * Build and run the Go API server
 * Build the React frontend
-* Start Caddy, Redis and Postgres
+* Start Caddy, Redis, and Postgres
 
 Access the frontend at https://localhost (Caddy handles routing to backend API and WebSockets)
 
 ### Docker Architecture
 
-* **backend**: Go + Echo backend (serves API, WebSockets)
+* **backend**: Go + Echo backend (serves API and WebSockets)
 * **frontend**: React frontend container
 * **db**: Postgres container
 * **caddy**: Caddy reverse proxy container
@@ -107,11 +107,11 @@ go test ./internal/lobby
 
 ## Gameplay Overview
 
-1. Users authenticate and join a global chat.
-2. Players create or join a game session or play against a bot.
-3. Each move selects a side of a square.
-4. The server validates moves and updates state.
-5. Completing a box awards a point and an extra turn.
+1. Users authenticate and join a global chat
+2. Players create or join a game session or play against a bot
+3. Each move selects a side of a square
+4. The server validates moves and updates state
+5. Completing a box awards a point and an extra turn
 
 ## What This Project Demonstrates
 
