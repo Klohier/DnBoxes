@@ -33,6 +33,8 @@ type Config struct {
 	DBHost       string
 	DBPort       string
 	Port         string
+	RedisPassword string
+	RedisAddr    string
 	ClientOrigin string
 	TokenKey     []byte
 }
@@ -67,7 +69,7 @@ func run() error {
 	defer db.Close()
 
 	// Setup Redis
-	rdb := setupRedis()
+	rdb := setupRedis(cfg)
 	if err := rdb.FlushDB(context.Background()).Err(); err != nil {
 		slog.Error("Failed to flush Redis DB", "error", err)
 	} else {
@@ -112,6 +114,8 @@ func loadConfig() *Config {
 		DBHost:       os.Getenv("DATABASEHOST"),
 		DBPort:       os.Getenv("DATABASEPORT"),
 		Port:         os.Getenv("PORT"),
+		RedisPassword: os.Getenv("REDIS_PASSWORD"),
+		RedisAddr: os.Getenv("REDIS_ADDR"),
 		ClientOrigin: clientOrigin,
 		TokenKey:     []byte(os.Getenv("TOKEN_KEY")),
 	}
@@ -146,10 +150,10 @@ func setupDatabase(cfg *Config) (*pgxpool.Pool, error) {
 	return db, nil
 }
 
-func setupRedis() *redis.Client {
+func setupRedis(cfg *Config) *redis.Client {
 	return redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "",
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
 		DB:       0,
 	})
 }
