@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
 //TODO: Figure out how to correct on submit for login
-// components/AuthForm.tsx
+
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "@tanstack/react-router";
 
 const formSchema = z.object({
   username: z
@@ -39,10 +37,8 @@ export function AuthForm({
   onSubmitHandler,
   isLoading = false,
   buttonText = "Submit",
-  formType,
 }: AuthFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -82,18 +78,6 @@ export function AuthForm({
     }
   }
 
-  const handleToggleForm = async () => {
-    const targetRoute = formType === "login" ? "/register" : "/login";
-    await router.navigate({ to: targetRoute });
-  };
-
-  const toggleLinkText =
-    formType === "login"
-      ? "Don't have an account?"
-      : "Already have an account?";
-
-  const toggleActionText = formType === "login" ? "Sign up" : "Sign in";
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -131,20 +115,6 @@ export function AuthForm({
         <Button type="submit">
           {isProcessing ? "Loading..." : buttonText}
         </Button>
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            {toggleLinkText}{" "}
-            <Button
-              type="button"
-              variant="link"
-              className="p-0 h-auto text-primary hover:underline"
-              onClick={handleToggleForm}
-              disabled={isProcessing}
-            >
-              {toggleActionText}
-            </Button>
-          </p>
-        </div>
       </form>
     </Form>
   );

@@ -2,20 +2,36 @@ import { useEffect, useState } from "react";
 import { useWebSocket } from "@/WebSocketContext";
 import { LobbyList } from "@/components/Lobby";
 import { LobbyModal } from "@/components/LobbyModal";
+import { BotGameModal } from "@/components/BotGameModal";
 import Chatbox from "../../components/ChatBox";
 import { Button } from "@/components/ui/button";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { CreateLobbyData, Lobby } from "../../types/lobby";
 import { fetchLobbies, createLobby } from "@/api/lobby";
+import { useAuth } from "@/AuthContext";
+
+import { toast } from "sonner";
+import axios from "axios";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Index,
 });
 
+interface Game {
+  game_id: number;
+}
+
+interface CreateBotGameData {
+  board_size: number;
+  num_bots: number;
+}
+
 function Index() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { subscribe } = useWebSocket();
 
@@ -29,7 +45,6 @@ function Index() {
   const createLobbyMutation = useMutation({
     mutationFn: createLobby,
     onSuccess: (newLobby) => {
-      // Update the query cache
       queryClient.setQueryData<Lobby[]>(["lobbies"], (old = []) => [
         ...old,
         newLobby,
@@ -42,12 +57,52 @@ function Index() {
     },
     onError: (error) => {
       console.error("Failed to create lobby:", error);
+      toast.error("Failed to create lobby");
+    },
+  });
+
+  // Create bot game mutation
+  const createBotGameMutation = useMutation({
+    mutationFn: async (data: CreateBotGameData) => {
+      const response = await axios.post<Game>(
+        `/api/v1/games/create-bot-game`,
+        {
+          human_player_id: auth.user?.userID,
+          board_size: data.board_size,
+          num_bots: data.num_bots,
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+      return response.data;
+    },
+    onSuccess: (game) => {
+      toast.success("Bot game created!");
+      setIsBotModalOpen(false);
+      void navigate({
+        to: "/game/$gameID",
+        params: { gameID: String(game.game_id) },
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to create bot game:", error);
+      toast.error("Failed to create bot game");
     },
   });
 
   const handleCreateLobby = async (values: CreateLobbyData): Promise<void> => {
     await createLobbyMutation.mutateAsync(values);
-    setIsModalOpen(false);
+  };
+
+  const handleCreateBotGame = async (
+    values: CreateBotGameData,
+  ): Promise<void> => {
+    if (!auth.isAuthenticated) {
+      toast.error("Please login to play");
+      return;
+    }
+    await createBotGameMutation.mutateAsync(values);
   };
 
   useEffect(() => {
@@ -75,24 +130,95 @@ function Index() {
 
   return (
     <>
-      <Button
-        onClick={() => {
-          setIsModalOpen(true);
-        }}
-      >
-        + Create Lobby
-      </Button>
+      <div className="min-h-screen bg-gray-900 p-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Left Section - Lobby Controls & List */}
+            <div className="lg:col-span-2 flex flex-col gap-4">
+              <div className="bg-gray-800 rounded-lg p-6 flex-shrink-0">
+                <h1 className="text-3xl font-bold text-white mb-4">
+                  Dots & Boxes
+                </h1>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setIsModalOpen(true)}
+                    className="flex-1"
+                  >
+                    + Create Lobby
+                  </Button>
+                  <Button
+                    onClick={() => setIsBotModalOpen(true)}
+                    className="flex-1"
+                    variant="secondary"
+                  >
+                    + Create Bot Match
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg overflow-hidden flex flex-col">
+                <div className="p-6 pb-4 border-b border-gray-700 flex-shrink-0">
+                  <h2 className="text-xl font-bold text-white">
+                    Available Lobbies
+                  </h2>
+                </div>
+                <div className="overflow-y-auto p-6 pt-4 h-[400px]">
+                  {isLoading ? (
+                    <p className="text-gray-400">Loading lobbies...</p>
+                  ) : (
+                    <LobbyList lobbies={lobbies} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Section - Profile & Chat */}
+            <div className="lg:col-span-1 flex flex-col gap-4">
+              <div className="bg-gray-800 rounded-lg p-6 flex-shrink-0">
+                <h2 className="text-xl font-bold text-white mb-4">Profile</h2>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Games Played</span>
+                    <span className="text-white font-semibold">0</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Wins</span>
+                    <span className="text-green-400 font-semibold">0</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Losses</span>
+                    <span className="text-red-400 font-semibold">0</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Win Rate</span>
+                    <span className="text-white font-semibold">0%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-gray-700 flex-shrink-0">
+                  <h2 className="text-lg font-bold text-white">Global Chat</h2>
+                </div>
+
+                <Chatbox sessionID={1} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <LobbyModal
         open={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-        }}
+        onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateLobby}
       />
 
-      {isLoading ? <p>Loading lobbies...</p> : <LobbyList lobbies={lobbies} />}
-      <Chatbox sessionID={1} />
+      <BotGameModal
+        open={isBotModalOpen}
+        onClose={() => setIsBotModalOpen(false)}
+        onSubmit={handleCreateBotGame}
+      />
     </>
   );
 }

@@ -7,6 +7,16 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
 import { Message } from "@/types/websocket";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Users, Crown, Check, X, Wifi, WifiOff, LogOut } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/lobby/$lobbyID")({
   component: LobbyPage,
@@ -19,6 +29,7 @@ function LobbyPage() {
   const navigate = useNavigate();
   const [isStarting, setIsStarting] = useState(false);
   const [isTogglingReady, setIsTogglingReady] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const { user } = useAuth();
 
   const { data: lobby, isLoading } = useQuery<Lobby>({
@@ -67,7 +78,7 @@ function LobbyPage() {
       if (event.type === "game:new") {
         console.log(
           "Game started, navigating to game page:",
-          event.payload.gameID
+          event.payload.gameID,
         );
         void navigate({ to: `/game/${event.payload.gameID}` });
       } else {
@@ -151,20 +162,56 @@ function LobbyPage() {
     } catch (error) {
       console.error("Error toggling ready status:", error);
       alert(
-        error instanceof Error ? error.message : "Failed to update ready status"
+        error instanceof Error
+          ? error.message
+          : "Failed to update ready status",
       );
     } finally {
       setIsTogglingReady(false);
     }
   };
 
-  if (isLoading) return <p>Loading lobby...</p>;
+  const handleLeaveLobby = async () => {
+    if (isLeaving) return;
+
+    setIsLeaving(true);
+
+    try {
+      const res = await fetch(`/api/v1/lobbies/${lobbyID}/leave`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to leave lobby");
+      }
+
+      // Navigate back to home/lobby list
+      void navigate({ to: "/" });
+    } catch (error) {
+      console.error("Error leaving lobby:", error);
+      alert(error instanceof Error ? error.message : "Failed to leave lobby");
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <p className="text-gray-400 text-lg">Loading lobby...</p>
+      </div>
+    );
+  }
 
   const currentUserID = user?.userID;
 
   // Check if current user is ready
   const currentPlayer = lobby?.players?.find(
-    (p) => p.user_id === currentUserID
+    (p) => p.user_id === currentUserID,
   );
   const isCurrentUserReady = currentPlayer?.is_ready ?? false;
 
@@ -176,128 +223,185 @@ function LobbyPage() {
   const isHost = lobby?.host_id === currentUserID;
 
   return (
-    <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
-      <h1>{lobby?.name}</h1>
-
-      <div style={{ marginBottom: "20px" }}>
-        <p>Host ID: {lobby?.host_id}</p>
-        <p>
-          Players: {lobby?.players?.length ?? 0} / {lobby?.player_limit}
-        </p>
-        <p>
-          Board Size: {lobby?.board_size} x {lobby?.board_size}
-        </p>
-      </div>
-
-      <div style={{ marginBottom: "20px" }}>
-        <h2>Players in Lobby</h2>
-        {lobby?.players && lobby.players.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {lobby.players.map((player) => (
-              <li
-                key={player.user_id}
-                style={{
-                  padding: "10px",
-                  marginBottom: "5px",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "5px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span>
-                  <strong>{player.username}</strong>
-                  {player.user_id === lobby.host_id && " 👑"}
-                </span>
-                <span
-                  style={{
-                    color: player.is_ready ? "green" : "orange",
-                    fontWeight: "bold",
-                  }}
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl space-y-6">
+        {/* Header Card */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl text-white">
+                  {lobby?.name}
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Waiting for players to ready up
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={connected ? "default" : "destructive"}
+                  className="flex items-center gap-1"
                 >
-                  {player.is_ready ? "✓ Ready" : "○ Not Ready"}
+                  {connected ? (
+                    <>
+                      <Wifi className="h-3 w-3" />
+                      Connected
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3" />
+                      Disconnected
+                    </>
+                  )}
+                </Badge>
+                <Button
+                  onClick={handleLeaveLobby}
+                  disabled={isLeaving}
+                  variant="destructive"
+                  size="sm"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {isLeaving ? "Leaving..." : "Leave"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Users className="h-4 w-4" />
+                <span>
+                  Players: {lobby?.players?.length ?? 0} / {lobby?.player_limit}
                 </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No players in lobby</p>
-        )}
-      </div>
+              </div>
+              <div className="flex items-center gap-2 text-gray-400">
+                <span>
+                  Board Size: {lobby?.board_size} × {lobby?.board_size}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-        <button
-          onClick={handleToggleReady}
-          disabled={isTogglingReady || !connected}
-          style={{
-            padding: "10px 20px",
-            fontSize: "16px",
-            cursor: isTogglingReady || !connected ? "not-allowed" : "pointer",
-            opacity: isTogglingReady || !connected ? 0.5 : 1,
-            backgroundColor: "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-          }}
-        >
-          {isTogglingReady
-            ? "Updating..."
-            : isCurrentUserReady
-              ? "Unready"
-              : "Ready Up"}
-        </button>
+        {/* Players Card */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-xl text-white">Players</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {lobby?.players && lobby.players.length > 0 ? (
+              <div className="space-y-2">
+                {lobby.players.map((player) => (
+                  <div
+                    key={player.user_id}
+                    className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                        {player.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium">
+                            {player.username}
+                          </span>
+                          {player.user_id === lobby.host_id && (
+                            <Crown className="h-4 w-4 text-yellow-500" />
+                          )}
+                          {player.user_id === currentUserID && (
+                            <Badge variant="outline" className="text-xs">
+                              You
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <Badge
+                      variant={player.is_ready ? "default" : "secondary"}
+                      className={
+                        player.is_ready
+                          ? "bg-green-600 hover:bg-green-700"
+                          : "bg-gray-600 hover:bg-gray-700"
+                      }
+                    >
+                      {player.is_ready ? (
+                        <Check className="h-3 w-3 mr-1" />
+                      ) : (
+                        <X className="h-3 w-3 mr-1" />
+                      )}
+                      {player.is_ready ? "Ready" : "Not Ready"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-center py-8">
+                No players in lobby
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-        {isHost && (
-          <button
-            onClick={handleStartGame}
-            disabled={
-              !hasEnoughPlayers || !allPlayersReady || isStarting || !connected
-            }
-            style={{
-              padding: "10px 20px",
-              fontSize: "16px",
-              cursor:
-                !hasEnoughPlayers ||
-                !allPlayersReady ||
-                isStarting ||
-                !connected
-                  ? "not-allowed"
-                  : "pointer",
-              opacity:
-                !hasEnoughPlayers ||
-                !allPlayersReady ||
-                isStarting ||
-                !connected
-                  ? 0.5
-                  : 1,
-              backgroundColor: "#2196F3",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-            }}
-          >
-            {isStarting ? "Creating Game..." : "Start Game"}
-          </button>
-        )}
-      </div>
+        {/* Action Buttons */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleToggleReady}
+                  disabled={isTogglingReady || !connected}
+                  variant={isCurrentUserReady ? "secondary" : "default"}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isTogglingReady
+                    ? "Updating..."
+                    : isCurrentUserReady
+                      ? "Unready"
+                      : "Ready Up"}
+                </Button>
 
-      <div style={{ marginTop: "10px" }}>
-        {!allPlayersReady && hasEnoughPlayers && (
-          <p style={{ color: "orange", margin: "5px 0" }}>
-            All players must be ready before starting
-          </p>
-        )}
-        {!hasEnoughPlayers && (
-          <p style={{ color: "red", margin: "5px 0" }}>
-            Need at least 2 players to start
-          </p>
-        )}
-        {!connected && (
-          <p style={{ color: "red", margin: "5px 0" }}>
-            WebSocket disconnected - reconnecting...
-          </p>
-        )}
+                {isHost && (
+                  <Button
+                    onClick={handleStartGame}
+                    disabled={
+                      !hasEnoughPlayers ||
+                      !allPlayersReady ||
+                      isStarting ||
+                      !connected
+                    }
+                    className="flex-1"
+                    size="lg"
+                  >
+                    {isStarting ? "Creating Game..." : "Start Game"}
+                  </Button>
+                )}
+              </div>
+
+              {/* Status Messages */}
+              <div className="space-y-2">
+                {!allPlayersReady && hasEnoughPlayers && (
+                  <div className="flex items-center gap-2 text-yellow-500 text-sm bg-yellow-500/10 p-3 rounded-lg">
+                    <span className="text-lg">⚠️</span>
+                    <span>All players must be ready before starting</span>
+                  </div>
+                )}
+                {!hasEnoughPlayers && (
+                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">
+                    <span className="text-lg">🚫</span>
+                    <span>Need at least 2 players to start</span>
+                  </div>
+                )}
+                {!connected && (
+                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">
+                    <WifiOff className="h-4 w-4" />
+                    <span>WebSocket disconnected - reconnecting...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

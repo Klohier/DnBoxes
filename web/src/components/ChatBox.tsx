@@ -23,18 +23,12 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
 
   const sendMessageMutation = useMutation({
     mutationFn: (message: Message) => {
-      // Send via WebSocket here
       send(message);
       return Promise.resolve(message);
     },
   });
 
-  const {
-    data: fetchedMessages,
-    // isLoading,
-    // isError,
-    // error,
-  } = useQuery<ChatMessagePayload[]>({
+  const { data: fetchedMessages } = useQuery<ChatMessagePayload[]>({
     queryKey: ["chatMessages", sessionID, apiUrl],
     queryFn: async () => {
       if (!sessionID) return [];
@@ -43,7 +37,6 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
       return response.data;
     },
     enabled: !!sessionID,
-    // staleTime: 1000 * 60,
   });
 
   useEffect(() => {
@@ -57,7 +50,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
       ) {
         queryClient.setQueryData<ChatMessagePayload[]>(
           ["chatMessages", sessionID, apiUrl],
-          (old) => [...(old ?? []), message.payload]
+          (old) => [...(old ?? []), message.payload],
         );
       }
     });
@@ -104,10 +97,11 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
   };
 
   return (
-    <div className="flex flex-col border rounded-md w-full max-w-full h-[400px] bg-muted/30 backdrop-blur-sm">
+    <div className="flex flex-col h-full w-full">
+      {/* Messages area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-2 text-sm space-y-1 font-mono"
+        className="overflow-y-auto px-4 py-2 text-sm space-y-1 font-mono h-[340px]"
       >
         {(fetchedMessages ?? []).map((msg, index) => {
           const isOwn = msg.userID === user?.userID;
@@ -134,23 +128,26 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
         })}
       </div>
 
-      <div className="flex p-2 border-t bg-background">
-        <Input
-          placeholder="Press Enter to send..."
-          value={newMessage}
-          onChange={(e) => {
-            setNewMessage(e.target.value);
-          }}
-          onKeyDown={onInputKeyDown}
-          className="flex-1 mr-2 text-base"
-        />
-        <Button
-          onClick={handleSendMessage}
-          disabled={!newMessage.trim()}
-          variant="secondary"
-        >
-          Send
-        </Button>
+      {/* Input area  */}
+      <div className="flex-shrink-0 p-4 border-t border-gray-700">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Press Enter to send..."
+            value={newMessage}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+            }}
+            onKeyDown={onInputKeyDown}
+            className="flex-1"
+          />
+          <Button
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim()}
+            variant="secondary"
+          >
+            Send
+          </Button>
+        </div>
       </div>
     </div>
   );

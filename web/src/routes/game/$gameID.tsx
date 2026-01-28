@@ -6,7 +6,6 @@ import { Toaster, toast } from "sonner";
 import Grid from "../../components/Grid";
 import { useWebSocket } from "@/WebSocketContext";
 import { useSound } from "@/hooks/useSound";
-
 import {
   Dialog,
   DialogContent,
@@ -14,10 +13,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { GamePlayer, Game, Message } from "@/types/websocket";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
+import { Trophy, Users, LogOut, Wifi, WifiOff, Clock } from "lucide-react";
 
 export const gameDetailQuery = (id: string) => ({
   queryKey: ["game", id],
@@ -65,7 +67,7 @@ function RouteComponent() {
   const [isProcessingMove, setIsProcessingMove] = useState(false);
 
   const winnerPlayer = gameState?.players.find(
-    (p) => p.user_id === gameState.winner_id
+    (p) => p.user_id === gameState.winner_id,
   );
 
   // Create mapping from turn_order to user_id
@@ -77,7 +79,7 @@ function RouteComponent() {
         acc[player.turn_order] = player.user_id;
         return acc;
       },
-      {} as Record<number, number>
+      {} as Record<number, number>,
     );
   }, [gameState]);
 
@@ -103,7 +105,7 @@ function RouteComponent() {
   useEffect(() => {
     if (connected && params.gameID) {
       console.log(
-        "WebSocket connected, refetching game state to subscribe to room"
+        "WebSocket connected, refetching game state to subscribe to room",
       );
       refetch();
     }
@@ -172,7 +174,7 @@ function RouteComponent() {
     playerId: number,
     row: number,
     col: number,
-    edge: string
+    edge: string,
   ) => {
     if (isProcessingMove) {
       console.log("Move already in progress, ignoring click");
@@ -214,7 +216,7 @@ function RouteComponent() {
     } catch (error) {
       console.error("Failed to make move:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to make move"
+        error instanceof Error ? error.message : "Failed to make move",
       );
     } finally {
       setIsProcessingMove(false);
@@ -223,9 +225,9 @@ function RouteComponent() {
 
   if (!gameState || !user) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-gray-900">
         <div className="text-center">
-          <p className="text-lg">Loading game...</p>
+          <p className="text-lg text-gray-300">Loading game...</p>
           {!connected && (
             <p className="text-sm text-gray-500 mt-2">
               Connecting to server...
@@ -238,7 +240,7 @@ function RouteComponent() {
 
   const currentTurn = gameState.current_turn;
   const currentTurnPlayer = gameState.players.find(
-    (p) => p.turn_order === currentTurn
+    (p) => p.turn_order === currentTurn,
   );
 
   const isMyTurn = currentTurnPlayer?.user_id === user.userID;
@@ -251,89 +253,235 @@ function RouteComponent() {
   const flattenedBoxes = gameState.grid.flat();
 
   return (
-    <div className="flex flex-col md:flex-row h-screen p-4 gap-4">
+    <div className="min-h-screen bg-gray-900 p-4">
       <Toaster position="top-right" richColors />
 
+      {/* Connection Status Banner */}
       {!connected && (
-        <div className="fixed top-4 right-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded">
-          Reconnecting...
+        <div className="fixed top-4 right-4 z-50">
+          <Badge
+            variant="destructive"
+            className="flex items-center gap-2 px-4 py-2"
+          >
+            <WifiOff className="h-4 w-4" />
+            Reconnecting...
+          </Badge>
         </div>
       )}
 
-      <div className="w-full md:w-2/3 flex flex-col items-center">
-        <div className="flex justify-between items-center w-full max-w-[700px] px-4 mb-2">
-          <p
-            className={`text-lg font-medium ${
-              isMyTurn ? "text-green-600 font-bold" : ""
-            }`}
-          >
-            Current Turn: {turnDisplayText}
-          </p>
-          <div className="mt-2">
-            <h3 className="font-semibold mb-1">Scores:</h3>
-            <ul className="text-sm space-y-1">
-              {gameState.players.map((player) => (
-                <li
-                  key={player.user_id}
-                  className={player.user_id === user.userID ? "font-bold" : ""}
-                >
-                  {player.user_id === user.userID ? "You" : player.username}:{" "}
-                  {player.score}
-                </li>
-              ))}
-            </ul>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left/Main Section - Game Board */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Game Header */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  {/* Turn Indicator */}
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-400">Current Turn</p>
+                      <p
+                        className={`text-lg font-semibold ${
+                          isMyTurn ? "text-green-400" : "text-white"
+                        }`}
+                      >
+                        {turnDisplayText}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Connection Status & Quit */}
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={connected ? "default" : "destructive"}
+                      className="hidden sm:flex items-center gap-1"
+                    >
+                      {connected ? (
+                        <>
+                          <Wifi className="h-3 w-3" />
+                          Connected
+                        </>
+                      ) : (
+                        <>
+                          <WifiOff className="h-3 w-3" />
+                          Disconnected
+                        </>
+                      )}
+                    </Badge>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleQuitGame}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Quit
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Game Board */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardContent className="p-6 flex justify-center">
+                <div className="w-full max-w-[650px]">
+                  <Grid
+                    gameID={gameState.game_id}
+                    boxes={flattenedBoxes}
+                    userColors={userColors}
+                    boardSize={gameState.board_size}
+                    userID={user.userID}
+                    handleClick={handleClick}
+                    turnToUserIdMap={turnToUserIdMap}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <Button variant="destructive" onClick={handleQuitGame}>
-            Quit Game
-          </Button>
-        </div>
-        <div className="w-full max-w-[500px] md:max-w-[700px] lg:max-w-[650px]">
-          <Grid
-            gameID={gameState.game_id}
-            boxes={flattenedBoxes}
-            userColors={userColors}
-            boardSize={gameState.board_size}
-            userID={user.userID}
-            handleClick={handleClick}
-            turnToUserIdMap={turnToUserIdMap}
-          />
+
+          {/* Right Section - Players & Chat */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Players/Scoreboard */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Users className="h-5 w-5" />
+                  Players
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {gameState.players
+                    .sort((a, b) => b.score - a.score)
+                    .map((player, index) => (
+                      <div
+                        key={player.user_id}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                          player.user_id === user.userID
+                            ? "bg-blue-500/20 border border-blue-500/50"
+                            : "bg-gray-700/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Rank Badge */}
+                          {index === 0 && gameState.winner_id && (
+                            <Trophy className="h-5 w-5 text-yellow-500" />
+                          )}
+
+                          {/* Player Avatar */}
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                            style={{
+                              backgroundColor:
+                                userColors[player.user_id] || "#666",
+                            }}
+                          >
+                            {player.username.charAt(0).toUpperCase()}
+                          </div>
+
+                          {/* Player Info */}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium">
+                                {player.user_id === user.userID
+                                  ? "You"
+                                  : player.username}
+                              </span>
+                              {currentTurnPlayer?.user_id ===
+                                player.user_id && (
+                                <Badge variant="outline" className="text-xs">
+                                  Active
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400">
+                              Turn {player.turn_order + 1}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Score */}
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-white">
+                            {player.score}
+                          </p>
+                          <p className="text-xs text-gray-400">points</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Chat */}
+            <Card className="bg-gray-800 border-gray-700 overflow-hidden">
+              <CardHeader className="pb-3 flex-shrink-0">
+                <CardTitle className="text-white text-lg">Game Chat</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {gameState.game_id && <Chatbox sessionID={gameState.game_id} />}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 
-      <div className="w-full md:w-1/3 flex flex-col gap-4">
-        <div className="flex-1 overflow-y-auto">{/* <PlayerLobby /> */}</div>
-        <div className="h-150">
-          {gameState.game_id && <Chatbox sessionID={gameState.game_id} />}
-        </div>
-      </div>
-
+      {/* Game Over Dialog */}
       <Dialog open={!!gameState.winner_id}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Game Over</DialogTitle>
+            <DialogTitle className="text-center text-2xl">
+              Game Over!
+            </DialogTitle>
           </DialogHeader>
-          <div className="text-center py-4">
-            <p className="text-lg font-semibold">
-              {winnerPlayer
-                ? `Congratulations to ${winnerPlayer.username}!`
-                : "It's a tie!"}
-            </p>
+          <div className="text-center py-6">
+            {winnerPlayer && (
+              <div className="mb-4">
+                <Trophy className="h-16 w-16 text-yellow-500 mx-auto mb-3" />
+                <p className="text-xl font-bold text-gray-900">
+                  {winnerPlayer.user_id === user.userID
+                    ? "You Won!"
+                    : `${winnerPlayer.username} Wins!`}
+                </p>
+              </div>
+            )}
+            {!winnerPlayer && (
+              <p className="text-lg font-semibold text-gray-900">It's a Tie!</p>
+            )}
           </div>
-          <div className="mt-4">
-            <h4 className="font-semibold mb-2">Final Scores:</h4>
-            <ul className="text-sm space-y-1">
-              {gameState.players.map((player) => (
-                <li key={player.user_id}>
-                  {player.username}: {player.score}
-                </li>
-              ))}
-            </ul>
+          <div className="border-t pt-4">
+            <h4 className="font-semibold mb-3 text-gray-900">Final Scores</h4>
+            <div className="space-y-2">
+              {gameState.players
+                .sort((a, b) => b.score - a.score)
+                .map((player, index) => (
+                  <div
+                    key={player.user_id}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                  >
+                    <div className="flex items-center gap-2">
+                      {index === 0 && (
+                        <Trophy className="h-4 w-4 text-yellow-500" />
+                      )}
+                      <span className="font-medium">
+                        {player.user_id === user.userID
+                          ? "You"
+                          : player.username}
+                      </span>
+                    </div>
+                    <span className="font-bold">{player.score}</span>
+                  </div>
+                ))}
+            </div>
           </div>
           <DialogFooter>
             <Button
               onClick={() => {
                 void navigate({ to: "/" });
               }}
+              className="w-full"
             >
               Return Home
             </Button>

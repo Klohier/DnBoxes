@@ -18,7 +18,7 @@ interface BoxProps {
     userID: number,
     row: number,
     col: number,
-    edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge"
+    edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge",
   ) => void;
   currentUserId: number;
   gameID: number;
@@ -42,7 +42,7 @@ const Box: React.FC<BoxProps> = ({
   const y = row * boxSize;
 
   const handleEdgeClick = (
-    edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge"
+    edge: "top_edge" | "left_edge" | "right_edge" | "bottom_edge",
   ) => {
     onEdgeClick(gameID, currentUserId, row, col, edge);
   };
@@ -60,7 +60,7 @@ const Box: React.FC<BoxProps> = ({
         <>
           <rect x={x} y={y} width={boxSize} height={boxSize} fill={color} />
 
-          <text
+          {/* <text
             x={x + boxSize / 2}
             y={y + boxSize / 2}
             textAnchor="middle"
@@ -69,7 +69,7 @@ const Box: React.FC<BoxProps> = ({
             fill="white"
           >
             {ownerId}
-          </text>
+          </text> */}
         </>
       )}
 

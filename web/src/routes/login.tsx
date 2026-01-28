@@ -6,8 +6,16 @@ import {
   redirect,
   useRouter,
   useRouterState,
+  Link,
 } from "@tanstack/react-router";
 import z from "zod";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const fallback = "/" as const;
 
@@ -37,14 +45,36 @@ function Login() {
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <AuthForm
-          onSubmitHandler={onSubmit}
-          isLoading={isLoading}
-          buttonText="Login"
-          formType="login"
-        />
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold text-white mb-2">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Sign in to continue playing Dots & Boxes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AuthForm
+              onSubmitHandler={onSubmit}
+              isLoading={isLoading}
+              buttonText="Login"
+              formType="login"
+            />
+          </CardContent>
+        </Card>
+
+        <p className="text-center mt-4 text-gray-400 text-sm">
+          Don't have an account?{" "}
+          <Link
+            to="/register"
+            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+          >
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
   );
