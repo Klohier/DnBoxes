@@ -10,3 +10,10 @@ export interface Lobby {
   created_at: string;
   players?: LobbyPlayer[];
 }
+
+export interface CreateLobbyData {
+  name: string;
+  board_size: number;
+  player_limit: number;
+  is_private: boolean;
+}

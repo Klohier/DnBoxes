@@ -122,7 +122,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       subscribe,
       connected,
     }),
-    [connected]
+    [connected, subscribe],
   );
 
   return (

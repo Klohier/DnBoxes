@@ -5,8 +5,9 @@ import { LobbyModal } from "@/components/LobbyModal";
 import Chatbox from "../../components/ChatBox";
 import { Button } from "@/components/ui/button";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lobby } from "../../types/lobby";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { CreateLobbyData, Lobby } from "../../types/lobby";
+import { fetchLobbies, createLobby } from "@/api/lobby";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Index,
@@ -16,39 +17,37 @@ function Index() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { subscribe, send } = useWebSocket();
+  const { subscribe } = useWebSocket();
+
   // Fetch lobbies
   const { data: lobbies = [], isLoading } = useQuery<Lobby[]>({
     queryKey: ["lobbies"],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/lobbies");
-      if (!res.ok) throw new Error("Failed to fetch lobbies");
-      return res.json();
+    queryFn: fetchLobbies,
+  });
+
+  // Create lobby mutation
+  const createLobbyMutation = useMutation({
+    mutationFn: createLobby,
+    onSuccess: (newLobby) => {
+      // Update the query cache
+      queryClient.setQueryData<Lobby[]>(["lobbies"], (old = []) => [
+        ...old,
+        newLobby,
+      ]);
+      setIsModalOpen(false);
+      void navigate({
+        to: "/lobby/$lobbyID",
+        params: { lobbyID: newLobby.lobby_id },
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to create lobby:", error);
     },
   });
 
-  // Handle creating a lobby
-  const handleCreateLobby = async (values: Partial<Lobby>) => {
-    const res = await fetch("/api/v1/lobbies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
-    if (!res.ok) {
-      console.error("Failed to create lobby");
-      return;
-    }
-    const newLobby = await res.json();
-    // Update the query cache so LobbyList updates automatically
-    queryClient.setQueryData<Lobby[]>(["lobbies"], (old = []) => [
-      ...old,
-      newLobby,
-    ]);
+  const handleCreateLobby = async (values: CreateLobbyData): Promise<void> => {
+    await createLobbyMutation.mutateAsync(values);
     setIsModalOpen(false);
-    navigate({
-      to: "/lobby/$lobbyID",
-      params: { lobbyID: newLobby.lobby_id },
-    });
   };
 
   useEffect(() => {
@@ -60,13 +59,13 @@ function Index() {
         ]);
       } else if (msg.type === "lobby_deleted") {
         queryClient.setQueryData<Lobby[]>(["lobbies"], (old = []) =>
-          old.filter((l) => l.lobby_id !== msg.payload.lobby_id)
+          old.filter((l) => l.lobby_id !== msg.payload.lobby_id),
         );
       } else if (msg.type === "lobby_updated") {
         queryClient.setQueryData<Lobby[]>(["lobbies"], (old = []) =>
           old.map((l) =>
-            l.lobby_id === msg.payload.lobby_id ? { ...l, ...msg.payload } : l
-          )
+            l.lobby_id === msg.payload.lobby_id ? { ...l, ...msg.payload } : l,
+          ),
         );
       }
     });
@@ -76,16 +75,24 @@ function Index() {
 
   return (
     <>
-      <Button onClick={() => setIsModalOpen(true)}>+ Create Lobby</Button>
-      <Chatbox sessionID={1} />
+      <Button
+        onClick={() => {
+          setIsModalOpen(true);
+        }}
+      >
+        + Create Lobby
+      </Button>
 
       <LobbyModal
         open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
         onSubmit={handleCreateLobby}
       />
 
       {isLoading ? <p>Loading lobbies...</p> : <LobbyList lobbies={lobbies} />}
+      <Chatbox sessionID={1} />
     </>
   );
 }
