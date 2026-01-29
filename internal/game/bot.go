@@ -147,12 +147,12 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 
 		b.publishGameState(ctx, gameID, game)
 
-		time.Sleep(500 * time.Millisecond)
 
 			if len(result.CompletedBoxes) > 0 {
 			slog.Info("Bot completed boxes, checking if it gets another turn", 
 				"gameID", gameID,
 				"boxCount", len(result.CompletedBoxes))
+				time.Sleep(600 * time.Millisecond)
 		}
 
 		slog.Info("Bot completed boxes, taking another turn", "gameID", gameID, "boxCount", len(result.CompletedBoxes))

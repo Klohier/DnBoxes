@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 )
 
 type GameService struct {
@@ -147,6 +148,7 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 		if currentPlayer != nil && currentPlayer.UserID != nil && *currentPlayer.UserID < 0 {
 			// It's a bot's turn, play bot moves asynchronously
 			// BotService will handle publishing updates
+			time.Sleep(800 * time.Millisecond)
 			go func() {
 				if err := s.botService.PlayBotTurn(context.Background(), *game.GameID); err != nil {
 					slog.Error("Bot turn failed", "gameID", *game.GameID, "error", err)

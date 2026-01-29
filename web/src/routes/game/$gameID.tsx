@@ -96,8 +96,8 @@ function RouteComponent() {
       "pink",
     ];
     const colorMap: Record<number, string> = {};
-    gameState.players.forEach((player, index) => {
-      colorMap[player.user_id] = colors[index % colors.length];
+    gameState.players.forEach((player) => {
+      colorMap[player.user_id] = colors[player.turn_order % colors.length];
     });
     setUserColors(colorMap);
   }, [gameState]);
