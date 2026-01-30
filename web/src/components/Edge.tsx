@@ -104,7 +104,6 @@ const Edge: React.FC<EdgeProps> = ({
           strokeWidth="5"
           strokeLinecap="round"
           className="edge-line"
-          data-user-color={userColor}
           style={{
             pointerEvents: "none",
             transition: "stroke 0.2s ease, stroke-dasharray 0.2s ease",
@@ -145,6 +144,10 @@ const Edge: React.FC<EdgeProps> = ({
             }
           }
 
+          .edge-hover:hover + .edge-line {
+            stroke: ${userColor};
+            stroke-dasharray: 0;
+          }
         `}
       </style>
     </>
