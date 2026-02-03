@@ -5,7 +5,6 @@ import (
 	"dango/internal/events"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -174,15 +173,6 @@ func (repo *PgGameRepository) Create(ctx context.Context, game *Game) error {
 	}
 	defer tx.Rollback(ctx)
 
-	// Shuffle players for random turn order
-	rand.Shuffle(len(game.Players), func(i, j int) {
-		game.Players[i], game.Players[j] = game.Players[j], game.Players[i]
-	})
-	for i := range game.Players {
-		game.Players[i].TurnOrder = i
-		game.Players[i].Score = 0
-	}
-
 	// Insert game row (projection)
 	var gameID int
 	err = tx.QueryRow(ctx, `
@@ -206,6 +196,16 @@ func (repo *PgGameRepository) Create(ctx context.Context, game *Game) error {
 		`, gameID, *player.UserID, player.TurnOrder, player.Score)
 		if err != nil {
 			return fmt.Errorf("failed to insert player: %w", err)
+		}
+	}
+
+	// Fix GameCreated event payload with the real DB-assigned gameID
+	for i, evt := range game.UncommittedEvents() {
+		if evt.Type == EventTypeGameCreated {
+			if p, ok := evt.Payload.(GameCreatedPayload); ok {
+				p.GameID = gameID
+				game.UncommittedEvents()[i].Payload = p
+			}
 		}
 	}
 

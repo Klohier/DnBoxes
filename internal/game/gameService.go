@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"strconv"
 	"time"
 )
@@ -69,6 +70,15 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 			UserID:   &id,
 			Username: fmt.Sprintf("Player%d", id),
 		}
+	}
+
+	// Shuffle players for random turn order before raising the event
+	rand.Shuffle(len(players), func(i, j int) {
+		players[i], players[j] = players[j], players[i]
+	})
+	for i := range players {
+		players[i].TurnOrder = i
+		players[i].Score = 0
 	}
 
 	// Create aggregate via domain event (GameCreated)
