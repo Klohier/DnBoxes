@@ -307,6 +307,7 @@ func (app *App) setupRoutes(
 	api.POST("/games/:gameId/forfeit", gameHandler.ForfeitGame)
 	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
 	api.GET("/games/:gameId/timer", gameHandler.GetTimerState)
+	api.GET("/games/:gameId/moves", gameHandler.GetGameMoves)
 
 	// Chat
 	api.GET("/chat", chatHandler.GetGlobalMessages)

@@ -14,6 +14,14 @@ type GameHistoryEntry struct {
 	Players   []Player   `json:"players"`
 }
 
+type GameMove struct {
+	MoveNumber int    `json:"move_number"`
+	TurnOrder  int    `json:"turn_order"`
+	Row        int    `json:"row"`
+	Col        int    `json:"col"`
+	Edge       string `json:"edge"`
+}
+
 type GameRepository interface {
 	FindAll(ctx context.Context) ([]Game, error)
 	FindByID(ctx context.Context, id int) (*Game, error)
@@ -21,4 +29,6 @@ type GameRepository interface {
 	Update(ctx context.Context, game *Game) error
 	FindAllFromUser(ctx context.Context, userId int) ([]Game, error)
 	FindUserGameHistory(ctx context.Context, userID int) ([]GameHistoryEntry, error)
+	SaveMove(ctx context.Context, gameID int, move GameMove) error
+	FindMovesByGameID(ctx context.Context, gameID int) ([]GameMove, error)
 }

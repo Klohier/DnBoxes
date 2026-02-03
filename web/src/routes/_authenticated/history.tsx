@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchGameHistory, GameHistoryEntry } from "@/api/fetchGames";
 import { useAuth } from "@/AuthContext";
@@ -8,6 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Play } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/history")({
   component: HistoryPage,
@@ -107,6 +109,19 @@ function GameCard({
             Winner: {winnerPlayer.username}
           </p>
         )}
+        <Link
+          to="/replay/$gameID"
+          params={{ gameID: String(game.game_id) }}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-3 border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Watch Replay
+          </Button>
+        </Link>
       </CardContent>
     </Card>
   );

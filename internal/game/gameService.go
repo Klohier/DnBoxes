@@ -41,6 +41,10 @@ func (s *GameService) GetUserGameHistory(ctx context.Context, userID int) ([]Gam
 	return s.gameRepo.FindUserGameHistory(ctx, userID)
 }
 
+func (s *GameService) GetGameMoves(ctx context.Context, gameID int) ([]GameMove, error) {
+	return s.gameRepo.FindMovesByGameID(ctx, gameID)
+}
+
 func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int) (*Game, error) {
 	if boardSize <= 4 || boardSize >= 11 {
 		return nil, errors.New("invalid board size: must be > 4 and < 11, got: " + strconv.Itoa(boardSize))
@@ -140,6 +144,15 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 	if !isBotGame {
 		if err := s.gameRepo.Update(ctx, game); err != nil {
 			return nil, fmt.Errorf("failed to save game: %w", err)
+		}
+		// Record move for replay
+		if err := s.gameRepo.SaveMove(ctx, gameID, GameMove{
+			TurnOrder: turnOrder,
+			Row:       row,
+			Col:       col,
+			Edge:      string(edgeType),
+		}); err != nil {
+			slog.Error("Failed to save move for replay", "gameID", gameID, "error", err)
 		}
 	}
 

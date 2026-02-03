@@ -191,6 +191,24 @@ func (h *GameHandler) GetGameHistory(c echo.Context) error {
 	return c.JSON(http.StatusOK, history)
 }
 
+func (h *GameHandler) GetGameMoves(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
+	}
+
+	moves, err := h.gameService.GetGameMoves(c.Request().Context(), gameID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to load game moves"})
+	}
+
+	if moves == nil {
+		moves = []GameMove{}
+	}
+
+	return c.JSON(http.StatusOK, moves)
+}
+
 func (h *GameHandler) GetTimerState(c echo.Context) error {
 	gameID, err := strconv.Atoi(c.Param("gameId"))
 	if err != nil {
