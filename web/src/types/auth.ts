@@ -6,4 +6,5 @@ export interface LoginCredentials {
 export interface User {
   userID: number;
   username: string;
+  isGuest: boolean;
 }

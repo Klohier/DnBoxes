@@ -1,11 +1,13 @@
 package user
 
 import (
+	"dango/internal/auth/token"
 	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
@@ -19,12 +21,14 @@ type UserHandler struct {
 type UserResponse struct {
 	UserID   int    `json:"userID"`
 	Username string `json:"username" validate:"required"`
+	IsGuest  bool   `json:"isGuest"`
 }
 
 func NewUserResponse(user *User) *UserResponse {
 	return &UserResponse{
 		UserID:   user.UserID,
 		Username: user.Username,
+		IsGuest:  user.IsGuest,
 	}
 }
 
@@ -111,6 +115,52 @@ func (h *UserHandler) GetMe(c echo.Context) error {
     return c.JSON(http.StatusOK, userResponse)
 
 
+}
+
+func (h *UserHandler) UpgradeGuest(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
+	}
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok || !userToken.Valid {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
+	}
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
+	}
+	userID := int(userIDFloat)
+
+	username := c.FormValue("username")
+	password := c.FormValue("password")
+
+	user, err := h.userService.UpgradeGuest(ctx, userID, username, password)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	// Issue new token with updated username
+	sessionToken, err := token.GenerateToken(user.UserID, user.Username)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate session token")
+	}
+
+	cookie := new(http.Cookie)
+	cookie.Name = "DnB-Session"
+	cookie.Value = sessionToken
+	cookie.HttpOnly = true
+	cookie.Expires = time.Now().Add(24 * time.Hour)
+	cookie.Path = "/"
+	cookie.SameSite = http.SameSiteNoneMode
+	cookie.Secure = true
+	c.SetCookie(cookie)
+
+	h.logger.Info("Guest upgraded to full account", "userID", user.UserID, "username", user.Username)
+
+	return c.JSON(http.StatusOK, NewUserResponse(user))
 }
 
 func (h *UserHandler) GetAllUsers(c echo.Context) error {

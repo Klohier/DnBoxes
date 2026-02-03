@@ -47,6 +47,14 @@ function Root() {
               >
                 Leaderboard
               </Link>
+              {auth.isAuthenticated && (
+                <Link
+                  to="/history"
+                  className="text-gray-300 hover:text-white transition-colors [&.active]:text-white [&.active]:font-semibold"
+                >
+                  History
+                </Link>
+              )}
               <Link
                 to="/about"
                 className="text-gray-300 hover:text-white transition-colors [&.active]:text-white [&.active]:font-semibold"

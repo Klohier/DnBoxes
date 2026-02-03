@@ -164,6 +164,33 @@ func (h *GameHandler) ForfeitGame(c echo.Context) error {
 	return c.JSON(http.StatusOK, game)
 }
 
+func (h *GameHandler) GetGameHistory(c echo.Context) error {
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthenticated"})
+	}
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok || !userToken.Valid {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+	}
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token subject"})
+	}
+	userID := int(userIDFloat)
+
+	history, err := h.gameService.GetUserGameHistory(c.Request().Context(), userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to load game history"})
+	}
+
+	if history == nil {
+		history = []GameHistoryEntry{}
+	}
+
+	return c.JSON(http.StatusOK, history)
+}
+
 func (h *GameHandler) GetTimerState(c echo.Context) error {
 	gameID, err := strconv.Atoi(c.Param("gameId"))
 	if err != nil {

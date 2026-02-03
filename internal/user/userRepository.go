@@ -12,4 +12,5 @@ type UserRepository interface {
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	UserExists(ctx context.Context, username string) (bool, error)
 	UpdateGameID(ctx context.Context, userID int, gameID *int) (*User, error)
+	UpgradeGuest(ctx context.Context, userID int, username string, password string) (*User, error)
 }
