@@ -46,6 +46,11 @@ func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username st
 
 func (c *Connection) Send(event BroadcastEvent) {
 	slog.Info("Sending event to WS", "userID", c.userID, "type", event.Type)
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Warn("send on closed egress channel (stale connection)", "userID", c.userID)
+		}
+	}()
 	select {
 	case c.egress <- event:
 		// message enqueued successfully
