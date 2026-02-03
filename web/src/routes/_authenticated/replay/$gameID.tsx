@@ -1,7 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchGame } from "@/api/fetchGame";
-import { fetchGameMoves, GameMoveEntry } from "@/api/fetchGames";
+import {
+  fetchGameEvents,
+  DomainEvent,
+  GameCreatedPayload,
+  MoveAppliedPayload,
+  BoxCompletedPayload,
+  TurnPassedPayload,
+} from "@/api/fetchGames";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Grid from "@/components/Grid";
 import { Box } from "@/types/websocket";
@@ -82,109 +89,97 @@ function setEdge(grid: Box[][], boardSize: number, row: number, col: number, edg
   }
 }
 
-function isBoxComplete(box: Box): boolean {
-  return box.top_edge && box.right_edge && box.bottom_edge && box.left_edge;
-}
-
-function checkCompletedBoxes(
-  grid: Box[][],
-  boardSize: number,
-  row: number,
-  col: number,
-  edge: EdgeField,
-  turnOrder: number,
-): number {
-  let completed = 0;
-
-  // Check the box where the move was made
-  if (grid[row][col].owner_turn === null && isBoxComplete(grid[row][col])) {
-    grid[row][col].owner_turn = turnOrder;
-    completed++;
-  }
-
-  // Check adjacent box
-  let adjRow = -1;
-  let adjCol = -1;
-  switch (edge) {
-    case "top_edge":
-      adjRow = row - 1;
-      adjCol = col;
-      break;
-    case "right_edge":
-      adjRow = row;
-      adjCol = col + 1;
-      break;
-    case "bottom_edge":
-      adjRow = row + 1;
-      adjCol = col;
-      break;
-    case "left_edge":
-      adjRow = row;
-      adjCol = col - 1;
-      break;
-  }
-
-  if (
-    adjRow >= 0 &&
-    adjRow < boardSize &&
-    adjCol >= 0 &&
-    adjCol < boardSize &&
-    grid[adjRow][adjCol].owner_turn === null &&
-    isBoxComplete(grid[adjRow][adjCol])
-  ) {
-    grid[adjRow][adjCol].owner_turn = turnOrder;
-    completed++;
-  }
-
-  return completed;
-}
-
 interface ReplayState {
   grid: Box[][];
   scores: Record<number, number>;
   currentTurn: number;
+  lastMove?: MoveAppliedPayload;
 }
 
-function buildReplayStates(
-  boardSize: number,
-  moves: GameMoveEntry[],
-  playerCount: number,
-): ReplayState[] {
+function buildReplayStates(domainEvents: DomainEvent[]): ReplayState[] {
   const states: ReplayState[] = [];
 
-  // Initial empty state
-  const grid = makeEmptyGrid(boardSize);
-  const scores: Record<number, number> = {};
+  let boardSize = 0;
+  let grid: Box[][] = [];
+  let scores: Record<number, number> = {};
   let currentTurn = 0;
+  let hasPendingMove = false;
+  let lastMove: MoveAppliedPayload | undefined;
 
-  states.push({
-    grid: JSON.parse(JSON.stringify(grid)),
-    scores: { ...scores },
-    currentTurn,
-  });
-
-  for (const move of moves) {
-    const edgeField = edgeNameToField(move.edge);
-    setEdge(grid, boardSize, move.row, move.col, edgeField);
-    const completed = checkCompletedBoxes(
-      grid,
-      boardSize,
-      move.row,
-      move.col,
-      edgeField,
-      move.turn_order,
-    );
-
-    if (completed > 0) {
-      scores[move.turn_order] = (scores[move.turn_order] || 0) + completed;
-    } else {
-      currentTurn = (move.turn_order + 1) % playerCount;
+  for (const event of domainEvents) {
+    // If a new MoveApplied arrives while there's a pending move snapshot
+    // (previous move completed boxes without a TurnPassed), push that snapshot now
+    if (event.type === "game.move_applied" && hasPendingMove) {
+      states.push({
+        grid: JSON.parse(JSON.stringify(grid)),
+        scores: { ...scores },
+        currentTurn,
+        lastMove,
+      });
+      hasPendingMove = false;
     }
 
+    switch (event.type) {
+      case "game.created": {
+        const p = event.payload as GameCreatedPayload;
+        boardSize = p.board_size;
+        grid = makeEmptyGrid(boardSize);
+        scores = {};
+        currentTurn = 0;
+        states.push({
+          grid: JSON.parse(JSON.stringify(grid)),
+          scores: { ...scores },
+          currentTurn,
+        });
+        break;
+      }
+      case "game.move_applied": {
+        const p = event.payload as MoveAppliedPayload;
+        const edgeField = edgeNameToField(p.edge);
+        setEdge(grid, boardSize, p.row, p.col, edgeField);
+        lastMove = p;
+        hasPendingMove = true;
+        break;
+      }
+      case "game.box_completed": {
+        const p = event.payload as BoxCompletedPayload;
+        grid[p.row][p.col].owner_turn = p.owner_turn;
+        scores[p.owner_turn] = (scores[p.owner_turn] || 0) + 1;
+        break;
+      }
+      case "game.turn_passed": {
+        const p = event.payload as TurnPassedPayload;
+        currentTurn = p.next_turn;
+        states.push({
+          grid: JSON.parse(JSON.stringify(grid)),
+          scores: { ...scores },
+          currentTurn,
+          lastMove,
+        });
+        hasPendingMove = false;
+        break;
+      }
+      case "game.ended":
+      case "game.forfeited": {
+        states.push({
+          grid: JSON.parse(JSON.stringify(grid)),
+          scores: { ...scores },
+          currentTurn,
+          lastMove,
+        });
+        hasPendingMove = false;
+        break;
+      }
+    }
+  }
+
+  // Flush any pending move at the end (shouldn't normally happen)
+  if (hasPendingMove) {
     states.push({
       grid: JSON.parse(JSON.stringify(grid)),
       scores: { ...scores },
       currentTurn,
+      lastMove,
     });
   }
 
@@ -207,9 +202,9 @@ function ReplayPage() {
     queryFn: () => fetchGame(gameID),
   });
 
-  const { data: moves, isLoading: movesLoading } = useQuery({
-    queryKey: ["gameMoves", gameID],
-    queryFn: () => fetchGameMoves(Number(gameID)),
+  const { data: events, isLoading: eventsLoading } = useQuery({
+    queryKey: ["gameEvents", gameID],
+    queryFn: () => fetchGameEvents(Number(gameID)),
   });
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -218,13 +213,9 @@ function ReplayPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const replayStates = useMemo(() => {
-    if (!gameState || !moves) return [];
-    return buildReplayStates(
-      gameState.board_size,
-      moves,
-      gameState.players.length,
-    );
-  }, [gameState, moves]);
+    if (!events || events.length === 0) return [];
+    return buildReplayStates(events);
+  }, [events]);
 
   const totalSteps = replayStates.length;
 
@@ -362,7 +353,7 @@ function ReplayPage() {
   // No-op click handler for the grid (replay mode is view-only)
   const noopClick = useCallback(() => {}, []);
 
-  if (gameLoading || movesLoading) {
+  if (gameLoading || eventsLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
         <p className="text-lg text-gray-300">Loading replay...</p>
@@ -370,7 +361,7 @@ function ReplayPage() {
     );
   }
 
-  if (!gameState || !moves) {
+  if (!gameState || !events) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
         <p className="text-lg text-gray-300">Game not found</p>
@@ -378,7 +369,7 @@ function ReplayPage() {
     );
   }
 
-  if (moves.length === 0) {
+  if (replayStates.length <= 1) {
     return (
       <div className="min-h-screen bg-gray-900 p-4">
         <div className="max-w-3xl mx-auto space-y-6 text-center">
@@ -386,7 +377,7 @@ function ReplayPage() {
             Replay: Game #{gameID}
           </h1>
           <p className="text-gray-400">
-            No move data available for this game. Move recording was added
+            No event data available for this game. Event recording was added
             after this game was played.
           </p>
           <Button
@@ -404,16 +395,10 @@ function ReplayPage() {
 
   const flattenedBoxes = currentState ? currentState.grid.flat() : [];
 
-  // Current move info
-  const currentMoveInfo =
-    currentStep > 0 && moves[currentStep - 1]
-      ? moves[currentStep - 1]
-      : null;
-
-  const activePlayer = currentMoveInfo
-    ? gameState.players.find(
-        (p) => p.turn_order === currentMoveInfo.turn_order,
-      )
+  // Current move info from domain events
+  const lastMove = currentState?.lastMove;
+  const activePlayer = lastMove
+    ? gameState.players.find((p) => p.turn_order === lastMove.turn_order)
     : null;
 
   const winnerPlayer = gameState.players.find(
@@ -465,7 +450,7 @@ function ReplayPage() {
                             : "Draw!"}
                         </p>
                       </div>
-                    ) : activePlayer ? (
+                    ) : activePlayer && lastMove ? (
                       <p className="text-white">
                         <span
                           className="font-semibold"
@@ -477,8 +462,8 @@ function ReplayPage() {
                         </span>{" "}
                         placed{" "}
                         <span className="text-gray-300">
-                          {currentMoveInfo?.edge} edge at (
-                          {currentMoveInfo?.row}, {currentMoveInfo?.col})
+                          {lastMove.edge} edge at (
+                          {lastMove.row}, {lastMove.col})
                         </span>
                       </p>
                     ) : null}
@@ -618,7 +603,7 @@ function ReplayPage() {
                       const score =
                         currentState?.scores[player.turn_order] || 0;
                       const isActive =
-                        currentMoveInfo?.turn_order === player.turn_order &&
+                        lastMove?.turn_order === player.turn_order &&
                         currentStep > 0 &&
                         !isAtEnd;
                       return (

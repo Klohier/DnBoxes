@@ -2,6 +2,8 @@ package game
 
 import (
 	"context"
+	"dango/internal/events"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"time"
@@ -24,13 +26,13 @@ func (repo *PgGameRepository) FindAll(ctx context.Context) ([]Game, error) {
 		FROM games
 		ORDER BY created_at DESC
 	`
-	
+
 	rows, err := repo.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query games: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var games []Game
 	for rows.Next() {
 		var g Game
@@ -41,20 +43,35 @@ func (repo *PgGameRepository) FindAll(ctx context.Context) ([]Game, error) {
 		}
 		games = append(games, g)
 	}
-	
+
 	return games, rows.Err()
 }
 
+// FindByID loads a game by replaying its domain events.
+// Falls back to the legacy grid-based snapshot for games created before event sourcing.
 func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, error) {
+	domainEvents, err := repo.LoadEvents(ctx, gameID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(domainEvents) > 0 {
+		return LoadFromEvents(domainEvents), nil
+	}
+
+	// Fallback: load from legacy grid snapshot for old games
+	return repo.findByIDLegacy(ctx, gameID)
+}
+
+// findByIDLegacy loads game state from the grids table (pre-event-sourcing games).
+func (repo *PgGameRepository) findByIDLegacy(ctx context.Context, gameID int) (*Game, error) {
 	batch := &pgx.Batch{}
-	
-	// Query 1: Game info
+
 	batch.Queue(`
 		SELECT game_id, name, board_size, current_turn, winner_id, created_at, ended_at
 		FROM games WHERE game_id = $1
 	`, gameID)
-	
-	// Query 2: Players with scores
+
 	batch.Queue(`
 		SELECT gd.user_id, u.username, gd.turn_order, gd.score
 		FROM game_details gd
@@ -62,21 +79,19 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 		WHERE gd.game_id = $1
 		ORDER BY gd.turn_order
 	`, gameID)
-	
-	// Query 3: Boxes
+
 	batch.Queue(`
 		SELECT grid_row, grid_col, top_edge, right_edge, bottom_edge, left_edge, completed_by
 		FROM grids
 		WHERE game_id = $1
 		ORDER BY grid_row, grid_col
 	`, gameID)
-	
+
 	br := repo.db.SendBatch(ctx, batch)
 	defer br.Close()
-	
+
 	var game Game
-	
-	// Scan game
+
 	err := br.QueryRow().Scan(
 		&game.GameID, &game.GameName, &game.BoardSize, &game.CurrentTurn,
 		&game.WinnerID, &game.CreatedAt, &game.EndedAt,
@@ -87,13 +102,12 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 		}
 		return nil, fmt.Errorf("failed to get game: %w", err)
 	}
-	
-	// Scan players with scores
+
 	playerRows, err := br.Query()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query players: %w", err)
 	}
-	
+
 	for playerRows.Next() {
 		var p Player
 		err := playerRows.Scan(&p.UserID, &p.Username, &p.TurnOrder, &p.Score)
@@ -101,38 +115,34 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 			playerRows.Close()
 			return nil, fmt.Errorf("failed to scan player: %w", err)
 		}
-		// Assume registered users (not anonymous) since we're joining with users table
 		p.IsAnonymous = false
 		game.Players = append(game.Players, p)
 	}
 	playerRows.Close()
-	
-	// Scan boxes and build grid
+
 	game.Grid = make([][]Box, game.BoardSize)
 	for i := range game.Grid {
 		game.Grid[i] = make([]Box, game.BoardSize)
 	}
-	
+
 	boxRows, err := br.Query()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query boxes: %w", err)
 	}
 	defer boxRows.Close()
-	
+
 	for boxRows.Next() {
 		var row, col int
 		var topEdge, rightEdge, bottomEdge, leftEdge bool
 		var completedBy *int
-		
+
 		err := boxRows.Scan(&row, &col, &topEdge, &rightEdge, &bottomEdge, &leftEdge, &completedBy)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan box: %w", err)
 		}
-		
-		// Convert user_id to turn_order
+
 		var ownerTurn *int
 		if completedBy != nil {
-			// Find the turn_order for this user_id
 			for _, p := range game.Players {
 				if p.UserID != nil && *p.UserID == *completedBy {
 					ownerTurn = &p.TurnOrder
@@ -140,7 +150,7 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 				}
 			}
 		}
-		
+
 		game.Grid[row][col] = Box{
 			Row:        row,
 			Col:        col,
@@ -151,138 +161,171 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 			OwnerTurn:  ownerTurn,
 		}
 	}
-	
+
 	return &game, boxRows.Err()
 }
 
-func (repo *PgGameRepository) Create(ctx context.Context, players []Player, boardSize int) (*Game, error) {
-	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-	
-	// Shuffle players for random turn order
-	rand.Shuffle(len(players), func(i, j int) {
-		players[i], players[j] = players[j], players[i]
-	})
-	
-	// Assign turn orders
-	for i := range players {
-		players[i].TurnOrder = i
-		players[i].Score = 0
-	}
-	
-	// Insert game
-	var gameID int
-	err = tx.QueryRow(ctx, `
-		INSERT INTO games (board_size, current_turn)
-		VALUES ($1, 0)
-		RETURNING game_id
-	`, boardSize).Scan(&gameID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create game: %w", err)
-	}
-	
-	// Insert players into game_details
-	for _, player := range players {
-		if player.UserID == nil {
-			return nil, fmt.Errorf("cannot create game with anonymous players in database")
-		}
-		
-		_, err = tx.Exec(ctx, `
-			INSERT INTO game_details (game_id, user_id, turn_order, score)
-			VALUES ($1, $2, $3, $4)
-		`, gameID, *player.UserID, player.TurnOrder, player.Score)
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert player: %w", err)
-		}
-	}
-	
-	// Insert empty boxes into grids
-	for row := 0; row < boardSize; row++ {
-		for col := 0; col < boardSize; col++ {
-			_, err = tx.Exec(ctx, `
-				INSERT INTO grids (game_id, grid_row, grid_col)
-				VALUES ($1, $2, $3)
-			`, gameID, row, col)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create box: %w", err)
-			}
-		}
-	}
-	
-	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	
-	// Return the created game
-	return repo.FindByID(ctx, gameID)
-}
-
-func (repo *PgGameRepository) Update(ctx context.Context, game *Game) error {
+// Create inserts the game projection (games + game_details) and persists the
+// initial domain events from the aggregate.
+func (repo *PgGameRepository) Create(ctx context.Context, game *Game) error {
 	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	
-	// Update game metadata
+
+	// Shuffle players for random turn order
+	rand.Shuffle(len(game.Players), func(i, j int) {
+		game.Players[i], game.Players[j] = game.Players[j], game.Players[i]
+	})
+	for i := range game.Players {
+		game.Players[i].TurnOrder = i
+		game.Players[i].Score = 0
+	}
+
+	// Insert game row (projection)
+	var gameID int
+	err = tx.QueryRow(ctx, `
+		INSERT INTO games (board_size, current_turn)
+		VALUES ($1, 0)
+		RETURNING game_id
+	`, game.BoardSize).Scan(&gameID)
+	if err != nil {
+		return fmt.Errorf("failed to create game: %w", err)
+	}
+	game.GameID = &gameID
+
+	// Insert players (projection)
+	for _, player := range game.Players {
+		if player.UserID == nil {
+			return fmt.Errorf("cannot create game with anonymous players in database")
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO game_details (game_id, user_id, turn_order, score)
+			VALUES ($1, $2, $3, $4)
+		`, gameID, *player.UserID, player.TurnOrder, player.Score)
+		if err != nil {
+			return fmt.Errorf("failed to insert player: %w", err)
+		}
+	}
+
+	// Persist initial domain events (event store)
+	for _, evt := range game.UncommittedEvents() {
+		payloadBytes, err := json.Marshal(evt.Payload)
+		if err != nil {
+			return fmt.Errorf("failed to marshal event payload: %w", err)
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO game_events (game_id, event_type, version, payload, occurred_at)
+			VALUES ($1, $2, $3, $4, $5)
+		`, gameID, evt.Type, evt.Version, payloadBytes, evt.OccurredAt)
+		if err != nil {
+			return fmt.Errorf("failed to save event: %w", err)
+		}
+	}
+	game.ClearEvents()
+
+	return tx.Commit(ctx)
+}
+
+// AppendEvents persists new domain events to the event store.
+func (repo *PgGameRepository) AppendEvents(ctx context.Context, gameID int, domainEvents []events.DomainEvent) error {
+	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for _, evt := range domainEvents {
+		payloadBytes, err := json.Marshal(evt.Payload)
+		if err != nil {
+			return fmt.Errorf("failed to marshal event payload: %w", err)
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO game_events (game_id, event_type, version, payload, occurred_at)
+			VALUES ($1, $2, $3, $4, $5)
+		`, gameID, evt.Type, evt.Version, payloadBytes, evt.OccurredAt)
+		if err != nil {
+			return fmt.Errorf("failed to append event: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// LoadEvents loads all domain events for a game, ordered by version.
+func (repo *PgGameRepository) LoadEvents(ctx context.Context, gameID int) ([]events.DomainEvent, error) {
+	rows, err := repo.db.Query(ctx, `
+		SELECT event_type, version, payload, occurred_at
+		FROM game_events
+		WHERE game_id = $1
+		ORDER BY version
+	`, gameID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query events: %w", err)
+	}
+	defer rows.Close()
+
+	var domainEvents []events.DomainEvent
+	for rows.Next() {
+		var eventType string
+		var version int
+		var payloadBytes []byte
+		var occurredAt time.Time
+
+		if err := rows.Scan(&eventType, &version, &payloadBytes, &occurredAt); err != nil {
+			return nil, fmt.Errorf("failed to scan event: %w", err)
+		}
+
+		payload, err := deserializePayload(eventType, payloadBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to deserialize event payload: %w", err)
+		}
+
+		domainEvents = append(domainEvents, events.DomainEvent{
+			Type:        eventType,
+			Version:     version,
+			OccurredAt:  occurredAt,
+			AggregateID: fmt.Sprintf("%d", gameID),
+			Payload:     payload,
+		})
+	}
+
+	return domainEvents, rows.Err()
+}
+
+// UpdateProjection updates the games and game_details tables to reflect
+// the current aggregate state. Keeps query tables in sync with events.
+func (repo *PgGameRepository) UpdateProjection(ctx context.Context, game *Game) error {
+	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	_, err = tx.Exec(ctx, `
-		UPDATE games 
+		UPDATE games
 		SET current_turn = $2, winner_id = $3, ended_at = $4
 		WHERE game_id = $1
 	`, game.GameID, game.CurrentTurn, game.WinnerID, game.EndedAt)
 	if err != nil {
-		return fmt.Errorf("failed to update game: %w", err)
+		return fmt.Errorf("failed to update game projection: %w", err)
 	}
-	
-	// Update player scores in game_details
+
 	for _, player := range game.Players {
 		if player.UserID == nil {
-			continue // Skip anonymous players
+			continue
 		}
-		
 		_, err = tx.Exec(ctx, `
 			UPDATE game_details
 			SET score = $3
 			WHERE game_id = $1 AND turn_order = $2
 		`, game.GameID, player.TurnOrder, player.Score)
 		if err != nil {
-			return fmt.Errorf("failed to update player score: %w", err)
+			return fmt.Errorf("failed to update player score projection: %w", err)
 		}
 	}
-	
-	// Update all boxes in grids
-	for i := 0; i < len(game.Grid); i++ {
-		for j := 0; j < len(game.Grid[i]); j++ {
-			box := &game.Grid[i][j]
-			
-			// Convert turn_order back to user_id for completed_by
-			var completedBy *int
-			if box.OwnerTurn != nil {
-				// Find the user_id for this turn_order
-				for _, p := range game.Players {
-					if p.TurnOrder == *box.OwnerTurn && p.UserID != nil {
-						completedBy = p.UserID
-						break
-					}
-				}
-			}
-			
-			_, err = tx.Exec(ctx, `
-				UPDATE grids
-				SET top_edge = $3, right_edge = $4, bottom_edge = $5, 
-				    left_edge = $6, completed = $7, completed_by = $8
-				WHERE game_id = $1 AND grid_row = $2 AND grid_col = $9
-			`, game.GameID, box.Row, box.TopEdge, box.RightEdge, box.BottomEdge,
-				box.LeftEdge, completedBy != nil, completedBy, box.Col)
-			if err != nil {
-				return fmt.Errorf("failed to update box at (%d,%d): %w", i, j, err)
-			}
-		}
-	}
-	
+
 	return tx.Commit(ctx)
 }
 
@@ -358,40 +401,6 @@ func (repo *PgGameRepository) FindUserGameHistory(ctx context.Context, userID in
 	return result, nil
 }
 
-func (repo *PgGameRepository) SaveMove(ctx context.Context, gameID int, move GameMove) error {
-	_, err := repo.db.Exec(ctx, `
-		INSERT INTO game_moves (game_id, move_number, turn_order, grid_row, grid_col, edge)
-		VALUES ($1, (SELECT COALESCE(MAX(move_number), 0) + 1 FROM game_moves WHERE game_id = $1), $2, $3, $4, $5)
-	`, gameID, move.TurnOrder, move.Row, move.Col, move.Edge)
-	if err != nil {
-		return fmt.Errorf("failed to save move: %w", err)
-	}
-	return nil
-}
-
-func (repo *PgGameRepository) FindMovesByGameID(ctx context.Context, gameID int) ([]GameMove, error) {
-	rows, err := repo.db.Query(ctx, `
-		SELECT move_number, turn_order, grid_row, grid_col, edge
-		FROM game_moves
-		WHERE game_id = $1
-		ORDER BY move_number
-	`, gameID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query moves: %w", err)
-	}
-	defer rows.Close()
-
-	var moves []GameMove
-	for rows.Next() {
-		var m GameMove
-		if err := rows.Scan(&m.MoveNumber, &m.TurnOrder, &m.Row, &m.Col, &m.Edge); err != nil {
-			return nil, fmt.Errorf("failed to scan move: %w", err)
-		}
-		moves = append(moves, m)
-	}
-	return moves, rows.Err()
-}
-
 func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) ([]Game, error) {
 	query := `
 		SELECT g.game_id, g.name, g.board_size, g.current_turn,
@@ -401,13 +410,13 @@ func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) (
 		WHERE gd.user_id = $1
 		ORDER BY g.created_at DESC
 	`
-	
+
 	rows, err := repo.db.Query(ctx, query, userId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user games: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var games []Game
 	for rows.Next() {
 		var g Game
@@ -418,6 +427,50 @@ func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) (
 		}
 		games = append(games, g)
 	}
-	
+
 	return games, rows.Err()
+}
+
+// deserializePayload converts raw JSON into the correct typed payload struct.
+func deserializePayload(eventType string, raw []byte) (any, error) {
+	switch eventType {
+	case EventTypeGameCreated:
+		var p GameCreatedPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case EventTypeMoveApplied:
+		var p MoveAppliedPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case EventTypeBoxCompleted:
+		var p BoxCompletedPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case EventTypeTurnPassed:
+		var p TurnPassedPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case EventTypeGameEnded:
+		var p GameEndedPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case EventTypeGameForfeited:
+		var p GameForfeitedPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	default:
+		return nil, fmt.Errorf("unknown event type: %s", eventType)
+	}
 }

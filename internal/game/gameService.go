@@ -32,8 +32,8 @@ func (s *GameService) GetGame(ctx context.Context, gameID int) (*Game, error) {
 	if s.botService.IsBotGame(gameID) {
 		return s.botService.GetBotGameState(gameID)
 	}
-	
-	// Otherwise load from database
+
+	// Otherwise load from database (event replay or legacy fallback)
 	return s.gameRepo.FindByID(ctx, gameID)
 }
 
@@ -41,19 +41,20 @@ func (s *GameService) GetUserGameHistory(ctx context.Context, userID int) ([]Gam
 	return s.gameRepo.FindUserGameHistory(ctx, userID)
 }
 
-func (s *GameService) GetGameMoves(ctx context.Context, gameID int) ([]GameMove, error) {
-	return s.gameRepo.FindMovesByGameID(ctx, gameID)
+// GetGameEvents returns all domain events for a game (for replay).
+func (s *GameService) GetGameEvents(ctx context.Context, gameID int) ([]events.DomainEvent, error) {
+	return s.gameRepo.LoadEvents(ctx, gameID)
 }
 
 func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int) (*Game, error) {
 	if boardSize <= 4 || boardSize >= 11 {
 		return nil, errors.New("invalid board size: must be > 4 and < 11, got: " + strconv.Itoa(boardSize))
 	}
-	
+
 	if len(playerIDs) < 2 || len(playerIDs) > 4 {
 		return nil, errors.New("game requires 2-4 players")
 	}
-	
+
 	seen := make(map[int]bool)
 	for _, id := range playerIDs {
 		if seen[id] {
@@ -61,26 +62,28 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 		}
 		seen[id] = true
 	}
-	
-	// TODO: Fetch actual usernames from user repository/service
+
 	players := make([]Player, len(playerIDs))
 	for i, id := range playerIDs {
 		players[i] = Player{
 			UserID:   &id,
-			Username: fmt.Sprintf("Player%d", id), // Placeholder
+			Username: fmt.Sprintf("Player%d", id),
 		}
 	}
-	
-	game, err := s.gameRepo.Create(ctx, players, boardSize)
-	if err != nil {
+
+	// Create aggregate via domain event (GameCreated)
+	tempID := 0
+	game := NewGame(&tempID, boardSize, players)
+
+	// Persist: projection + events
+	if err := s.gameRepo.Create(ctx, game); err != nil {
 		return nil, err
 	}
-	
+
 	slog.Info("Game created", "gameID", *game.GameID, "boardSize", boardSize, "players", len(players))
 
-	s.publishEvent(ctx, "global:games", "game_created", game)
+	s.publishIntegrationEvent(ctx, "global:games", "game_created", game)
 
-	// Start game timer (server-authoritative chess clock)
 	if s.timerService != nil {
 		s.timerService.StartTimer(*game.GameID, game.Players, game.CurrentTurn)
 	}
@@ -89,23 +92,21 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 }
 
 func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col int, edge string) (*Game, error) {
-	// Check if it's a bot game
 	isBotGame := s.botService.IsBotGame(gameID)
-	
-	// Load game
+
 	var game *Game
 	var err error
-	
+
 	if isBotGame {
 		game, err = s.botService.GetBotGameState(gameID)
 	} else {
 		game, err = s.gameRepo.FindByID(ctx, gameID)
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to load game: %w", err)
 	}
-	
+
 	// Find player's turn order
 	var turnOrder int
 	found := false
@@ -119,14 +120,12 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 	if !found {
 		return nil, fmt.Errorf("player %d not in game", playerID)
 	}
-	
-	// Convert edge string to EdgeType
+
 	edgeType, err := parseEdge(edge)
 	if err != nil {
 		return nil, err
 	}
-	
-	// Apply move
+
 	previousTurn := game.CurrentTurn
 	move := Move{
 		TurnOrder: turnOrder,
@@ -135,24 +134,22 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 		Edge:      edgeType,
 	}
 
+	// ApplyMove now raises domain events internally
 	result, err := game.ApplyMove(move)
 	if err != nil {
 		return nil, fmt.Errorf("invalid move: %w", err)
 	}
 
-	// Save game (only for DB games)
+	// Persist events and update projection (only for DB games)
 	if !isBotGame {
-		if err := s.gameRepo.Update(ctx, game); err != nil {
-			return nil, fmt.Errorf("failed to save game: %w", err)
+		uncommitted := game.UncommittedEvents()
+		if err := s.gameRepo.AppendEvents(ctx, gameID, uncommitted); err != nil {
+			return nil, fmt.Errorf("failed to save events: %w", err)
 		}
-		// Record move for replay
-		if err := s.gameRepo.SaveMove(ctx, gameID, GameMove{
-			TurnOrder: turnOrder,
-			Row:       row,
-			Col:       col,
-			Edge:      string(edgeType),
-		}); err != nil {
-			slog.Error("Failed to save move for replay", "gameID", gameID, "error", err)
+		game.ClearEvents()
+
+		if err := s.gameRepo.UpdateProjection(ctx, game); err != nil {
+			slog.Error("Failed to update projection", "gameID", gameID, "error", err)
 		}
 	}
 
@@ -167,17 +164,15 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 		"isBotGame", isBotGame,
 		"boxesCompleted", len(result.CompletedBoxes),
 		"gameOver", result.GameOver)
-	
-	// Publish human move
+
+	// Publish integration event for WebSocket
 	topic := fmt.Sprintf("game:%d", *game.GameID)
-	s.publishEvent(ctx, topic, "game:state", game)
-	
+	s.publishIntegrationEvent(ctx, topic, "game:state", game)
+
 	// If bot game and it's now a bot's turn, trigger bot moves
 	if isBotGame && !result.GameOver {
 		currentPlayer := game.GetCurrentPlayer()
 		if currentPlayer != nil && currentPlayer.UserID != nil && *currentPlayer.UserID < 0 {
-			// It's a bot's turn, play bot moves asynchronously
-			// BotService will handle publishing updates
 			time.Sleep(800 * time.Millisecond)
 			go func() {
 				if err := s.botService.PlayBotTurn(context.Background(), *game.GameID); err != nil {
@@ -186,13 +181,12 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 			}()
 		}
 	}
-	
+
 	if result.GameOver {
-		// Stop timer when game ends
 		if s.timerService != nil {
 			s.timerService.StopTimer(*game.GameID)
 		}
-		s.publishEvent(ctx, "global:games", "game_completed", map[string]interface{}{
+		s.publishIntegrationEvent(ctx, "global:games", "game_completed", map[string]interface{}{
 			"game_id":   *game.GameID,
 			"winner_id": game.WinnerID,
 		})
@@ -221,39 +215,30 @@ func (s *GameService) ForfeitGame(ctx context.Context, gameID, playerID int) (*G
 		return nil, fmt.Errorf("game has already ended")
 	}
 
-	// Determine winner: the opponent with the highest score
-	var winnerID *int
-	maxScore := -1
-	for _, p := range game.Players {
-		if p.UserID != nil && *p.UserID == playerID {
-			continue
-		}
-		if p.Score > maxScore {
-			maxScore = p.Score
-			winnerID = p.UserID
-		}
-	}
-
-	game.WinnerID = winnerID
-	now := time.Now()
-	game.EndedAt = &now
+	// Forfeit raises a GameForfeited domain event
+	game.Forfeit(playerID)
 
 	if !isBotGame {
-		if err := s.gameRepo.Update(ctx, game); err != nil {
-			return nil, fmt.Errorf("failed to save game: %w", err)
+		uncommitted := game.UncommittedEvents()
+		if err := s.gameRepo.AppendEvents(ctx, gameID, uncommitted); err != nil {
+			return nil, fmt.Errorf("failed to save forfeit events: %w", err)
+		}
+		game.ClearEvents()
+
+		if err := s.gameRepo.UpdateProjection(ctx, game); err != nil {
+			slog.Error("Failed to update projection after forfeit", "gameID", gameID, "error", err)
 		}
 	}
 
-	slog.Info("Game forfeited", "gameID", *game.GameID, "forfeitedBy", playerID, "winnerID", winnerID)
+	slog.Info("Game forfeited", "gameID", *game.GameID, "forfeitedBy", playerID, "winnerID", game.WinnerID)
 
-	// Stop timer on forfeit
 	if s.timerService != nil {
 		s.timerService.StopTimer(*game.GameID)
 	}
 
 	topic := fmt.Sprintf("game:%d", *game.GameID)
-	s.publishEvent(ctx, topic, "game:state", game)
-	s.publishEvent(ctx, "global:games", "game_completed", map[string]interface{}{
+	s.publishIntegrationEvent(ctx, topic, "game:state", game)
+	s.publishIntegrationEvent(ctx, "global:games", "game_completed", map[string]interface{}{
 		"game_id":   *game.GameID,
 		"winner_id": game.WinnerID,
 	})
@@ -261,13 +246,14 @@ func (s *GameService) ForfeitGame(ctx context.Context, gameID, playerID int) (*G
 	return game, nil
 }
 
-func (s *GameService) publishEvent(ctx context.Context, topic, eventType string, payload interface{}) {
+// publishIntegrationEvent publishes a WebSocket integration event (separate from domain events).
+func (s *GameService) publishIntegrationEvent(ctx context.Context, topic, eventType string, payload interface{}) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		slog.Error("Failed to marshal event payload", "type", eventType, "error", err)
 		return
 	}
-	
+
 	s.bus.Publish(ctx, topic, events.Event{
 		Topic:   topic,
 		Type:    eventType,
