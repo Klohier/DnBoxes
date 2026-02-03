@@ -5,10 +5,11 @@ import { LobbyModal } from "@/components/LobbyModal";
 import { BotGameModal } from "@/components/BotGameModal";
 import Chatbox from "../../components/ChatBox";
 import { Button } from "@/components/ui/button";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { CreateLobbyData, Lobby } from "../../types/lobby";
 import { fetchLobbies, createLobby } from "@/api/lobby";
+import { fetchMyStats } from "@/api/fetchStats";
 import { useAuth } from "@/AuthContext";
 
 import { toast } from "sonner";
@@ -39,6 +40,12 @@ function Index() {
   const { data: lobbies = [], isLoading } = useQuery<Lobby[]>({
     queryKey: ["lobbies"],
     queryFn: fetchLobbies,
+  });
+
+  // Fetch user stats
+  const { data: stats } = useQuery({
+    queryKey: ["myStats"],
+    queryFn: fetchMyStats,
   });
 
   // Create lobby mutation
@@ -175,24 +182,53 @@ function Index() {
             {/* Right Section - Profile & Chat */}
             <div className="lg:col-span-1 flex flex-col gap-4">
               <div className="bg-gray-800 rounded-lg p-6 flex-shrink-0">
-                <h2 className="text-xl font-bold text-white mb-4">Profile</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-white">Profile</h2>
+                  <span className="text-sm text-gray-400">
+                    {auth.user?.username}
+                  </span>
+                </div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Games Played</span>
-                    <span className="text-white font-semibold">0</span>
+                    <span className="text-white font-semibold">
+                      {stats?.gamesPlayed ?? 0}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Wins</span>
-                    <span className="text-green-400 font-semibold">0</span>
+                    <span className="text-green-400 font-semibold">
+                      {stats?.wins ?? 0}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Losses</span>
-                    <span className="text-red-400 font-semibold">0</span>
+                    <span className="text-red-400 font-semibold">
+                      {stats?.losses ?? 0}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Win Rate</span>
-                    <span className="text-white font-semibold">0%</span>
+                    <span className="text-white font-semibold">
+                      {stats?.winRate !== undefined
+                        ? `${stats.winRate.toFixed(1)}%`
+                        : "0%"}
+                    </span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Boxes Completed</span>
+                    <span className="text-blue-400 font-semibold">
+                      {stats?.totalBoxes ?? 0}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-gray-700">
+                  <Link
+                    to="/leaderboard"
+                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    View Leaderboard
+                  </Link>
                 </div>
               </div>
 

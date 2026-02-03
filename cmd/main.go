@@ -9,6 +9,7 @@ import (
 	"dango/internal/lobby"
 	"dango/internal/metrics"
 	"dango/internal/session"
+	"dango/internal/stats"
 	"dango/internal/user"
 	"dango/internal/websocket"
 	"fmt"
@@ -223,6 +224,11 @@ func (app *App) setupServices(cfg *Config) error {
 	// Start listening for connect/disconnect events for timer
 	go timerService.ListenForConnectionEvents()
 
+	// Initialize stats
+	statsRepo := stats.NewPgStatsRepository(app.db)
+	statsService := stats.NewStatsService(statsRepo)
+	statsHandler := stats.NewStatsHandler(statsService)
+
 	// Initialize handlers
 	userHandler := user.NewUserHandler(userService)
 	loginHandler := auth.NewLoginHandler(loginService, userService)
@@ -240,7 +246,7 @@ func (app *App) setupServices(cfg *Config) error {
 	go manager.Run()
 
 	// Setup routes
-	app.setupRoutes(cfg, userHandler, loginHandler, chatHandler, gameHandler, lobbyHandler, sessionHandler, manager)
+	app.setupRoutes(cfg, userHandler, loginHandler, chatHandler, gameHandler, lobbyHandler, sessionHandler, statsHandler, manager)
 
 	return nil
 }
@@ -253,6 +259,7 @@ func (app *App) setupRoutes(
 	gameHandler *game.GameHandler,
 	lobbyHandler *lobby.LobbyHandler,
 	sessionHandler *session.SessionHandler,
+	statsHandler *stats.StatsHandler,
 	manager *websocket.Manager,
 ) {
 	// Public routes
@@ -300,6 +307,11 @@ func (app *App) setupRoutes(
 	// Chat
 	api.GET("/chat", chatHandler.GetGlobalMessages)
 	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
+
+	// Stats
+	api.GET("/stats/me", statsHandler.GetMyStats)
+	api.GET("/stats/users/:userId", statsHandler.GetUserStats)
+	api.GET("/stats/leaderboard", statsHandler.GetLeaderboard)
 
 	// Session
 	api.GET("/sessions", sessionHandler.GetAllSessions)

@@ -42,6 +42,12 @@ function Root() {
                 Home
               </Link>
               <Link
+                to="/leaderboard"
+                className="text-gray-300 hover:text-white transition-colors [&.active]:text-white [&.active]:font-semibold"
+              >
+                Leaderboard
+              </Link>
+              <Link
                 to="/about"
                 className="text-gray-300 hover:text-white transition-colors [&.active]:text-white [&.active]:font-semibold"
               >
