@@ -68,6 +68,18 @@ CREATE TABLE IF NOT EXISTS public.users
     CONSTRAINT users_pkey PRIMARY KEY (user_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.game_moves
+(
+    move_id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
+    game_id bigint NOT NULL,
+    move_number integer NOT NULL,
+    turn_order integer NOT NULL,
+    grid_row smallint NOT NULL,
+    grid_col smallint NOT NULL,
+    edge character varying(6) NOT NULL,
+    CONSTRAINT game_moves_pkey PRIMARY KEY (move_id)
+);
+
 ALTER TABLE IF EXISTS public.chats
 
     ADD CONSTRAINT chats_game_id_fkey FOREIGN KEY (game_id)
@@ -128,6 +140,13 @@ ALTER TABLE IF EXISTS public.grids
     ON DELETE CASCADE
     NOT VALID;
 
+
+ALTER TABLE IF EXISTS public.game_moves
+    ADD CONSTRAINT game_moves_game_id_fkey FOREIGN KEY (game_id)
+    REFERENCES public.games (game_id) MATCH SIMPLE
+    ON UPDATE NO ACTION
+    ON DELETE CASCADE
+    NOT VALID;
 
 
 END;

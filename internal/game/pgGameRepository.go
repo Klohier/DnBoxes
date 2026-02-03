@@ -358,6 +358,40 @@ func (repo *PgGameRepository) FindUserGameHistory(ctx context.Context, userID in
 	return result, nil
 }
 
+func (repo *PgGameRepository) SaveMove(ctx context.Context, gameID int, move GameMove) error {
+	_, err := repo.db.Exec(ctx, `
+		INSERT INTO game_moves (game_id, move_number, turn_order, grid_row, grid_col, edge)
+		VALUES ($1, (SELECT COALESCE(MAX(move_number), 0) + 1 FROM game_moves WHERE game_id = $1), $2, $3, $4, $5)
+	`, gameID, move.TurnOrder, move.Row, move.Col, move.Edge)
+	if err != nil {
+		return fmt.Errorf("failed to save move: %w", err)
+	}
+	return nil
+}
+
+func (repo *PgGameRepository) FindMovesByGameID(ctx context.Context, gameID int) ([]GameMove, error) {
+	rows, err := repo.db.Query(ctx, `
+		SELECT move_number, turn_order, grid_row, grid_col, edge
+		FROM game_moves
+		WHERE game_id = $1
+		ORDER BY move_number
+	`, gameID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query moves: %w", err)
+	}
+	defer rows.Close()
+
+	var moves []GameMove
+	for rows.Next() {
+		var m GameMove
+		if err := rows.Scan(&m.MoveNumber, &m.TurnOrder, &m.Row, &m.Col, &m.Edge); err != nil {
+			return nil, fmt.Errorf("failed to scan move: %w", err)
+		}
+		moves = append(moves, m)
+	}
+	return moves, rows.Err()
+}
+
 func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) ([]Game, error) {
 	query := `
 		SELECT g.game_id, g.name, g.board_size, g.current_turn,

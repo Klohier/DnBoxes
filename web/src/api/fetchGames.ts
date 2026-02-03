@@ -25,3 +25,23 @@ export async function fetchGameHistory(): Promise<GameHistoryEntry[]> {
   );
   return response.data;
 }
+
+export interface GameMoveEntry {
+  move_number: number;
+  turn_order: number;
+  row: number;
+  col: number;
+  edge: string;
+}
+
+export async function fetchGameMoves(
+  gameID: number,
+): Promise<GameMoveEntry[]> {
+  const response = await axios.get<GameMoveEntry[]>(
+    `/api/v1/games/${gameID}/moves`,
+    {
+      withCredentials: true,
+    },
+  );
+  return response.data;
+}
