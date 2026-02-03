@@ -18,6 +18,7 @@ export interface AuthContextType {
   register: (credentials: LoginCredentials) => Promise<User>;
   upgradeAccount: (credentials: LoginCredentials) => Promise<User>;
   loading: boolean;
+  initialLoading: boolean;
   isAuthenticated: boolean;
 }
 
@@ -152,8 +153,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     upgradeMutation.mutateAsync(credentials);
 
   const isAuthenticated = isFetched && !isError && !!user;
+  const initialLoading = !isFetched && isLoading;
   const loading =
-    (!isFetched && isLoading) ||
+    initialLoading ||
     loginMutation.status === "pending" ||
     logoutMutation.status === "pending" ||
     registerMutation.status === "pending" ||
@@ -169,9 +171,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       register,
       upgradeAccount,
       loading,
+      initialLoading,
       isAuthenticated,
     }),
-    [user, login, loginAsGuest, logout, loading, isAuthenticated]
+    [user, login, loginAsGuest, logout, loading, initialLoading, isAuthenticated]
   );
 
   return (
