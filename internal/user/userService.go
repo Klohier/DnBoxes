@@ -69,6 +69,27 @@ func (s *UserService) CreateGuestUser(ctx context.Context) (*User, error) {
 	return guest, nil
 }
 
+func (s *UserService) UpgradeGuest(ctx context.Context, userID int, username string, password string) (*User, error) {
+	if username == "" || password == "" {
+		return nil, errors.New("username and password are required")
+	}
+
+	taken, err := s.userRepo.UserExists(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, errors.New("username is taken")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.userRepo.UpgradeGuest(ctx, userID, username, string(hashedPassword))
+}
+
 func (s *UserService) UpdateGameID(ctx context.Context, userId int, gameId *int) (*User, error) {
 	user, err := s.userRepo.UpdateGameID(ctx, userId, gameId)
 	if err != nil {

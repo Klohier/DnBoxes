@@ -9,9 +9,6 @@ export async function guestLogin(): Promise<User> {
 }
 
 export async function fetchUser(): Promise<User | null> {
-  // const apiUrl =
-  //   (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
-
   try {
     const response = await axios.get<User>(`/api/v1/users/me`, {
       withCredentials: true,
@@ -26,4 +23,19 @@ export async function fetchUser(): Promise<User | null> {
     }
     throw err;
   }
+}
+
+export async function upgradeGuest(
+  username: string,
+  password: string,
+): Promise<User> {
+  const formData = new URLSearchParams();
+  formData.append("username", username);
+  formData.append("password", password);
+
+  const response = await axios.post<User>(`/api/v1/users/upgrade`, formData, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    withCredentials: true,
+  });
+  return response.data;
 }

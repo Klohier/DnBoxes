@@ -45,8 +45,8 @@ func (repo *PgUserRepository) FindAll(ctx context.Context) ([]User, error) {
 
 func (repo *PgUserRepository) FindByID(ctx context.Context, id int) (*User, error) {
 	var user User
-	query := `SELECT user_id, username FROM users WHERE user_id = $1`
-	err := repo.db.QueryRow(ctx, query, id).Scan(&user.UserID, &user.Username)
+	query := `SELECT user_id, username, is_guest FROM users WHERE user_id = $1`
+	err := repo.db.QueryRow(ctx, query, id).Scan(&user.UserID, &user.Username, &user.IsGuest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user %d : %w", id, err)
 	}
@@ -99,6 +99,21 @@ func (repo *PgUserRepository) UserExists(ctx context.Context, username string) (
 		return false, err
 	}
 	return user != nil, nil
+}
+
+func (repo *PgUserRepository) UpgradeGuest(ctx context.Context, userID int, username string, password string) (*User, error) {
+	var user User
+	query := `UPDATE users SET username = $1, password = $2, is_guest = false
+		WHERE user_id = $3 AND is_guest = true
+		RETURNING user_id, username, is_guest`
+	err := repo.db.QueryRow(ctx, query, username, password, userID).Scan(&user.UserID, &user.Username, &user.IsGuest)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New("user is not a guest or does not exist")
+		}
+		return nil, fmt.Errorf("failed to upgrade guest: %w", err)
+	}
+	return &user, nil
 }
 
 func (repo *PgUserRepository) UpdateGameID(ctx context.Context, userID int, gameID *int) (*User, error) {

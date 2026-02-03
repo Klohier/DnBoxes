@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -283,6 +284,78 @@ func (repo *PgGameRepository) Update(ctx context.Context, game *Game) error {
 	}
 	
 	return tx.Commit(ctx)
+}
+
+func (repo *PgGameRepository) FindUserGameHistory(ctx context.Context, userID int) ([]GameHistoryEntry, error) {
+	query := `
+		SELECT g.game_id, g.board_size, g.winner_id, g.created_at, g.ended_at,
+		       gd.user_id, u.username, gd.score, gd.turn_order
+		FROM games g
+		INNER JOIN game_details gd ON g.game_id = gd.game_id
+		INNER JOIN users u ON u.user_id = gd.user_id
+		WHERE g.game_id IN (
+			SELECT game_id FROM game_details WHERE user_id = $1
+		)
+		AND g.ended_at IS NOT NULL
+		ORDER BY g.created_at DESC, gd.turn_order
+	`
+
+	rows, err := repo.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query game history: %w", err)
+	}
+	defer rows.Close()
+
+	gamesMap := make(map[int]*GameHistoryEntry)
+	var order []int
+
+	for rows.Next() {
+		var gameID, boardSize int
+		var winnerID *int
+		var createdAt time.Time
+		var endedAt *time.Time
+		var playerUserID int
+		var username string
+		var score, turnOrder int
+
+		err := rows.Scan(&gameID, &boardSize, &winnerID, &createdAt, &endedAt,
+			&playerUserID, &username, &score, &turnOrder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan game history row: %w", err)
+		}
+
+		entry, exists := gamesMap[gameID]
+		if !exists {
+			entry = &GameHistoryEntry{
+				GameID:    gameID,
+				BoardSize: boardSize,
+				WinnerID:  winnerID,
+				CreatedAt: createdAt,
+				EndedAt:   endedAt,
+			}
+			gamesMap[gameID] = entry
+			order = append(order, gameID)
+		}
+
+		uid := playerUserID
+		entry.Players = append(entry.Players, Player{
+			UserID:    &uid,
+			Username:  username,
+			Score:     score,
+			TurnOrder: turnOrder,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("game history rows error: %w", err)
+	}
+
+	var result []GameHistoryEntry
+	for _, id := range order {
+		result = append(result, *gamesMap[id])
+	}
+
+	return result, nil
 }
 
 func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) ([]Game, error) {

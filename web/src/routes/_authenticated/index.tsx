@@ -33,6 +33,10 @@ function Index() {
   const auth = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBotModalOpen, setIsBotModalOpen] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeUsername, setUpgradeUsername] = useState("");
+  const [upgradePassword, setUpgradePassword] = useState("");
+  const [upgradeError, setUpgradeError] = useState("");
   const queryClient = useQueryClient();
   const { subscribe } = useWebSocket();
 
@@ -186,8 +190,95 @@ function Index() {
                   <h2 className="text-xl font-bold text-white">Profile</h2>
                   <span className="text-sm text-gray-400">
                     {auth.user?.username}
+                    {auth.user?.isGuest && (
+                      <span className="ml-2 text-xs bg-yellow-600 text-yellow-100 px-1.5 py-0.5 rounded">
+                        Guest
+                      </span>
+                    )}
                   </span>
                 </div>
+
+                {auth.user?.isGuest && !showUpgrade && (
+                  <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+                    <p className="text-yellow-200 text-sm mb-2">
+                      Create an account to save your stats and appear on the leaderboard.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowUpgrade(true)}
+                    >
+                      Upgrade Account
+                    </Button>
+                  </div>
+                )}
+
+                {auth.user?.isGuest && showUpgrade && (
+                  <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+                    <h3 className="text-white text-sm font-semibold mb-2">
+                      Create Your Account
+                    </h3>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        setUpgradeError("");
+                        try {
+                          await auth.upgradeAccount({
+                            username: upgradeUsername,
+                            password: upgradePassword,
+                          });
+                          toast.success("Account upgraded successfully!");
+                          setShowUpgrade(false);
+                        } catch (err) {
+                          if (axios.isAxiosError(err)) {
+                            setUpgradeError(
+                              err.response?.data?.message || "Upgrade failed",
+                            );
+                          } else {
+                            setUpgradeError("Upgrade failed");
+                          }
+                        }
+                      }}
+                      className="space-y-2"
+                    >
+                      <input
+                        type="text"
+                        placeholder="Choose a username"
+                        value={upgradeUsername}
+                        onChange={(e) => setUpgradeUsername(e.target.value)}
+                        required
+                        className="w-full px-3 py-1.5 bg-gray-600 text-white rounded text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Choose a password"
+                        value={upgradePassword}
+                        onChange={(e) => setUpgradePassword(e.target.value)}
+                        required
+                        className="w-full px-3 py-1.5 bg-gray-600 text-white rounded text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      {upgradeError && (
+                        <p className="text-red-400 text-xs">{upgradeError}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm" className="flex-1">
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setShowUpgrade(false);
+                            setUpgradeError("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Games Played</span>
@@ -222,12 +313,18 @@ function Index() {
                     </span>
                   </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-gray-700">
+                <div className="mt-4 pt-3 border-t border-gray-700 flex gap-4">
                   <Link
                     to="/leaderboard"
                     className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
                   >
                     View Leaderboard
+                  </Link>
+                  <Link
+                    to="/history"
+                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Game History
                   </Link>
                 </div>
               </div>

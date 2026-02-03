@@ -296,8 +296,12 @@ func (app *App) setupRoutes(
 	// Auth
 	api.POST("/logout", loginHandler.Logout)
 
+	// Users (upgrade)
+	api.POST("/users/upgrade", userHandler.UpgradeGuest)
+
 	// Game
 	api.POST("/games", gameHandler.CreateGame)
+	api.GET("/games/history", gameHandler.GetGameHistory)
 	api.GET("/games/:gameId/state", gameHandler.GetGameState)
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
 	api.POST("/games/:gameId/forfeit", gameHandler.ForfeitGame)

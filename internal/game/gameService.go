@@ -37,6 +37,10 @@ func (s *GameService) GetGame(ctx context.Context, gameID int) (*Game, error) {
 	return s.gameRepo.FindByID(ctx, gameID)
 }
 
+func (s *GameService) GetUserGameHistory(ctx context.Context, userID int) ([]GameHistoryEntry, error) {
+	return s.gameRepo.FindUserGameHistory(ctx, userID)
+}
+
 func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int) (*Game, error) {
 	if boardSize <= 4 || boardSize >= 11 {
 		return nil, errors.New("invalid board size: must be > 4 and < 11, got: " + strconv.Itoa(boardSize))
