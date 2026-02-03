@@ -12,16 +12,18 @@ import (
 )
 
 type GameService struct {
-	gameRepo   GameRepository
-	bus        events.EventBus
-	botService *BotService
+	gameRepo     GameRepository
+	bus          events.EventBus
+	botService   *BotService
+	timerService *GameTimerService
 }
 
-func NewGameService(gameRepo GameRepository, bus events.EventBus, botService *BotService) *GameService {
+func NewGameService(gameRepo GameRepository, bus events.EventBus, botService *BotService, timerService *GameTimerService) *GameService {
 	return &GameService{
-		gameRepo:   gameRepo,
-		bus:        bus,
-		botService: botService,
+		gameRepo:     gameRepo,
+		bus:          bus,
+		botService:   botService,
+		timerService: timerService,
 	}
 }
 
@@ -67,9 +69,14 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 	}
 	
 	slog.Info("Game created", "gameID", *game.GameID, "boardSize", boardSize, "players", len(players))
-	
+
 	s.publishEvent(ctx, "global:games", "game_created", game)
-	
+
+	// Start game timer (server-authoritative chess clock)
+	if s.timerService != nil {
+		s.timerService.StartTimer(*game.GameID, game.Players, game.CurrentTurn)
+	}
+
 	return game, nil
 }
 
@@ -112,25 +119,31 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 	}
 	
 	// Apply move
+	previousTurn := game.CurrentTurn
 	move := Move{
 		TurnOrder: turnOrder,
 		Row:       row,
 		Col:       col,
 		Edge:      edgeType,
 	}
-	
+
 	result, err := game.ApplyMove(move)
 	if err != nil {
 		return nil, fmt.Errorf("invalid move: %w", err)
 	}
-	
+
 	// Save game (only for DB games)
 	if !isBotGame {
 		if err := s.gameRepo.Update(ctx, game); err != nil {
 			return nil, fmt.Errorf("failed to save game: %w", err)
 		}
 	}
-	
+
+	// Switch timer if turn changed
+	if s.timerService != nil && result.NextTurn != previousTurn {
+		s.timerService.SwitchTurn(*game.GameID, result.NextTurn)
+	}
+
 	slog.Info("Move applied",
 		"gameID", *game.GameID,
 		"playerID", playerID,
@@ -158,12 +171,16 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 	}
 	
 	if result.GameOver {
+		// Stop timer when game ends
+		if s.timerService != nil {
+			s.timerService.StopTimer(*game.GameID)
+		}
 		s.publishEvent(ctx, "global:games", "game_completed", map[string]interface{}{
 			"game_id":   *game.GameID,
 			"winner_id": game.WinnerID,
 		})
 	}
-	
+
 	return game, nil
 }
 
@@ -211,6 +228,11 @@ func (s *GameService) ForfeitGame(ctx context.Context, gameID, playerID int) (*G
 	}
 
 	slog.Info("Game forfeited", "gameID", *game.GameID, "forfeitedBy", playerID, "winnerID", winnerID)
+
+	// Stop timer on forfeit
+	if s.timerService != nil {
+		s.timerService.StopTimer(*game.GameID)
+	}
 
 	topic := fmt.Sprintf("game:%d", *game.GameID)
 	s.publishEvent(ctx, topic, "game:state", game)

@@ -13,13 +13,15 @@ import (
 
 type GameHandler struct {
 	gameService  *GameService
+	timerService *GameTimerService
 	wsSubscriber events.WebSocketSubscriber
 	logger       *slog.Logger
 }
 
-func NewGameHandler(gameService *GameService, wsSubscriber events.WebSocketSubscriber) *GameHandler {
+func NewGameHandler(gameService *GameService, timerService *GameTimerService, wsSubscriber events.WebSocketSubscriber) *GameHandler {
 	return &GameHandler{
 		gameService:  gameService,
+		timerService: timerService,
 		wsSubscriber: wsSubscriber,
 		logger:       slog.Default(),
 	}
@@ -160,4 +162,22 @@ func (h *GameHandler) ForfeitGame(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, game)
+}
+
+func (h *GameHandler) GetTimerState(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
+	}
+
+	if h.timerService == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Timer not available"})
+	}
+
+	state := h.timerService.GetTimerState(gameID)
+	if state == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "No active timer for this game"})
+	}
+
+	return c.JSON(http.StatusOK, state)
 }

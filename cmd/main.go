@@ -209,19 +209,29 @@ func (app *App) setupServices(cfg *Config) error {
 	loginService := auth.NewLoginService(userRepo)
 	chatService := chat.NewChatService(chatRepo, app.redis)
 	botService := game.NewBotService(eventBus)
-	gameService := game.NewGameService(gameRepo, eventBus,botService)
+	timerService := game.NewGameTimerService(eventBus)
+	gameService := game.NewGameService(gameRepo, eventBus, botService, timerService)
 	sessionService := session.NewSessionService(sessionRepo)
 	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
+
+	// Wire timer forfeit callback (avoids circular dependency)
+	timerService.SetForfeitFunc(func(ctx context.Context, gameID, playerID int) error {
+		_, err := gameService.ForfeitGame(ctx, gameID, playerID)
+		return err
+	})
+
+	// Start listening for connect/disconnect events for timer
+	go timerService.ListenForConnectionEvents()
 
 	// Initialize handlers
 	userHandler := user.NewUserHandler(userService)
 	loginHandler := auth.NewLoginHandler(loginService, userService)
 	chatHandler := chat.NewChatHandler(chatService)
 	sessionHandler := session.NewSessionHandler(sessionService)
-	
+
 	// Initialize WebSocket manager
 	manager := websocket.NewManager(eventBus)
-	gameHandler := game.NewGameHandler(gameService, manager)
+	gameHandler := game.NewGameHandler(gameService, timerService, manager)
 	lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 
 	// Start chat persistence worker (subscribes to EventBus independently)
@@ -285,6 +295,7 @@ func (app *App) setupRoutes(
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
 	api.POST("/games/:gameId/forfeit", gameHandler.ForfeitGame)
 	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
+	api.GET("/games/:gameId/timer", gameHandler.GetTimerState)
 
 	// Chat
 	api.GET("/chat", chatHandler.GetGlobalMessages)
