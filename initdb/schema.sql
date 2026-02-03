@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS public.users
 (
     user_id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
     username character varying COLLATE pg_catalog."default" NOT NULL,
-    password character varying COLLATE pg_catalog."default" NOT NULL,
+    password character varying COLLATE pg_catalog."default",
+    is_guest boolean DEFAULT false,
     created_at timestamp with time zone DEFAULT now(),
     role character varying COLLATE pg_catalog."default",
     CONSTRAINT users_pkey PRIMARY KEY (user_id)

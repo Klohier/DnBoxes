@@ -4,7 +4,7 @@ import type { LoginCredentials } from "./types/auth";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { User } from "./types/auth";
-import { fetchUser } from "./api/fetchUser";
+import { fetchUser, guestLogin } from "./api/fetchUser";
 import { useRouter } from "@tanstack/react-router";
 interface AuthProviderProps {
   children: ReactNode;
@@ -13,6 +13,7 @@ interface AuthProviderProps {
 export interface AuthContextType {
   user: User | null | undefined;
   login: (credentials: LoginCredentials) => Promise<User>;
+  loginAsGuest: () => Promise<User>;
   logout: () => void;
   register: (credentials: LoginCredentials) => Promise<User>;
   loading: boolean;
@@ -77,8 +78,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     },
   });
 
+  const guestMutation = useMutation<User, Error>({
+    mutationFn: guestLogin,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+
   const login = (credentials: LoginCredentials) =>
     loginMutation.mutateAsync(credentials);
+
+  const loginAsGuest = () => guestMutation.mutateAsync();
 
   const logout = () => {
     logoutMutation.mutate();
@@ -133,18 +143,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     (!isFetched && isLoading) ||
     loginMutation.status === "pending" ||
     logoutMutation.status === "pending" ||
-    registerMutation.status === "pending";
+    registerMutation.status === "pending" ||
+    guestMutation.status === "pending";
 
   const authContextValue = useMemo(
     () => ({
       user,
       login,
+      loginAsGuest,
       logout,
       register,
       loading,
       isAuthenticated,
     }),
-    [user, login, logout, loading, isAuthenticated]
+    [user, login, loginAsGuest, logout, loading, isAuthenticated]
   );
 
   return (

@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const fallback = "/" as const;
 
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
-  const { login } = useAuth();
+  const { login, loginAsGuest } = useAuth();
   const search = Route.useSearch();
   const router = useRouter();
   const isLoading = useRouterState({ select: (s) => s.isLoading });
@@ -40,6 +41,12 @@ function Login() {
 
   async function onSubmit(values: LoginCredentials) {
     await login(values);
+    await router.invalidate();
+    await navigate({ to: search.redirect ?? fallback });
+  }
+
+  async function onGuestLogin() {
+    await loginAsGuest();
     await router.invalidate();
     await navigate({ to: search.redirect ?? fallback });
   }
@@ -63,6 +70,24 @@ function Login() {
               buttonText="Login"
               formType="login"
             />
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-gray-800 px-2 text-gray-400">or</span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+              onClick={onGuestLogin}
+              disabled={isLoading}
+            >
+              Play as Guest
+            </Button>
           </CardContent>
         </Card>
 

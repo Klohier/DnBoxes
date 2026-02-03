@@ -66,6 +66,16 @@ func (repo *PgUserRepository) Create(ctx context.Context, username string, passw
 
 }
 
+func (repo *PgUserRepository) CreateGuest(ctx context.Context, username string) (*User, error) {
+	var user User
+	query := `INSERT INTO users (username, is_guest) VALUES ($1, true) RETURNING user_id, username, is_guest`
+	err := repo.db.QueryRow(ctx, query, username).Scan(&user.UserID, &user.Username, &user.IsGuest)
+	if err != nil {
+		return nil, errors.New("failed to create guest user: " + err.Error())
+	}
+	return &user, nil
+}
+
 func (repo *PgUserRepository) FindByUsername(ctx context.Context, username string) (*User, error) {
 	var user User
 	query := `SELECT username, password, user_id FROM users WHERE username = $1`

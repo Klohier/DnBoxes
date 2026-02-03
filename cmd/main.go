@@ -215,7 +215,7 @@ func (app *App) setupServices(cfg *Config) error {
 
 	// Initialize handlers
 	userHandler := user.NewUserHandler(userService)
-	loginHandler := auth.NewLoginHandler(loginService)
+	loginHandler := auth.NewLoginHandler(loginService, userService)
 	chatHandler := chat.NewChatHandler(chatService)
 	sessionHandler := session.NewSessionHandler(sessionService)
 	
@@ -246,6 +246,7 @@ func (app *App) setupRoutes(
 	public := app.echo.Group("/api/v1")
 	public.POST("/users", userHandler.CreateUser)
 	public.POST("/login", loginHandler.Login)
+	public.POST("/guest", loginHandler.GuestLogin)
 	public.GET("/metrics", app.handleMetrics)
 	
 	// Protected routes
