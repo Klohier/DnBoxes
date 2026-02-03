@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
-	"time"
-
 	"log/slog"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
@@ -57,10 +58,57 @@ func (c *Connection) Send(event BroadcastEvent) {
 	}
 }
 
+// chatPayload represents the payload of a chat:new message from the client.
+type chatPayload struct {
+	UserID    int    `json:"userID"`
+	Username  string `json:"username"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
+}
+
+// handleChatMessage persists a chat message to the database.
+func (c *Connection) handleChatMessage(event events.Event, topic string) {
+	var payload chatPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		slog.Error("failed to unmarshal chat payload", "error", err)
+		return
+	}
+
+	if payload.Message == "" {
+		return
+	}
+
+	sentAt, err := time.Parse(time.RFC3339, payload.Timestamp)
+	if err != nil {
+		sentAt = time.Now()
+	}
+
+	ctx := context.Background()
+
+	// Use the authenticated userID from the connection, not the payload
+	userID := c.userID
+
+	if topic == "chat:global" {
+		if err := c.manager.chatService.SaveGlobalMessage(ctx, userID, payload.Message, sentAt); err != nil {
+			slog.Error("failed to save global chat message", "error", err)
+		}
+	} else if strings.HasPrefix(topic, "game:") {
+		gameIDStr := strings.TrimPrefix(topic, "game:")
+		gameID, err := strconv.Atoi(gameIDStr)
+		if err != nil {
+			slog.Error("invalid game ID in chat topic", "topic", topic, "error", err)
+			return
+		}
+		if err := c.manager.chatService.SaveGameMessage(ctx, userID, payload.Message, sentAt, gameID); err != nil {
+			slog.Error("failed to save game chat message", "error", err, "gameID", gameID)
+		}
+	}
+}
+
 func (c *Connection) readMessage() {
 	defer func() {
 		c.manager.unregister <- c
-		c.ws.Close()	
+		c.ws.Close()
 	}()
 
 	c.ws.SetReadLimit(512)
@@ -89,20 +137,22 @@ func (c *Connection) readMessage() {
 		var event events.Event
 		if err := json.Unmarshal(payload, &event); err != nil {
 			log.Printf("error marshalling message: %v", err)
-
+			continue
 		}
 
 		slog.Info("got message", "message", string(payload))
-		
 
-		topic := event.Topic 
+		topic := event.Topic
 		if topic == "" {
-			
 			topic = "global:lobbies"
 		}
 
-		c.manager.eventBus.Publish(context.Background(), topic, event)
+		// Persist chat messages to the database
+		if event.Type == events.EventMessage {
+			c.handleChatMessage(event, topic)
+		}
 
+		c.manager.eventBus.Publish(context.Background(), topic, event)
 	}
 }
 
@@ -144,7 +194,6 @@ func (c *Connection) writeMessage() {
 				return // return to break this goroutine triggeing cleanup
 			}
 		}
-
 	}
 }
 
@@ -168,45 +217,43 @@ func (m *Manager) ServeWs(c echo.Context) error {
 		return err
 	}
 
-	// Extract the JWT token from Echo context 
-    userToken, ok := c.Get("user").(*jwt.Token)
-    if !ok {
-        return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
-    }
+	// Extract the JWT token from Echo context
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
+	}
 
-    // Extract claims
-    claims, ok := userToken.Claims.(jwt.MapClaims)
-    if !ok || !userToken.Valid {
-        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
-    }
+	// Extract claims
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok || !userToken.Valid {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
+	}
 
-    // Get user ID from claims
-    userIDFloat, ok := claims["sub"].(float64)
-    if !ok {
-        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
-    }
-    userID := int(userIDFloat)
+	// Get user ID from claims
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
+	}
+	userID := int(userIDFloat)
 
-	//grabs full user data from database
-	// user, err := m.userService.FindByID(c.Request().Context(), userID)
-	// if err != nil {
-	// 	slog.Error("Error querying database for user: " + err.Error())
-	// 	return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching user info")
-	// }
+	// Get username from claims
+	username, _ := claims["username"].(string)
+	if username == "" {
+		username = fmt.Sprintf("user_%d", userID)
+	}
 
 	// creates new connection with user info
-	connection := NewConnection(ws, m, userID, "mandy_hardcode")
-	slog.Info("WebSocket connection established for UserID:", "userID", userID)
+	connection := NewConnection(ws, m, userID, username)
+	slog.Info("WebSocket connection established", "userID", userID, "username", username)
 
 	// Handle existing connections before adding new one
 	connection.manager.register <- connection
 	slog.Info("Connection added to manager")
 
-	// Subscribe to personal messages
+	// Subscribe to personal messages and global topics
 	m.Subscribe(fmt.Sprintf("user:%d", userID), connection)
 	m.Subscribe("global:lobbies", connection)
-	// m.Subscribe("game:10001", connection)
-
+	m.Subscribe("chat:global", connection)
 
 	// go routine for read message
 	go func() {

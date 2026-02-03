@@ -76,7 +76,6 @@ interface DeclineInvitePayload {
 export interface ChatMessagePayload {
   userID: number;
   username: string;
-  session_id: number;
   message: string;
   timestamp: string;
 }

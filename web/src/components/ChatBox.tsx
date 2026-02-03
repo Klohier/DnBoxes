@@ -3,21 +3,20 @@ import { useWebSocket } from "../WebSocketContext";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Message, ChatMessagePayload } from "@/types/websocket";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
 
 interface ChatboxProps {
-  sessionID: number | undefined;
+  topic: string;
+  gameID?: number;
 }
 
-const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
+const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
   const [newMessage, setNewMessage] = useState<string>("");
   const { user } = useAuth();
 
   const { send, subscribe, connected } = useWebSocket();
-  const apiUrl = (import.meta.env.VITE_API_URL as string) || "localhost:8484";
   const scrollRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -29,27 +28,23 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
   });
 
   const { data: fetchedMessages } = useQuery<ChatMessagePayload[]>({
-    queryKey: ["chatMessages", sessionID, apiUrl],
+    queryKey: ["chatMessages", topic],
     queryFn: async () => {
-      if (!sessionID) return [];
-      const endpoint = `/api/v1/chat?sessionID=${String(sessionID)}`;
+      const endpoint =
+        gameID != null
+          ? `/api/v1/games/${String(gameID)}/chat`
+          : `/api/v1/chat`;
       const response = await axios.get<ChatMessagePayload[]>(endpoint);
       return response.data;
     },
-    enabled: !!sessionID,
   });
 
   useEffect(() => {
-    console.log("Effect triggered", { connected, sessionID });
-    if (!sessionID || !connected) return;
+    if (!connected) return;
     const unsubscribe = subscribe((message: Message) => {
-      console.log("Received WS message:", message);
-      if (
-        message.type === "chat:new" &&
-        message.payload.session_id === sessionID
-      ) {
+      if (message.type === "chat:new" && message.topic === topic) {
         queryClient.setQueryData<ChatMessagePayload[]>(
-          ["chatMessages", sessionID, apiUrl],
+          ["chatMessages", topic],
           (old) => [...(old ?? []), message.payload],
         );
       }
@@ -58,7 +53,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
     return () => {
       unsubscribe();
     };
-  }, [sessionID, subscribe, queryClient, apiUrl, connected]);
+  }, [topic, subscribe, queryClient, connected]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -69,17 +64,17 @@ const Chatbox: React.FC<ChatboxProps> = ({ sessionID }) => {
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
 
-    if (!user || !sessionID) {
-      console.warn("User or session ID missing");
+    if (!user) {
+      console.warn("User not available");
       return;
     }
 
     const message: Message = {
       type: "chat:new",
+      topic: topic,
       payload: {
         userID: user.userID,
         username: user.username,
-        session_id: sessionID,
         message: newMessage,
         timestamp: new Date().toISOString(),
       },

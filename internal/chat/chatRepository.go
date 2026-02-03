@@ -6,7 +6,8 @@ import (
 )
 
 type ChatRepository interface {
-	SaveMessage(ctx context.Context, userID int, message string, time time.Time, sessionID int) error
-	GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message, error)
+	SaveGlobalMessage(ctx context.Context, userID int, message string, sentAt time.Time) error
+	SaveGameMessage(ctx context.Context, userID int, message string, sentAt time.Time, gameID int) error
+	GetGlobalMessages(ctx context.Context) ([]Message, error)
 	GetGameMessage(ctx context.Context, gameID int) ([]Message, error)
 }

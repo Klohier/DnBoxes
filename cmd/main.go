@@ -220,7 +220,7 @@ func (app *App) setupServices(cfg *Config) error {
 	sessionHandler := session.NewSessionHandler(sessionService)
 	
 	// Initialize WebSocket manager
-	manager := websocket.NewManager(eventBus)
+	manager := websocket.NewManager(eventBus, chatService)
 	gameHandler := game.NewGameHandler(gameService, manager)
 	lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 	
@@ -281,13 +281,12 @@ func (app *App) setupRoutes(
 	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
 
 	// Chat
-	api.GET("/chat", chatHandler.GetAllMessageFromSession)
+	api.GET("/chat", chatHandler.GetGlobalMessages)
 	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
 
 	// Session
 	api.GET("/sessions", sessionHandler.GetAllSessions)
 	api.POST("/sessions", sessionHandler.CreateSession)
-	api.GET("/sessions/:sessionID/chat", chatHandler.GetAllMessageFromSession)
 	api.POST("/sessions/:sessionId/users/:userId", sessionHandler.AddUserToSession)
 	api.DELETE("/sessions/:sessionId/users/:userId", sessionHandler.RemoveUserFromSession)
 }
