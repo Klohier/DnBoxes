@@ -1,9 +1,8 @@
-//TODO: Figure out how to correct on submit for login
-
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import React, { useState } from "react";
+import axios from "axios";
 import {
   Form,
   FormControl,
@@ -48,12 +47,13 @@ export function AuthForm({
   });
 
   function getErrorMessage(err: unknown): string {
-    return typeof err === "object" &&
-      err !== null &&
-      "message" in err &&
-      typeof err.message === "string"
-      ? err.message
-      : "Something went wrong";
+    if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+      return err.response.data.message;
+    }
+    if (err instanceof Error) {
+      return err.message;
+    }
+    return "Something went wrong";
   }
 
   const isProcessing = isLoading || isSubmitting;
@@ -64,12 +64,7 @@ export function AuthForm({
       await onSubmitHandler(values);
     } catch (err: unknown) {
       const message = getErrorMessage(err);
-      form.setError("username", {
-        type: "manual",
-        message,
-      });
-
-      form.setError("password", {
+      form.setError("root", {
         type: "manual",
         message,
       });
@@ -111,6 +106,12 @@ export function AuthForm({
             </FormItem>
           )}
         />
+
+        {form.formState.errors.root && (
+          <p className="text-sm font-medium text-destructive">
+            {form.formState.errors.root.message}
+          </p>
+        )}
 
         <Button type="submit">
           {isProcessing ? "Loading..." : buttonText}
