@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"dango/internal/events"
 	"time"
 )
 
@@ -14,21 +15,17 @@ type GameHistoryEntry struct {
 	Players   []Player   `json:"players"`
 }
 
-type GameMove struct {
-	MoveNumber int    `json:"move_number"`
-	TurnOrder  int    `json:"turn_order"`
-	Row        int    `json:"row"`
-	Col        int    `json:"col"`
-	Edge       string `json:"edge"`
-}
-
 type GameRepository interface {
 	FindAll(ctx context.Context) ([]Game, error)
 	FindByID(ctx context.Context, id int) (*Game, error)
-	Create(ctx context.Context, players []Player, boardSize int) (*Game, error)
-	Update(ctx context.Context, game *Game) error
+	Create(ctx context.Context, game *Game) error
 	FindAllFromUser(ctx context.Context, userId int) ([]Game, error)
 	FindUserGameHistory(ctx context.Context, userID int) ([]GameHistoryEntry, error)
-	SaveMove(ctx context.Context, gameID int, move GameMove) error
-	FindMovesByGameID(ctx context.Context, gameID int) ([]GameMove, error)
+
+	// Event store: append new domain events for a game
+	AppendEvents(ctx context.Context, gameID int, domainEvents []events.DomainEvent) error
+	// Event store: load all domain events for a game (replay)
+	LoadEvents(ctx context.Context, gameID int) ([]events.DomainEvent, error)
+	// Projection: update games/game_details tables from current aggregate state
+	UpdateProjection(ctx context.Context, game *Game) error
 }

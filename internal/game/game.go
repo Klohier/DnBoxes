@@ -1,14 +1,16 @@
 package game
 
 import (
+	"dango/internal/events"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 )
 
 // Player represents a player in the game
 type Player struct {
-	UserID      *int   `json:"user_id"`     
+	UserID      *int   `json:"user_id"`
 	Username    string `json:"username"`
 	TurnOrder   int    `json:"turn_order"`
 	IsAnonymous bool   `json:"is_anonymous"`
@@ -17,21 +19,24 @@ type Player struct {
 
 // Box represents a single cell in the grid
 type Box struct {
-	Row        int   `json:"row"`
-	Col        int   `json:"col"`
-	TopEdge    bool  `json:"top_edge"`
-	RightEdge  bool  `json:"right_edge"`
-	BottomEdge bool  `json:"bottom_edge"`
-	LeftEdge   bool  `json:"left_edge"`
-	OwnerTurn  *int  `json:"owner_turn"` // turn_order of owner,
+	Row        int  `json:"row"`
+	Col        int  `json:"col"`
+	TopEdge    bool `json:"top_edge"`
+	RightEdge  bool `json:"right_edge"`
+	BottomEdge bool `json:"bottom_edge"`
+	LeftEdge   bool `json:"left_edge"`
+	OwnerTurn  *int `json:"owner_turn"` // turn_order of owner
 }
 
-// Game represents the complete game state
+// Game is the aggregate root for a Dots and Boxes game.
+// State is projected from domain events via applyEvent.
 type Game struct {
+	events.Aggregate
+
 	GameID      *int       `json:"game_id"`
 	GameName    *string    `json:"game_name"`
 	BoardSize   int        `json:"board_size"`
-	CurrentTurn int        `json:"current_turn"` // turn_order, 
+	CurrentTurn int        `json:"current_turn"` // turn_order
 	WinnerID    *int       `json:"winner_id"`    // user_id of winner
 	CreatedAt   time.Time  `json:"created_at"`
 	EndedAt     *time.Time `json:"ended_at"`
@@ -41,7 +46,7 @@ type Game struct {
 
 // Move represents a player's move
 type Move struct {
-	TurnOrder int    // Which player (by turn order)
+	TurnOrder int // Which player (by turn order)
 	Row       int
 	Col       int
 	Edge      EdgeType
@@ -65,76 +70,194 @@ type MoveResult struct {
 	WinnerID       *int
 }
 
-// NewGame creates a new game with the given parameters
+// NewGame creates a new game by raising a GameCreated domain event.
 func NewGame(gameID *int, boardSize int, players []Player) *Game {
-	game := &Game{
-		GameID:      gameID,
-		BoardSize:   boardSize,
-		CurrentTurn: 0,
-		Players:     players,
-		CreatedAt:   time.Now(),
-		Grid:        makeEmptyGrid(boardSize),
+	game := &Game{}
+	game.raise(EventTypeGameCreated, GameCreatedPayload{
+		GameID:    *gameID,
+		BoardSize: boardSize,
+		Players:   players,
+	})
+	return game
+}
+
+// LoadFromEvents reconstructs a Game aggregate by replaying historical events.
+func LoadFromEvents(domainEvents []events.DomainEvent) *Game {
+	game := &Game{}
+	for _, e := range domainEvents {
+		game.applyEvent(e)
 	}
 	return game
 }
 
-// ApplyMove applies a player's move and returns the result
+// ApplyMove validates and applies a player's move, raising domain events.
 func (g *Game) ApplyMove(move Move) (MoveResult, error) {
 	var result MoveResult
-	
-	// Validate move
+
 	if err := g.validateMove(move); err != nil {
 		return result, err
 	}
-	
-	// Set the edge
-	g.setEdge(move.Row, move.Col, move.Edge)
-	
-	// Check for completed boxes
-	completedBoxes := g.checkCompletedBoxes(move)
+
+	// Raise edge placement event
+	g.raise(EventTypeMoveApplied, MoveAppliedPayload{
+		TurnOrder: move.TurnOrder,
+		Row:       move.Row,
+		Col:       move.Col,
+		Edge:      string(move.Edge),
+	})
+
+	// Check for completed boxes after the edge was applied
+	completedBoxes := g.findNewlyCompletedBoxes(move)
 	result.CompletedBoxes = completedBoxes
-	
-	// Update score if boxes were completed
-	if len(completedBoxes) > 0 {
-		g.Players[move.TurnOrder].Score += len(completedBoxes)
+
+	for _, box := range completedBoxes {
+		g.raise(EventTypeBoxCompleted, BoxCompletedPayload{
+			Row:       box.Row,
+			Col:       box.Col,
+			OwnerTurn: move.TurnOrder,
+		})
 	}
-	
-	// Determine next turn (same player if they completed a box)
+
+	// Determine next turn
 	if len(completedBoxes) == 0 {
-		g.CurrentTurn = (g.CurrentTurn + 1) % len(g.Players)
+		nextTurn := (g.CurrentTurn + 1) % len(g.Players)
+		g.raise(EventTypeTurnPassed, TurnPassedPayload{
+			NextTurn: nextTurn,
+		})
 	}
 	result.NextTurn = g.CurrentTurn
-	
+
 	// Check if game is over
-	if g.IsGameOver() {
+	if g.isGameOver() {
+		winnerID := g.determineWinner()
+		g.raise(EventTypeGameEnded, GameEndedPayload{
+			WinnerID: winnerID,
+		})
 		result.GameOver = true
-		result.WinnerID = g.determineWinner()
-		g.WinnerID = result.WinnerID
-		now := time.Now()
+		result.WinnerID = winnerID
+	}
+
+	return result, nil
+}
+
+// Forfeit ends the game with a forfeit, raising a GameForfeited event.
+func (g *Game) Forfeit(playerID int) {
+	var winnerID *int
+	maxScore := -1
+	for _, p := range g.Players {
+		if p.UserID != nil && *p.UserID == playerID {
+			continue
+		}
+		if p.Score > maxScore {
+			maxScore = p.Score
+			winnerID = p.UserID
+		}
+	}
+
+	g.raise(EventTypeGameForfeited, GameForfeitedPayload{
+		ForfeitedBy: playerID,
+		WinnerID:    winnerID,
+	})
+}
+
+// raise creates a domain event, applies it to state, and records it as uncommitted.
+func (g *Game) raise(eventType string, payload any) {
+	aggregateID := ""
+	if g.GameID != nil {
+		aggregateID = strconv.Itoa(*g.GameID)
+	}
+
+	event := events.DomainEvent{
+		Type:        eventType,
+		OccurredAt:  time.Now(),
+		AggregateID: aggregateID,
+		Version:     g.Version() + 1,
+		Payload:     payload,
+	}
+
+	g.applyEvent(event)
+	g.RecordEvent(event)
+}
+
+// applyEvent projects a domain event onto the aggregate state.
+// Used for both new events (via raise) and replay (via LoadFromEvents).
+func (g *Game) applyEvent(event events.DomainEvent) {
+	switch event.Type {
+	case EventTypeGameCreated:
+		p, ok := event.Payload.(GameCreatedPayload)
+		if !ok {
+			return
+		}
+		g.GameID = &p.GameID
+		g.BoardSize = p.BoardSize
+		g.CurrentTurn = 0
+		g.CreatedAt = event.OccurredAt
+		g.Players = make([]Player, len(p.Players))
+		copy(g.Players, p.Players)
+		g.Grid = makeEmptyGrid(p.BoardSize)
+
+	case EventTypeMoveApplied:
+		p, ok := event.Payload.(MoveAppliedPayload)
+		if !ok {
+			return
+		}
+		g.setEdge(p.Row, p.Col, EdgeType(p.Edge))
+
+	case EventTypeBoxCompleted:
+		p, ok := event.Payload.(BoxCompletedPayload)
+		if !ok {
+			return
+		}
+		g.Grid[p.Row][p.Col].OwnerTurn = &p.OwnerTurn
+		g.Players[p.OwnerTurn].Score++
+
+	case EventTypeTurnPassed:
+		p, ok := event.Payload.(TurnPassedPayload)
+		if !ok {
+			return
+		}
+		g.CurrentTurn = p.NextTurn
+
+	case EventTypeGameEnded:
+		p, ok := event.Payload.(GameEndedPayload)
+		if !ok {
+			return
+		}
+		g.WinnerID = p.WinnerID
+		now := event.OccurredAt
+		g.EndedAt = &now
+
+	case EventTypeGameForfeited:
+		p, ok := event.Payload.(GameForfeitedPayload)
+		if !ok {
+			return
+		}
+		g.WinnerID = p.WinnerID
+		now := event.OccurredAt
 		g.EndedAt = &now
 	}
-	
-	return result, nil
+
+	g.IncrementVersion()
 }
 
 // GenerateBotMove generates a strategic move for a bot
 func (g *Game) GenerateBotMove(turnOrder int) *Move {
 	var completionMoves, safeMoves, riskyMoves []Move
-	
+
 	for row := 0; row < g.BoardSize; row++ {
 		for col := 0; col < g.BoardSize; col++ {
 			if g.Grid[row][col].OwnerTurn != nil {
 				continue
 			}
-			
+
 			for _, edge := range []EdgeType{TopEdge, RightEdge, BottomEdge, LeftEdge} {
 				if !g.isEdgeAvailable(row, col, edge) {
 					continue
 				}
-				
+
 				move := Move{TurnOrder: turnOrder, Row: row, Col: col, Edge: edge}
 				edgeCount := g.countEdges(&g.Grid[row][col])
-				
+
 				switch edgeCount {
 				case 3:
 					completionMoves = append(completionMoves, move)
@@ -146,7 +269,7 @@ func (g *Game) GenerateBotMove(turnOrder int) *Move {
 			}
 		}
 	}
-	
+
 	// Prioritize: completion > safe > risky
 	if len(completionMoves) > 0 {
 		return &completionMoves[rand.Intn(len(completionMoves))]
@@ -157,20 +280,13 @@ func (g *Game) GenerateBotMove(turnOrder int) *Move {
 	if len(riskyMoves) > 0 {
 		return &riskyMoves[rand.Intn(len(riskyMoves))]
 	}
-	
+
 	return nil
 }
 
 // IsGameOver checks if all boxes are claimed
 func (g *Game) IsGameOver() bool {
-	for row := 0; row < g.BoardSize; row++ {
-		for col := 0; col < g.BoardSize; col++ {
-			if g.Grid[row][col].OwnerTurn == nil {
-				return false
-			}
-		}
-	}
-	return true
+	return g.EndedAt != nil
 }
 
 // GetCurrentPlayer returns the player whose turn it is
@@ -181,35 +297,31 @@ func (g *Game) GetCurrentPlayer() *Player {
 	return &g.Players[g.CurrentTurn]
 }
 
-// Private helper methods
+// --- Private helper methods ---
 
 func (g *Game) validateMove(move Move) error {
-	// Validate turn
 	if move.TurnOrder != g.CurrentTurn {
 		return fmt.Errorf("not player %d's turn (current turn: %d)", move.TurnOrder, g.CurrentTurn)
 	}
-	
-	// Validate coordinates
+
 	if move.Row < 0 || move.Row >= g.BoardSize || move.Col < 0 || move.Col >= g.BoardSize {
 		return fmt.Errorf("coordinates out of bounds: (%d, %d)", move.Row, move.Col)
 	}
-	
-	// Validate edge not already taken
+
 	if !g.isEdgeAvailable(move.Row, move.Col, move.Edge) {
 		return fmt.Errorf("edge %s at (%d, %d) already taken", move.Edge, move.Row, move.Col)
 	}
-	
-	// Validate game not over
+
 	if g.EndedAt != nil {
 		return fmt.Errorf("game has already ended")
 	}
-	
+
 	return nil
 }
 
 func (g *Game) setEdge(row, col int, edge EdgeType) {
 	box := &g.Grid[row][col]
-	
+
 	switch edge {
 	case TopEdge:
 		box.TopEdge = true
@@ -234,39 +346,36 @@ func (g *Game) setEdge(row, col int, edge EdgeType) {
 	}
 }
 
-func (g *Game) checkCompletedBoxes(move Move) []Box {
+// findNewlyCompletedBoxes checks which boxes became complete after an edge was placed.
+// This reads from the already-mutated grid (edge was set by MoveApplied event).
+func (g *Game) findNewlyCompletedBoxes(move Move) []Box {
 	var completed []Box
-	
-	// Check the box where the move was made
-	if box := g.tryCompleteBox(move.Row, move.Col, move.TurnOrder); box != nil {
+
+	if box := g.findCompletableBox(move.Row, move.Col); box != nil {
 		completed = append(completed, *box)
 	}
-	
-	// Check adjacent box if applicable
+
 	adjRow, adjCol := g.getAdjacentBox(move.Row, move.Col, move.Edge)
 	if adjRow >= 0 {
-		if box := g.tryCompleteBox(adjRow, adjCol, move.TurnOrder); box != nil {
+		if box := g.findCompletableBox(adjRow, adjCol); box != nil {
 			completed = append(completed, *box)
 		}
 	}
-	
+
 	return completed
 }
 
-func (g *Game) tryCompleteBox(row, col, turnOrder int) *Box {
+// findCompletableBox returns the box if all 4 edges are set and it has no owner.
+func (g *Game) findCompletableBox(row, col int) *Box {
 	if row < 0 || row >= g.BoardSize || col < 0 || col >= g.BoardSize {
 		return nil
 	}
-	
+
 	box := &g.Grid[row][col]
-	
-	// Already owned or not complete
 	if box.OwnerTurn != nil || !g.isBoxComplete(box) {
 		return nil
 	}
-	
-	// Claim the box
-	box.OwnerTurn = &turnOrder
+
 	return box
 }
 
@@ -288,9 +397,9 @@ func (g *Game) isEdgeAvailable(row, col int, edge EdgeType) bool {
 	if row < 0 || row >= g.BoardSize || col < 0 || col >= g.BoardSize {
 		return false
 	}
-	
+
 	box := &g.Grid[row][col]
-	
+
 	switch edge {
 	case TopEdge:
 		return !box.TopEdge
@@ -301,12 +410,23 @@ func (g *Game) isEdgeAvailable(row, col int, edge EdgeType) bool {
 	case LeftEdge:
 		return !box.LeftEdge
 	}
-	
+
 	return false
 }
 
 func (g *Game) isBoxComplete(box *Box) bool {
 	return box.TopEdge && box.RightEdge && box.BottomEdge && box.LeftEdge
+}
+
+func (g *Game) isGameOver() bool {
+	for row := 0; row < g.BoardSize; row++ {
+		for col := 0; col < g.BoardSize; col++ {
+			if g.Grid[row][col].OwnerTurn == nil {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (g *Game) countEdges(box *Box) int {
@@ -330,11 +450,11 @@ func (g *Game) determineWinner() *int {
 	if len(g.Players) == 0 {
 		return nil
 	}
-	
+
 	maxScore := g.Players[0].Score
 	winnerIdx := 0
 	tie := false
-	
+
 	for i := 1; i < len(g.Players); i++ {
 		if g.Players[i].Score > maxScore {
 			maxScore = g.Players[i].Score
@@ -344,11 +464,11 @@ func (g *Game) determineWinner() *int {
 			tie = true
 		}
 	}
-	
+
 	if tie {
 		return nil
 	}
-	
+
 	return g.Players[winnerIdx].UserID
 }
 

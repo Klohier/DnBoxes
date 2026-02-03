@@ -5,54 +5,32 @@ import (
 	"time"
 )
 
-// type Message struct {
-// 	UserID    int       `json:"userID"`
-// 	Username  string    `json:"username"`
-// 	SessionID int       `json:"session_id"`
-// 	Message   string    `json:"message"`
-// 	TimeStamp time.Time `json:"timestamp"`
-// }
-
-// Integration event structure
+// Event is an integration event used for real-time broadcasting (e.g. WebSocket).
 type Event struct {
-	// Type is the message type sent
-	Topic string `json:"topic"`
-	Type string `json:"type"`
-	// Payload is the data Based on the Type
+	Topic   string          `json:"topic"`
+	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
 
+// DomainEvent represents an event that occurred within a domain aggregate.
+// Domain events are the source of truth in an event-sourced system.
 type DomainEvent struct {
 	Entity
-	Type string `json:"type"`
-	OccurredAt time.Time `json:"occurred_at"`
-	AggregateID string 
-	Payload any `json:"payload"`
-
-
+	Type        string    `json:"type"`
+	OccurredAt  time.Time `json:"occurred_at"`
+	AggregateID string    `json:"aggregate_id"`
+	Version     int       `json:"version"`
+	Payload     any       `json:"payload"`
 }
 
-type IDer interface {
-	ID() string
+func (e *DomainEvent) EventType() string {
+	return e.Type
 }
 
-type DDDEvent interface {
-	IDer
-	EventType() string
-	Payload() json.RawMessage
-	Metadata() any
-	OccurredAt() time.Time
+func (e *DomainEvent) EventPayload() any {
+	return e.Payload
 }
 
-
-func (DomainEvent *DomainEvent) EventType() string {
-	return DomainEvent.Type
-}
-
-func (DomainEvent *DomainEvent) EventPayload() any {
-	return DomainEvent.Payload
-}
-
-func (DomainEvent *DomainEvent) EventOccurredAt() time.Time {
-	return DomainEvent.OccurredAt
+func (e *DomainEvent) EventOccurredAt() time.Time {
+	return e.OccurredAt
 }
