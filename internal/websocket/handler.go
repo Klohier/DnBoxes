@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"dango/internal/chat"
 	"dango/internal/events"
 	"encoding/json"
 	"errors"
@@ -10,8 +11,6 @@ import (
 
 	"sync"
 )
-
-
 
 var (
 	ErrEventNotSupported = errors.New("this event type is not supported")
@@ -27,25 +26,26 @@ type Manager struct {
 	connections ConnectionList
 	rooms       map[string]ConnectionList
 	userConns   map[int]*Connection
-	register  chan *Connection
-	unregister chan *Connection
+	register    chan *Connection
+	unregister  chan *Connection
 	broadcast   chan BroadcastEvent
-	eventBus  events.EventBus
+	eventBus    events.EventBus
+	chatService *chat.ChatService
 	subscribe   chan subscribeRequest
-	mu          sync.RWMutex 
+	mu          sync.RWMutex
 }
 
-func NewManager(eventBus events.EventBus) *Manager {
+func NewManager(eventBus events.EventBus, chatService *chat.ChatService) *Manager {
 	m := &Manager{
-		connections:    make(ConnectionList),
+		connections: make(ConnectionList),
 		userConns:   make(map[int]*Connection),
-		rooms:          make(map[string]ConnectionList),
+		rooms:       make(map[string]ConnectionList),
 		eventBus:    eventBus,
-		register: make(chan *Connection),
-		unregister: make(chan *Connection),
+		chatService: chatService,
+		register:    make(chan *Connection),
+		unregister:  make(chan *Connection),
 		broadcast:   make(chan BroadcastEvent, 100),
 		subscribe:   make(chan subscribeRequest, 100),
-
 	}
 	return m
 }

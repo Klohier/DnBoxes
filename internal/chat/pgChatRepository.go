@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -19,34 +18,37 @@ func NewPgChatRepository(db *pgxpool.Pool) *PgChatRepository {
 	}
 }
 
-func (repo *PgChatRepository) SaveMessage(ctx context.Context, userID int, message string, time time.Time, sessionID int) error {
-
-	// var msg Message
-	query := `INSERT INTO chats (user_id, message, sent_at, session_id) VALUES ($1, $2, $3, $4)`
-	_, err := repo.db.Exec(ctx, query, userID, message, time, sessionID)
+func (repo *PgChatRepository) SaveGlobalMessage(ctx context.Context, userID int, message string, sentAt time.Time) error {
+	query := `INSERT INTO chats (user_id, message, sent_at, lobby_id) VALUES ($1, $2, $3, 'global')`
+	_, err := repo.db.Exec(ctx, query, userID, message, sentAt)
 	if err != nil {
-		fmt.Printf("Executing query: %s\n", query)
-		fmt.Printf("Values: userID=%d, message=%s, timestamp=%s, sessionID=%v\n", userID, message, time, sessionID)
-		return errors.New("Failed to Save Message" + err.Error())
+		return fmt.Errorf("failed to save global message: %w", err)
 	}
-
 	return nil
-
 }
 
-func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message, error) {
+func (repo *PgChatRepository) SaveGameMessage(ctx context.Context, userID int, message string, sentAt time.Time, gameID int) error {
+	query := `INSERT INTO chats (user_id, message, sent_at, game_id) VALUES ($1, $2, $3, $4)`
+	_, err := repo.db.Exec(ctx, query, userID, message, sentAt, gameID)
+	if err != nil {
+		return fmt.Errorf("failed to save game message: %w", err)
+	}
+	return nil
+}
+
+func (repo *PgChatRepository) GetGlobalMessages(ctx context.Context) ([]Message, error) {
 	var messages []Message
 
 	query := `
-		SELECT c.message, c.sent_at, c.session_id, u.username, u.user_id
+		SELECT c.message, c.sent_at, u.username, u.user_id
 		FROM chats c
 		LEFT JOIN users u ON c.user_id = u.user_id
-		WHERE c.session_id = $1
-		AND c.sent_at >= NOW() - INTERVAL '5 minutes'
+		WHERE c.lobby_id = 'global'
+		AND c.sent_at >= NOW() - INTERVAL '30 minutes'
 		ORDER BY c.sent_at ASC
 	`
 
-	rows, err := repo.db.Query(ctx, query, sessionID)
+	rows, err := repo.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ func (repo *PgChatRepository) GetAllMessageFromSession(ctx context.Context, sess
 
 	for rows.Next() {
 		var message Message
-		if err := rows.Scan(&message.Message, &message.TimeStamp, &message.SessionID, &message.Username, &message.UserID); err != nil {
+		if err := rows.Scan(&message.Message, &message.TimeStamp, &message.Username, &message.UserID); err != nil {
 			return nil, err
 		}
 		messages = append(messages, message)
@@ -70,12 +72,12 @@ func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID int) ([
 	var messages []Message
 
 	query := `
-		SELECT c.message, c.timestamp, u.username, u.user_id
+		SELECT c.message, c.sent_at, u.username, u.user_id
 		FROM chats c
 		LEFT JOIN users u ON c.user_id = u.user_id
 		WHERE c.game_id = $1
-		AND c.timestamp >= NOW() - INTERVAL '5 minutes'
-		ORDER BY c.timestamp ASC
+		AND c.sent_at >= NOW() - INTERVAL '30 minutes'
+		ORDER BY c.sent_at ASC
 	`
 	rows, err := repo.db.Query(ctx, query, gameID)
 	if err != nil {
@@ -89,9 +91,10 @@ func (repo *PgChatRepository) GetGameMessage(ctx context.Context, gameID int) ([
 			return nil, err
 		}
 		messages = append(messages, message)
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return messages, nil
 }

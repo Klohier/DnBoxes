@@ -421,7 +421,12 @@ function RouteComponent() {
                 <CardTitle className="text-white text-lg">Game Chat</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {gameState.game_id && <Chatbox sessionID={gameState.game_id} />}
+                {gameState.game_id && (
+                  <Chatbox
+                    topic={`game:${String(gameState.game_id)}`}
+                    gameID={gameState.game_id}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>

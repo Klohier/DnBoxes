@@ -201,7 +201,7 @@ function Index() {
                   <h2 className="text-lg font-bold text-white">Global Chat</h2>
                 </div>
 
-                <Chatbox sessionID={1} />
+                <Chatbox topic="chat:global" />
               </div>
             </div>
           </div>

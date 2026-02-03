@@ -2,7 +2,8 @@ package chat
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -19,30 +20,32 @@ func NewChatService(chatRepo ChatRepository, RedisClient *redis.Client) *ChatSer
 	}
 }
 
-// func (s *ChatService) SaveMessage(ctx context.Context, msg events.Message, channel string) error {
-// 	if err := s.chatRepo.SaveMessage(ctx, msg.UserID, msg.Message, msg.TimeStamp, msg.SessionID); err != nil {
-// 		slog.Error("failed to send message:", "error", err)
-// 	}
+func (s *ChatService) SaveGlobalMessage(ctx context.Context, userID int, message string, sentAt time.Time) error {
+	if err := s.chatRepo.SaveGlobalMessage(ctx, userID, message, sentAt); err != nil {
+		return fmt.Errorf("failed to save global message: %w", err)
+	}
+	return nil
+}
 
-// 	if err := events.PublishEvent(ctx, s.redisClient, channel, events.EventMessage, msg); err != nil {
-// 		slog.Error("failed to publish message:", "error", err)
-// 	}
+func (s *ChatService) SaveGameMessage(ctx context.Context, userID int, message string, sentAt time.Time, gameID int) error {
+	if err := s.chatRepo.SaveGameMessage(ctx, userID, message, sentAt, gameID); err != nil {
+		return fmt.Errorf("failed to save game message: %w", err)
+	}
+	return nil
+}
 
-// 	return nil
-// }
+func (s *ChatService) GetGlobalMessages(ctx context.Context) ([]Message, error) {
+	msg, err := s.chatRepo.GetGlobalMessages(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get global messages: %w", err)
+	}
+	return msg, nil
+}
 
 func (s *ChatService) GetAllGameMessage(ctx context.Context, gameId int) ([]Message, error) {
 	msg, err := s.chatRepo.GetGameMessage(ctx, gameId)
 	if err != nil {
-		return nil, errors.New("failed to get message from game" + err.Error())
+		return nil, fmt.Errorf("failed to get game messages: %w", err)
 	}
-	return msg, err
-}
-
-func (s *ChatService) GetAllMessageFromSession(ctx context.Context, sessionID int) ([]Message, error) {
-	msg, err := s.chatRepo.GetAllMessageFromSession(ctx, sessionID)
-	if err != nil {
-		return nil, errors.New("failed to get message from game" + err.Error())
-	}
-	return msg, err
+	return msg, nil
 }
