@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"context"
-	"dango/internal/chat"
 	"dango/internal/events"
 	"encoding/json"
 	"errors"
@@ -30,18 +29,16 @@ type Manager struct {
 	unregister  chan *Connection
 	broadcast   chan BroadcastEvent
 	eventBus    events.EventBus
-	chatService *chat.ChatService
 	subscribe   chan subscribeRequest
 	mu          sync.RWMutex
 }
 
-func NewManager(eventBus events.EventBus, chatService *chat.ChatService) *Manager {
+func NewManager(eventBus events.EventBus) *Manager {
 	m := &Manager{
 		connections: make(ConnectionList),
 		userConns:   make(map[int]*Connection),
 		rooms:       make(map[string]ConnectionList),
 		eventBus:    eventBus,
-		chatService: chatService,
 		register:    make(chan *Connection),
 		unregister:  make(chan *Connection),
 		broadcast:   make(chan BroadcastEvent, 100),

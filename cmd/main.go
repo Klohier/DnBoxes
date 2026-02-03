@@ -220,10 +220,13 @@ func (app *App) setupServices(cfg *Config) error {
 	sessionHandler := session.NewSessionHandler(sessionService)
 	
 	// Initialize WebSocket manager
-	manager := websocket.NewManager(eventBus, chatService)
+	manager := websocket.NewManager(eventBus)
 	gameHandler := game.NewGameHandler(gameService, manager)
 	lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
-	
+
+	// Start chat persistence worker (subscribes to EventBus independently)
+	chatService.StartPersistenceWorker(eventBus)
+
 	go manager.Run()
 
 	// Setup routes
