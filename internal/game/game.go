@@ -73,8 +73,12 @@ type MoveResult struct {
 // NewGame creates a new game by raising a GameCreated domain event.
 func NewGame(gameID *int, boardSize int, players []Player) *Game {
 	game := &Game{}
+	id := 0
+	if gameID != nil {
+		id = *gameID
+	}
 	game.raise(EventTypeGameCreated, GameCreatedPayload{
-		GameID:    *gameID,
+		GameID:    id,
 		BoardSize: boardSize,
 		Players:   players,
 	})
