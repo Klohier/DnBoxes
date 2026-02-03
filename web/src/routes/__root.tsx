@@ -23,18 +23,18 @@ function Root() {
 
   return (
     <>
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+      <header className="bg-gray-800 border-b border-gray-700 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between min-w-0">
+          <div className="flex items-center gap-6 min-w-0">
             <Link
               to="/"
-              className="text-xl font-bold text-white hover:text-gray-300 transition-colors"
+              className="text-xl font-bold text-white hover:text-gray-300 transition-colors whitespace-nowrap"
             >
               Dots & Boxes
             </Link>
 
             {/* Navigation Links */}
-            <nav className="flex gap-4">
+            <nav className="hidden sm:flex gap-4">
               <Link
                 to="/"
                 className="text-gray-300 hover:text-white transition-colors [&.active]:text-white [&.active]:font-semibold"
@@ -65,7 +65,7 @@ function Root() {
           </div>
 
           {/* Auth Section */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             {auth.loading ? (
               <div className="flex gap-2">
                 <Button disabled variant="outline" size="sm">
@@ -82,9 +82,11 @@ function Root() {
                 </Button>
               </>
             ) : (
-              <Button variant="default" size="sm">
-                Login
-              </Button>
+              <Link to="/login">
+                <Button variant="default" size="sm">
+                  Login
+                </Button>
+              </Link>
             )}
           </div>
         </div>
