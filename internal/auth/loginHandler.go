@@ -2,6 +2,7 @@ package auth
 
 import (
 	"dango/internal/auth/token"
+	"dango/internal/user"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,12 +13,16 @@ import (
 
 type LoginHandler struct {
 	loginService *LoginService
+	userService  *user.UserService
 	logger       *slog.Logger
 }
 
-func NewLoginHandler(loginService *LoginService) *LoginHandler {
-	return &LoginHandler{loginService: loginService,
-		logger: slog.New(slog.NewJSONHandler(os.Stdout, nil))}
+func NewLoginHandler(loginService *LoginService, userService *user.UserService) *LoginHandler {
+	return &LoginHandler{
+		loginService: loginService,
+		userService:  userService,
+		logger:       slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+	}
 }
 
 func (h *LoginHandler) Login(c echo.Context) error {
@@ -56,6 +61,34 @@ func (h *LoginHandler) Login(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 
 }
+func (h *LoginHandler) GuestLogin(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	guest, err := h.userService.CreateGuestUser(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Could not create guest: "+err.Error())
+	}
+
+	sessionToken, err := token.GenerateToken(guest.UserID, guest.Username)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate session token")
+	}
+
+	cookie := new(http.Cookie)
+	cookie.Name = "DnB-Session"
+	cookie.Value = sessionToken
+	cookie.HttpOnly = true
+	cookie.Expires = time.Now().Add(24 * time.Hour)
+	cookie.Path = "/"
+	cookie.SameSite = http.SameSiteNoneMode
+	cookie.Secure = true
+	c.SetCookie(cookie)
+
+	h.logger.Info("Guest user created", "userID", guest.UserID, "username", guest.Username)
+
+	return c.JSON(http.StatusOK, guest)
+}
+
 func (h *LoginHandler) Logout(c echo.Context) error {
 	cookie := new(http.Cookie)
 	cookie.Name = "DnB-Session"

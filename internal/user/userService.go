@@ -2,6 +2,8 @@ package user
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 
 	"golang.org/x/crypto/bcrypt"
@@ -51,6 +53,20 @@ func (s *UserService) CreateUser(ctx context.Context, username string, password 
 		return nil, errors.New("Failed to Create User" + err.Error())
 	}
 	return newUser, nil
+}
+
+func (s *UserService) CreateGuestUser(ctx context.Context) (*User, error) {
+	suffix := make([]byte, 4)
+	if _, err := rand.Read(suffix); err != nil {
+		return nil, errors.New("failed to generate guest username")
+	}
+	username := "Guest_" + hex.EncodeToString(suffix)
+
+	guest, err := s.userRepo.CreateGuest(ctx, username)
+	if err != nil {
+		return nil, errors.New("failed to create guest user: " + err.Error())
+	}
+	return guest, nil
 }
 
 func (s *UserService) UpdateGameID(ctx context.Context, userId int, gameId *int) (*User, error) {

@@ -1,5 +1,13 @@
 import { User } from "@/types/auth";
 import axios from "axios";
+
+export async function guestLogin(): Promise<User> {
+  const response = await axios.post<User>(`/api/v1/guest`, null, {
+    withCredentials: true,
+  });
+  return response.data;
+}
+
 export async function fetchUser(): Promise<User | null> {
   // const apiUrl =
   //   (import.meta.env.VITE_API_URL as string) || "http://localhost:8484";
