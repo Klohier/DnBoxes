@@ -8,6 +8,7 @@ const (
 	EventQuitGame      = "game:quit"
 	EventGameCreated   = "game:new"
 	EventGameState     = "game:state"
+	EventGameTimer     = "game:timer"
 	EventMakeMove      = "game:move"
 	EventGetPlayers    = "player:get"
 	EventNewPlayers    = "player:new"

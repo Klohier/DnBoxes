@@ -1,7 +1,7 @@
 import { fetchGame } from "@/api/fetchGame";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Toaster, toast } from "sonner";
 import Grid from "../../components/Grid";
 import { useWebSocket } from "@/WebSocketContext";
@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GamePlayer, Game, Message } from "@/types/websocket";
+import { GamePlayer, Game, Message, TimerStatePayload } from "@/types/websocket";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
-import { Trophy, Users, LogOut, Wifi, WifiOff, Clock } from "lucide-react";
+import { Trophy, Users, LogOut, Wifi, WifiOff, Clock, Timer, AlertTriangle } from "lucide-react";
 
 export const gameDetailQuery = (id: string) => ({
   queryKey: ["game", id],
@@ -65,6 +65,8 @@ function RouteComponent() {
   const { send, subscribe, connected } = useWebSocket();
   const [userColors, setUserColors] = useState<Record<number, string>>({});
   const [isProcessingMove, setIsProcessingMove] = useState(false);
+  const [timerState, setTimerState] = useState<TimerStatePayload | null>(null);
+  const timerRef = useRef<TimerStatePayload | null>(null);
 
   const winnerPlayer = gameState?.players.find(
     (p) => p.user_id === gameState.winner_id,
@@ -139,13 +141,20 @@ function RouteComponent() {
       ) {
         console.log("Game state updated via WebSocket:", message.payload);
 
-        // if (!isProcessingMove) {
-        //   playBotMove();
-        // }
-
         // Update the game state in React Query cache
         queryClient.setQueryData(["game", params.gameID], message.payload);
 
+        return;
+      }
+
+      // Handle timer sync events from server
+      if (
+        message.topic === `game:${params.gameID}` &&
+        message.type === "game:timer"
+      ) {
+        const payload = message.payload as TimerStatePayload;
+        timerRef.current = payload;
+        setTimerState(payload);
         return;
       }
     });
@@ -155,6 +164,61 @@ function RouteComponent() {
       unsubscribe();
     };
   }, [subscribe, params.gameID, connected, queryClient, isProcessingMove]);
+
+  // Format milliseconds as MM:SS
+  const formatTime = useCallback((ms: number): string => {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  }, []);
+
+  // Get remaining time for a player from timer state
+  const getPlayerTime = useCallback(
+    (userId: number): number | null => {
+      if (!timerState) return null;
+      const playerTimer = timerState.players.find(
+        (p) => p.user_id === userId,
+      );
+      return playerTimer?.remaining_ms ?? null;
+    },
+    [timerState],
+  );
+
+  // Check if a player is disconnected
+  const isPlayerDisconnected = useCallback(
+    (userId: number): boolean => {
+      if (!timerState) return false;
+      const playerTimer = timerState.players.find(
+        (p) => p.user_id === userId,
+      );
+      return playerTimer?.disconnected ?? false;
+    },
+    [timerState],
+  );
+
+  // Client-side timer interpolation (smooth countdown between server syncs)
+  useEffect(() => {
+    if (!timerState || gameState?.winner_id) return;
+
+    const interval = setInterval(() => {
+      setTimerState((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          players: prev.players.map((p) => ({
+            ...p,
+            remaining_ms:
+              p.turn_order === prev.active_turn
+                ? Math.max(0, p.remaining_ms - 100)
+                : p.remaining_ms,
+          })),
+        };
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [timerState?.active_turn, gameState?.winner_id]);
 
   const handleQuitGame = async () => {
     if (gameState?.game_id && user?.userID && !gameState.winner_id) {
@@ -290,6 +354,22 @@ function RouteComponent() {
                         {turnDisplayText}
                       </p>
                     </div>
+                    {/* Active Player Timer */}
+                    {timerState && currentTurnPlayer && (() => {
+                      const timeMs = getPlayerTime(currentTurnPlayer.user_id);
+                      if (timeMs === null) return null;
+                      const isLow = timeMs < 30000;
+                      return (
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-lg font-bold ${
+                          isLow
+                            ? "bg-red-500/20 text-red-400 animate-pulse"
+                            : "bg-gray-700 text-white"
+                        }`}>
+                          <Timer className="h-4 w-4" />
+                          {formatTime(timeMs)}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Connection Status & Quit */}
@@ -395,10 +475,32 @@ function RouteComponent() {
                                   Active
                                 </Badge>
                               )}
+                              {isPlayerDisconnected(player.user_id) && (
+                                <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  DC
+                                </Badge>
+                              )}
                             </div>
-                            <p className="text-xs text-gray-400">
-                              Turn {player.turn_order + 1}
-                            </p>
+                            {/* Timer display per player */}
+                            {(() => {
+                              const timeMs = getPlayerTime(player.user_id);
+                              if (timeMs === null) return (
+                                <p className="text-xs text-gray-400">
+                                  Turn {player.turn_order + 1}
+                                </p>
+                              );
+                              const isLow = timeMs < 30000;
+                              const isActive = currentTurnPlayer?.user_id === player.user_id;
+                              return (
+                                <p className={`text-xs font-mono ${
+                                  isLow ? "text-red-400 font-semibold" :
+                                  isActive ? "text-green-400" : "text-gray-400"
+                                }`}>
+                                  {formatTime(timeMs)}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
 

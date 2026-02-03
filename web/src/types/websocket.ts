@@ -94,6 +94,19 @@ export interface GameMovePayload {
   edge: string;
 }
 
+export interface PlayerTimerInfo {
+  turn_order: number;
+  user_id: number;
+  remaining_ms: number;
+  disconnected: boolean;
+}
+
+export interface TimerStatePayload {
+  game_id: number;
+  players: PlayerTimerInfo[];
+  active_turn: number;
+}
+
 export interface LobbyCreatedPayload {
   lobby_id: string;
   board_size: number;
@@ -137,7 +150,10 @@ export type Message =
   | { type: "page:join"; payload: unknown; topic?: string }
   | { type: "page:leave"; payload: unknown; topic?: string }
 
-  // --- NEW LOBBY EVENTS ---
+  // --- TIMER EVENTS ---
+  | { type: "game:timer"; payload: TimerStatePayload; topic?: string }
+
+  // --- LOBBY EVENTS ---
   | { type: "lobby_created"; payload: LobbyCreatedPayload; topic?: string }
   | { type: "lobby_updated"; payload: LobbyUpdatedPayload; topic?: string }
   | { type: "lobby_deleted"; payload: LobbyDeletedPayload; topic?: string };
