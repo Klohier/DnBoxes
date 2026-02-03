@@ -139,3 +139,25 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, game)
 }
+
+func (h *GameHandler) ForfeitGame(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
+	}
+
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+	}
+	playerID := int(userIDFloat)
+
+	game, err := h.gameService.ForfeitGame(c.Request().Context(), gameID, playerID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, game)
+}

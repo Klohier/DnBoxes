@@ -159,6 +159,12 @@ if err := h.lobbyService.JoinLobby(ctx, lobbyID, userID, username); err != nil {
 	if err == ErrLobbyNotFound {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "lobby not found"})
 	}
+	if err == ErrAlreadyInLobby {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "already in lobby"})
+	}
+	if err == ErrLobbyFull {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "lobby is full"})
+	}
 	return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to join lobby"})
 }
 
@@ -296,4 +302,51 @@ func (h *LobbyHandler) ToggleReady(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, resp)
+}
+
+func (h *LobbyHandler) LeaveLobby(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	lobbyID := c.Param("lobbyId")
+	if lobbyID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing lobby ID"})
+	}
+
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+	}
+	userID := int64(userIDFloat)
+
+	if err := h.lobbyService.LeaveLobby(ctx, lobbyID, userID); err != nil {
+		if err == ErrLobbyNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "lobby not found"})
+		}
+		if err == ErrNotInLobby {
+			return c.JSON(http.StatusOK, map[string]string{"status": "not in lobby"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to leave lobby"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "left"})
+}
+
+func (h *LobbyHandler) DeleteLobby(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	lobbyID := c.Param("lobbyId")
+	if lobbyID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing lobby ID"})
+	}
+
+	if err := h.lobbyService.DeleteLobby(ctx, lobbyID); err != nil {
+		if err == ErrLobbyNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "lobby not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to delete lobby"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }

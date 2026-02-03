@@ -156,15 +156,15 @@ function RouteComponent() {
     };
   }, [subscribe, params.gameID, connected, queryClient, isProcessingMove]);
 
-  const handleQuitGame = () => {
-    if (gameState?.game_id && user?.userID) {
-      send({
-        type: "game:quit",
-        payload: {
-          gameId: gameState.game_id,
-          playerId: user.userID,
-        },
-      });
+  const handleQuitGame = async () => {
+    if (gameState?.game_id && user?.userID && !gameState.winner_id) {
+      try {
+        await fetch(`/api/v1/games/${gameState.game_id}/forfeit`, {
+          method: "POST",
+        });
+      } catch (error) {
+        console.error("Failed to forfeit game:", error);
+      }
     }
     navigate({ to: "/" });
   };

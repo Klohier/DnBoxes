@@ -167,6 +167,61 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col i
 	return game, nil
 }
 
+func (s *GameService) ForfeitGame(ctx context.Context, gameID, playerID int) (*Game, error) {
+	isBotGame := s.botService.IsBotGame(gameID)
+
+	var game *Game
+	var err error
+
+	if isBotGame {
+		game, err = s.botService.GetBotGameState(gameID)
+	} else {
+		game, err = s.gameRepo.FindByID(ctx, gameID)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to load game: %w", err)
+	}
+
+	if game.EndedAt != nil {
+		return nil, fmt.Errorf("game has already ended")
+	}
+
+	// Determine winner: the opponent with the highest score
+	var winnerID *int
+	maxScore := -1
+	for _, p := range game.Players {
+		if p.UserID != nil && *p.UserID == playerID {
+			continue
+		}
+		if p.Score > maxScore {
+			maxScore = p.Score
+			winnerID = p.UserID
+		}
+	}
+
+	game.WinnerID = winnerID
+	now := time.Now()
+	game.EndedAt = &now
+
+	if !isBotGame {
+		if err := s.gameRepo.Update(ctx, game); err != nil {
+			return nil, fmt.Errorf("failed to save game: %w", err)
+		}
+	}
+
+	slog.Info("Game forfeited", "gameID", *game.GameID, "forfeitedBy", playerID, "winnerID", winnerID)
+
+	topic := fmt.Sprintf("game:%d", *game.GameID)
+	s.publishEvent(ctx, topic, "game:state", game)
+	s.publishEvent(ctx, "global:games", "game_completed", map[string]interface{}{
+		"game_id":   *game.GameID,
+		"winner_id": game.WinnerID,
+	})
+
+	return game, nil
+}
+
 func (s *GameService) publishEvent(ctx context.Context, topic, eventType string, payload interface{}) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
