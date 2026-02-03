@@ -103,6 +103,30 @@ func (c *Connection) readMessage() {
 			topic = "global:lobbies"
 		}
 
+		// Handle page join/leave for game presence tracking.
+		// When a user navigates to/from a game page, notify the timer service
+		// so it can start/cancel the disconnect grace period.
+		if event.Type == events.EventJoinPage && topic != "" {
+			c.manager.Subscribe(topic, c)
+			c.manager.eventBus.Publish(context.Background(), "connections", events.Event{
+				Topic:   "connections",
+				Type:    "user_connected",
+				Payload: json.RawMessage(fmt.Sprintf(`{"user_id":%d}`, c.userID)),
+			})
+			slog.Info("User joined game page", "userID", c.userID, "topic", topic)
+			continue
+		}
+
+		if event.Type == events.EventLeavePage && topic != "" {
+			c.manager.eventBus.Publish(context.Background(), "connections", events.Event{
+				Topic:   "connections",
+				Type:    "user_disconnected",
+				Payload: json.RawMessage(fmt.Sprintf(`{"user_id":%d}`, c.userID)),
+			})
+			slog.Info("User left game page", "userID", c.userID, "topic", topic)
+			continue
+		}
+
 		// Publish chat messages to a save topic for persistence.
 		// The ChatService subscribes to "chat:save" independently via the EventBus.
 		if event.Type == events.EventMessage {

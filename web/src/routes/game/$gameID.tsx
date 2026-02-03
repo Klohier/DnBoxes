@@ -104,6 +104,29 @@ function RouteComponent() {
     setUserColors(colorMap);
   }, [gameState]);
 
+  // Track send function in a ref so cleanup always uses the latest version
+  const sendRef = useRef(send);
+  sendRef.current = send;
+
+  // Send page:join/page:leave events for game presence tracking
+  useEffect(() => {
+    if (!connected || !params.gameID) return;
+
+    sendRef.current({
+      type: "page:join",
+      topic: `game:${params.gameID}`,
+      payload: {},
+    });
+
+    return () => {
+      sendRef.current({
+        type: "page:leave",
+        topic: `game:${params.gameID}`,
+        payload: {},
+      });
+    };
+  }, [connected, params.gameID]);
+
   useEffect(() => {
     if (connected && params.gameID) {
       console.log(
@@ -433,9 +456,9 @@ function RouteComponent() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {gameState.players
+                  {[...gameState.players]
                     .sort((a, b) => b.score - a.score)
-                    .map((player, index) => (
+                    .map((player) => (
                       <div
                         key={player.user_id}
                         className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
@@ -445,8 +468,8 @@ function RouteComponent() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          {/* Rank Badge */}
-                          {index === 0 && gameState.winner_id && (
+                          {/* Winner Badge */}
+                          {player.user_id === gameState.winner_id && (
                             <Trophy className="h-5 w-5 text-yellow-500" />
                           )}
 
@@ -561,15 +584,15 @@ function RouteComponent() {
           <div className="border-t pt-4">
             <h4 className="font-semibold mb-3 text-gray-900">Final Scores</h4>
             <div className="space-y-2">
-              {gameState.players
+              {[...gameState.players]
                 .sort((a, b) => b.score - a.score)
-                .map((player, index) => (
+                .map((player) => (
                   <div
                     key={player.user_id}
                     className="flex items-center justify-between p-2 bg-gray-50 rounded"
                   >
                     <div className="flex items-center gap-2">
-                      {index === 0 && (
+                      {player.user_id === gameState.winner_id && (
                         <Trophy className="h-4 w-4 text-yellow-500" />
                       )}
                       <span className="font-medium">
