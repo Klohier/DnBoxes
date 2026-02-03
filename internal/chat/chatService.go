@@ -2,7 +2,12 @@ package chat
 
 import (
 	"context"
+	"dango/internal/events"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -17,6 +22,59 @@ func NewChatService(chatRepo ChatRepository, RedisClient *redis.Client) *ChatSer
 	return &ChatService{
 		chatRepo:    chatRepo,
 		redisClient: RedisClient,
+	}
+}
+
+type chatSavePayload struct {
+	UserID    int    `json:"userID"`
+	Username  string `json:"username"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
+}
+
+// StartPersistenceWorker subscribes to the "chat:save" EventBus topic
+// and persists incoming chat messages to the database.
+func (s *ChatService) StartPersistenceWorker(eventBus events.EventBus) {
+	err := eventBus.Subscribe(context.Background(), "chat:save", func(e events.Event) {
+		var payload chatSavePayload
+		if err := json.Unmarshal(e.Payload, &payload); err != nil {
+			slog.Error("chat persistence: failed to unmarshal payload", "error", err)
+			return
+		}
+
+		if payload.Message == "" {
+			return
+		}
+
+		sentAt, err := time.Parse(time.RFC3339, payload.Timestamp)
+		if err != nil {
+			sentAt = time.Now()
+		}
+
+		ctx := context.Background()
+		topic := e.Topic
+
+		if topic == "chat:global" {
+			if err := s.chatRepo.SaveGlobalMessage(ctx, payload.UserID, payload.Message, sentAt); err != nil {
+				slog.Error("chat persistence: failed to save global message", "error", err)
+			}
+		} else if strings.HasPrefix(topic, "game:") {
+			gameIDStr := strings.TrimPrefix(topic, "game:")
+			gameID, err := strconv.Atoi(gameIDStr)
+			if err != nil {
+				slog.Error("chat persistence: invalid game ID in topic", "topic", topic, "error", err)
+				return
+			}
+			if err := s.chatRepo.SaveGameMessage(ctx, payload.UserID, payload.Message, sentAt, gameID); err != nil {
+				slog.Error("chat persistence: failed to save game message", "error", err, "gameID", gameID)
+			}
+		}
+	})
+
+	if err != nil {
+		slog.Error("chat persistence: failed to subscribe to chat:save", "error", err)
+	} else {
+		slog.Info("Chat persistence worker started, subscribed to chat:save")
 	}
 }
 
