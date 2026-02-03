@@ -56,6 +56,11 @@ func (l *Lobby) AddPlayer(userID int64, username string) error {
     if len(l.Players) >= l.PlayerLimit {
         return ErrLobbyFull
     }
+    for _, p := range l.Players {
+        if p.UserID == userID {
+            return ErrAlreadyInLobby
+        }
+    }
     l.Players = append(l.Players, LobbyPlayer{UserID: userID, IsReady: false, Username: username})
 	l.events = append(l.events, PlayerJoinedEvent{LobbyID: l.LobbyID , UserID: userID}) // emit event
 

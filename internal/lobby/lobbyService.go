@@ -106,52 +106,64 @@ if err != nil {
 }
 
 func (s *LobbyService) LeaveLobby(ctx context.Context, lobbyID string, userID int64) error {
+	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+	if err != nil {
+		return err
+	}
+	if lobby == nil {
+		return ErrLobbyNotFound
+	}
 
+	if err := lobby.RemovePlayer(userID); err != nil {
+		return err
+	}
 
-	    lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
-    if err != nil {
-        return err
-    }
-    if lobby == nil {
-        return ErrLobbyNotFound
-    }
+	if lobby.IsEmpty() {
+		if err := s.lobbyRepo.DeleteLobby(ctx, lobbyID); err != nil {
+			return err
+		}
 
-    lobby.RemovePlayer(userID)
+		deletedPayload, _ := json.Marshal(map[string]string{"lobby_id": lobbyID})
+		s.bus.Publish(ctx, "global:lobbies", events.Event{Topic: "lobby:" + lobbyID, Type: "lobby_deleted", Payload: deletedPayload})
 
-    // Maybe should be a domain event
-    if lobby.IsEmpty() {
-        if err := s.lobbyRepo.DeleteLobby(ctx, lobbyID); err != nil {
-            return err
-        }
+		return nil
+	}
 
-    s.bus.Publish(ctx, "global:lobbies", events.Event{ Topic:   "lobby:" + lobbyID, Type: "lobby_deleted", Payload: nil})
+	if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
+		return err
+	}
 
-        return nil
-    }
-
-    if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
-        return err
-    }
-
-
-    payload := LobbyUpdatedPayload{
+	payload := LobbyUpdatedPayload{
 		LobbyID: lobby.LobbyID,
 		Players: lobby.Players,
 		Status:  "waiting",
 	}
 
-    payloadBytes, err := json.Marshal(payload)
-if err != nil {
-    return err
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{Topic: "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+	s.bus.Publish(ctx, "global:lobbies", events.Event{Topic: "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+
+	return nil
 }
-	s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{ Topic:   "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
 
-    s.bus.Publish(ctx, "global:lobbies", events.Event{
-    Topic:   "lobby:" + lobbyID,
-    Type:    "lobby_updated",
-    Payload: payloadBytes,
-})
+func (s *LobbyService) DeleteLobby(ctx context.Context, lobbyID string) error {
+	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+	if err != nil {
+		return err
+	}
+	if lobby == nil {
+		return ErrLobbyNotFound
+	}
 
+	if err := s.lobbyRepo.DeleteLobby(ctx, lobbyID); err != nil {
+		return err
+	}
+
+	deletedPayload, _ := json.Marshal(map[string]string{"lobby_id": lobbyID})
+	s.bus.Publish(ctx, "global:lobbies", events.Event{Topic: "lobby:" + lobbyID, Type: "lobby_deleted", Payload: deletedPayload})
 
 	return nil
 }

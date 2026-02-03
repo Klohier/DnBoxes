@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Lobby } from "@/types/lobby";
 import { useWebSocket } from "@/WebSocketContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
 import { Message } from "@/types/websocket";
@@ -32,6 +32,11 @@ function LobbyPage() {
   const [isLeaving, setIsLeaving] = useState(false);
   const { user } = useAuth();
 
+  // Track whether the user is leaving due to game start (don't call leave API)
+  const isGameStartingRef = useRef(false);
+  // Track whether user already explicitly left (don't double-leave on unmount)
+  const hasLeftRef = useRef(false);
+
   const { data: lobby, isLoading } = useQuery<Lobby>({
     queryKey: ["lobby", lobbyID],
     queryFn: async () => {
@@ -41,6 +46,32 @@ function LobbyPage() {
     },
     enabled: !!lobbyID,
   });
+
+  // Leave lobby on page close/refresh and on component unmount (navigation away)
+  const leaveLobbyQuietly = useCallback(() => {
+    if (isGameStartingRef.current || hasLeftRef.current) return;
+    hasLeftRef.current = true;
+    fetch(`/api/v1/lobbies/${lobbyID}/leave`, {
+      method: "POST",
+      keepalive: true,
+    });
+  }, [lobbyID]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isGameStartingRef.current || hasLeftRef.current) return;
+      hasLeftRef.current = true;
+      navigator.sendBeacon(`/api/v1/lobbies/${lobbyID}/leave`);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Component unmounting (React navigation) - leave lobby
+      leaveLobbyQuietly();
+    };
+  }, [lobbyID, leaveLobbyQuietly]);
 
   useEffect(() => {
     if (!lobbyID) return;
@@ -80,6 +111,7 @@ function LobbyPage() {
           "Game started, navigating to game page:",
           event.payload.gameID,
         );
+        isGameStartingRef.current = true;
         void navigate({ to: `/game/${event.payload.gameID}` });
       } else {
         console.log("Ignoring event - unhandled type:", event.type);
@@ -121,11 +153,16 @@ function LobbyPage() {
       const game = await res.json();
       console.log("Game created successfully:", game);
 
+      // Delete the lobby so no one else can join
+      await fetch(`/api/v1/lobbies/${lobbyID}`, { method: "DELETE" });
+
+      // Mark as game starting so cleanup doesn't call leave
+      isGameStartingRef.current = true;
+
       // Navigate to the game page using the game_id from response
-      //TODO: Fix inconsistent api naming
       void navigate({ to: `/game/${game.game_id}` });
 
-      //Send WebSocket message to notify other players
+      // Send WebSocket message to notify other players
       if (connected) {
         send({
           topic: `lobby:${lobbyID}`,
@@ -175,6 +212,7 @@ function LobbyPage() {
     if (isLeaving) return;
 
     setIsLeaving(true);
+    hasLeftRef.current = true;
 
     try {
       const res = await fetch(`/api/v1/lobbies/${lobbyID}/leave`, {
@@ -193,6 +231,7 @@ function LobbyPage() {
       void navigate({ to: "/" });
     } catch (error) {
       console.error("Error leaving lobby:", error);
+      hasLeftRef.current = false;
       alert(error instanceof Error ? error.message : "Failed to leave lobby");
     } finally {
       setIsLeaving(false);

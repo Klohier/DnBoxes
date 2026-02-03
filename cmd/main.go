@@ -273,6 +273,8 @@ func (app *App) setupRoutes(
 	api.POST("/lobbies/:lobbyId/join", lobbyHandler.JoinLobby)
 	api.GET("/lobbies/:lobbyId", lobbyHandler.GetLobby)
 	api.POST("/lobbies/:lobbyId/ready", lobbyHandler.ToggleReady)
+	api.POST("/lobbies/:lobbyId/leave", lobbyHandler.LeaveLobby)
+	api.DELETE("/lobbies/:lobbyId", lobbyHandler.DeleteLobby)
 
 	// Auth
 	api.POST("/logout", loginHandler.Logout)
@@ -281,6 +283,7 @@ func (app *App) setupRoutes(
 	api.POST("/games", gameHandler.CreateGame)
 	api.GET("/games/:gameId/state", gameHandler.GetGameState)
 	api.POST("/games/:gameId/move", gameHandler.MakeMove)
+	api.POST("/games/:gameId/forfeit", gameHandler.ForfeitGame)
 	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
 
 	// Chat
