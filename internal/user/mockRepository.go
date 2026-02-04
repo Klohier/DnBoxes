@@ -56,3 +56,32 @@ func (m *MockUserRepository) UserExists(ctx context.Context, username string) (b
 	}
 	return user != nil, nil
 }
+
+func (m *MockUserRepository) CreateGuest(ctx context.Context, username string) (*User, error) {
+	m.nextID++
+	guest := &User{UserID: m.nextID, Username: username, IsGuest: true}
+	m.users[m.nextID] = guest
+	m.usernames[username] = m.nextID
+	return guest, nil
+}
+
+func (m *MockUserRepository) UpgradeGuest(ctx context.Context, userID int, username string, password string) (*User, error) {
+	user, exists := m.users[userID]
+	if !exists || !user.IsGuest {
+		return nil, errors.New("user is not a guest or does not exist")
+	}
+	delete(m.usernames, user.Username)
+	user.Username = username
+	user.Password = password
+	user.IsGuest = false
+	m.usernames[username] = userID
+	return user, nil
+}
+
+func (m *MockUserRepository) UpdateGameID(ctx context.Context, userID int, gameID *int) (*User, error) {
+	user, exists := m.users[userID]
+	if !exists {
+		return nil, fmt.Errorf("user with id %d not found", userID)
+	}
+	return user, nil
+}
