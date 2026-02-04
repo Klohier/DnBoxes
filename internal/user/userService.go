@@ -5,9 +5,32 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"regexp"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+var validUsername = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+func validateUsername(username string) error {
+	if len(username) < 3 || len(username) > 20 {
+		return errors.New("username must be between 3 and 20 characters")
+	}
+	if !validUsername.MatchString(username) {
+		return errors.New("username can only contain letters, numbers, and underscores")
+	}
+	return nil
+}
+
+func validatePassword(password string) error {
+	if len(password) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	if len(password) > 72 {
+		return errors.New("password must be at most 72 characters")
+	}
+	return nil
+}
 
 type UserService struct {
 	userRepo UserRepository
@@ -30,8 +53,11 @@ func (s *UserService) FindByID(ctx context.Context, userId int) (*User, error) {
 }
 
 func (s *UserService) CreateUser(ctx context.Context, username string, password string) (*User, error) {
-	if username == "" || password == "" {
-		return nil, errors.New("username or password cannot be empty")
+	if err := validateUsername(username); err != nil {
+		return nil, err
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
 	}
 
 	taken, err := s.userRepo.UserExists(ctx, username)
@@ -70,8 +96,11 @@ func (s *UserService) CreateGuestUser(ctx context.Context) (*User, error) {
 }
 
 func (s *UserService) UpgradeGuest(ctx context.Context, userID int, username string, password string) (*User, error) {
-	if username == "" || password == "" {
-		return nil, errors.New("username and password are required")
+	if err := validateUsername(username); err != nil {
+		return nil, err
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
 	}
 
 	taken, err := s.userRepo.UserExists(ctx, username)

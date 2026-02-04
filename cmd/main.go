@@ -18,12 +18,14 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/time/rate"
 )
 
 type Config struct {
@@ -251,6 +253,29 @@ func (app *App) setupServices(cfg *Config) error {
 	return nil
 }
 
+// newAuthRateLimiter creates rate limiting middleware for auth endpoints.
+// rateInterval is the time between allowed requests; burst is the max burst size.
+func newAuthRateLimiter(rateInterval time.Duration, burst int) echo.MiddlewareFunc {
+	store := middleware.NewRateLimiterMemoryStoreWithConfig(
+		middleware.RateLimiterMemoryStoreConfig{
+			Rate:      rate.Every(rateInterval),
+			Burst:     burst,
+			ExpiresIn: 3 * time.Minute,
+		},
+	)
+	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: store,
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			return ctx.RealIP(), nil
+		},
+		DenyHandler: func(context echo.Context, identifier string, err error) error {
+			return context.JSON(http.StatusTooManyRequests, map[string]string{
+				"message": "too many requests, please try again later",
+			})
+		},
+	})
+}
+
 func (app *App) setupRoutes(
 	cfg *Config,
 	userHandler *user.UserHandler,
@@ -262,11 +287,11 @@ func (app *App) setupRoutes(
 	statsHandler *stats.StatsHandler,
 	manager *websocket.Manager,
 ) {
-	// Public routes
+	// Public routes with rate limiting
 	public := app.echo.Group("/api/v1")
-	public.POST("/users", userHandler.CreateUser)
-	public.POST("/login", loginHandler.Login)
-	public.POST("/guest", loginHandler.GuestLogin)
+	public.POST("/login", loginHandler.Login, newAuthRateLimiter(12*time.Second, 5))        // ~5 per minute
+	public.POST("/users", userHandler.CreateUser, newAuthRateLimiter(20*time.Second, 3))     // ~3 per minute
+	public.POST("/guest", loginHandler.GuestLogin, newAuthRateLimiter(6*time.Second, 5))     // ~10 per minute
 	public.GET("/metrics", app.handleMetrics)
 	
 	// Protected routes

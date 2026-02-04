@@ -37,7 +37,7 @@ func TestCreateUser(t *testing.T) {
 
 	suite := setup()
 
-	formData := "username=testing245&password=abcd"
+	formData := "username=testing245&password=abcd1234"
 	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(formData))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 

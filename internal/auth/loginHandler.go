@@ -28,38 +28,37 @@ func NewLoginHandler(loginService *LoginService, userService *user.UserService) 
 func (h *LoginHandler) Login(c echo.Context) error {
 	username := c.FormValue("username")
 	password := c.FormValue("password")
+
+	if username == "" || password == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "username and password are required")
+	}
+	if len(username) > 100 || len(password) > 100 {
+		return echo.NewHTTPError(http.StatusBadRequest, "input exceeds maximum length")
+	}
+
 	ctx := c.Request().Context()
 
 	user, err := h.loginService.Login(ctx, username, password)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "Could Not Login User: "+err.Error())
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 	}
 
-	//SETS COOKIE
+	sessionToken, err := token.GenerateToken(user.UserID, user.Username)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate session token")
+	}
+
 	cookie := new(http.Cookie)
 	cookie.Name = "DnB-Session"
-
+	cookie.Value = sessionToken
 	cookie.HttpOnly = true
 	cookie.Expires = time.Now().Add(24 * time.Hour)
 	cookie.Path = "/"
 	cookie.SameSite = http.SameSiteNoneMode
 	cookie.Secure = true
-	sessionToken, nil := token.GenerateToken(user.UserID, user.Username)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate session token: ")
-	}
-
-	cookie.Value = sessionToken
 	c.SetCookie(cookie)
 
-	h.logger.Info(sessionToken)
-	// csrf := c.Request().Header.Get("X-CSRF-TOKEN")
-	// if csrf != user.CSRF || "" {
-	// 	return echo.NewHTTPError(http.StatusUnauthorized, "Could Not Login User: " + err.Error())
-	// }
-
 	return c.JSON(http.StatusOK, user)
-
 }
 func (h *LoginHandler) GuestLogin(c echo.Context) error {
 	ctx := c.Request().Context()

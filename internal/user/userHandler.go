@@ -47,14 +47,20 @@ func NewUserHandler(userService *UserService) *UserHandler {
 }
 
 func (h *UserHandler) CreateUser(c echo.Context) error {
-
 	username := c.FormValue("username")
 	password := c.FormValue("password")
+
+	if username == "" || password == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "username and password are required")
+	}
+	if len(username) > 100 || len(password) > 100 {
+		return echo.NewHTTPError(http.StatusBadRequest, "input exceeds maximum length")
+	}
 
 	ctx := c.Request().Context()
 	user, err := h.userService.CreateUser(ctx, username, password)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Could Not Create User: "+err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	h.logger.Info("New User Created",
 		"uri", c.Request().RequestURI,
