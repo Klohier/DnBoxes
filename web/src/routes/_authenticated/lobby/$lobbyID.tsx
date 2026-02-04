@@ -78,14 +78,14 @@ function LobbyPage() {
   useEffect(() => {
     if (!lobbyID) return;
 
-    console.log("Setting up WebSocket listener for lobby:", lobbyID);
+    // console.log("Setting up WebSocket listener for lobby:", lobbyID);
 
     const unsubscribe = subscribe((event: Message) => {
       console.log("WebSocket event received:", event);
 
       // Only process events for this specific lobby
       if (event.topic !== `lobby:${lobbyID}`) {
-        console.log("Ignoring event - wrong topic:", event.topic);
+        // console.log("Ignoring event - wrong topic:", event.topic);
         return;
       }
 
@@ -95,7 +95,7 @@ function LobbyPage() {
 
         queryClient.setQueryData<Lobby>(["lobby", lobbyID], (old) => {
           if (!old) {
-            console.log("No cached lobby data, skipping update");
+            // console.log("No cached lobby data, skipping update");
             return old;
           }
 
@@ -116,12 +116,12 @@ function LobbyPage() {
         isGameStartingRef.current = true;
         void navigate({ to: `/game/${event.payload.gameID}` });
       } else {
-        console.log("Ignoring event - unhandled type:", event.type);
+        // console.log("Ignoring event - unhandled type:", event.type);
       }
     });
 
     return () => {
-      console.log("Cleaning up WebSocket listener for lobby:", lobbyID);
+      // console.log("Cleaning up WebSocket listener for lobby:", lobbyID);
       unsubscribe();
     };
   }, [lobbyID, subscribe, queryClient, navigate]);
@@ -130,9 +130,7 @@ function LobbyPage() {
   useEffect(() => {
     if (!lobby || !user?.userID || hasAttemptedRejoin.current) return;
 
-    const isInLobby = lobby.players?.some(
-      (p) => p.user_id === user.userID,
-    );
+    const isInLobby = lobby.players?.some((p) => p.user_id === user.userID);
     if (isInLobby) return;
 
     hasAttemptedRejoin.current = true;
