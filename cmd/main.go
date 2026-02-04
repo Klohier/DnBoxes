@@ -8,7 +8,6 @@ import (
 	"dango/internal/infra"
 	"dango/internal/lobby"
 	"dango/internal/metrics"
-	"dango/internal/session"
 	"dango/internal/stats"
 	"dango/internal/user"
 	"dango/internal/websocket"
@@ -73,11 +72,6 @@ func run() error {
 
 	// Setup Redis
 	rdb := setupRedis(cfg)
-	// if err := rdb.FlushDB(context.Background()).Err(); err != nil {
-	// 	slog.Error("Failed to flush Redis DB", "error", err)
-	// } else {
-	// 	slog.Info("Redis database flushed successfully")
-	// }
 
 	// Create app
 	app := &App{
@@ -218,7 +212,6 @@ func (app *App) setupServices(cfg *Config) error {
 	userRepo := user.NewPgUserRepository(app.db)
 	chatRepo := chat.NewPgChatRepository(app.db)
 	gameRepo := game.NewPgGameRepository(app.db)
-	sessionRepo := session.NewPgSessionRepository(app.db)
 	lobbyRepo := infra.NewRedisLobbyRepository(app.redis)
 
 	// Initialize services
@@ -228,7 +221,6 @@ func (app *App) setupServices(cfg *Config) error {
 	botService := game.NewBotService(eventBus)
 	timerService := game.NewGameTimerService(eventBus)
 	gameService := game.NewGameService(gameRepo, eventBus, botService, timerService)
-	sessionService := session.NewSessionService(sessionRepo)
 	lobbyService := lobby.NewLobbyService(lobbyRepo, eventBus)
 
 	// Wire timer forfeit callback (avoids circular dependency)
@@ -249,7 +241,6 @@ func (app *App) setupServices(cfg *Config) error {
 	userHandler := user.NewUserHandler(userService)
 	loginHandler := auth.NewLoginHandler(loginService, userService)
 	chatHandler := chat.NewChatHandler(chatService)
-	sessionHandler := session.NewSessionHandler(sessionService)
 
 	// Initialize WebSocket manager
 	manager := websocket.NewManager(eventBus)
@@ -262,7 +253,7 @@ func (app *App) setupServices(cfg *Config) error {
 	go manager.Run()
 
 	// Setup routes
-	app.setupRoutes(cfg, userHandler, loginHandler, chatHandler, gameHandler, lobbyHandler, sessionHandler, statsHandler, manager)
+	app.setupRoutes(cfg, userHandler, loginHandler, chatHandler, gameHandler, lobbyHandler, statsHandler, manager)
 
 	return nil
 }
@@ -297,7 +288,6 @@ func (app *App) setupRoutes(
 	chatHandler *chat.ChatHandler,
 	gameHandler *game.GameHandler,
 	lobbyHandler *lobby.LobbyHandler,
-	// sessionHandler *session.SessionHandler,
 	statsHandler *stats.StatsHandler,
 	manager *websocket.Manager,
 ) {
@@ -358,11 +348,6 @@ func (app *App) setupRoutes(
 	api.GET("/stats/users/:userId", statsHandler.GetUserStats)
 	api.GET("/stats/leaderboard", statsHandler.GetLeaderboard)
 
-	// Session
-	// api.GET("/sessions", sessionHandler.GetAllSessions)
-	// api.POST("/sessions", sessionHandler.CreateSession)
-	// api.POST("/sessions/:sessionId/users/:userId", sessionHandler.AddUserToSession)
-	// api.DELETE("/sessions/:sessionId/users/:userId", sessionHandler.RemoveUserFromSession)
 }
 
 func startPprofServer() {
