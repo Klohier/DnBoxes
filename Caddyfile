@@ -1,6 +1,5 @@
-localhost {
+:80 {
     encode gzip
-
     # Reverse proxy API
     reverse_proxy /api/v1/* backend1:8484
 
