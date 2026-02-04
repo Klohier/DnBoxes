@@ -47,7 +47,10 @@ export function AuthForm({
   });
 
   function getErrorMessage(err: unknown): string {
-    if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+    if (
+      axios.isAxiosError(err) &&
+      typeof err.response?.data?.message === "string"
+    ) {
       return err.response.data.message;
     }
     if (err instanceof Error) {
@@ -81,9 +84,13 @@ export function AuthForm({
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel className="text-white">Username</FormLabel>
               <FormControl>
-                <Input placeholder="Username" {...field} />
+                <Input
+                  placeholder="Username"
+                  {...field}
+                  className="text-white"
+                />
               </FormControl>
               <FormDescription>
                 This is your public display name.
@@ -98,9 +105,14 @@ export function AuthForm({
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel className="text-white">Password</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  {...field}
+                  className="text-white"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

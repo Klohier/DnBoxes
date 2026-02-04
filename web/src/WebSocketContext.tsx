@@ -63,7 +63,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         // set only once connected
       };
       ws.onmessage = (event: MessageEvent<string>) => {
-        console.log("Message received:", event.data);
+        // console.log("Message received:", event.data);
         const message = JSON.parse(event.data) as Message;
         subscribers.current.forEach((cb) => {
           cb(message);
@@ -99,13 +99,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   }, [isAuthenticated]);
 
   const subscribe = useCallback((callback: (message: Message) => void) => {
-    console.log("Adding subscriber");
+    // console.log("Adding subscriber");
     subscribers.current.add(callback);
-    console.log("Total subscribers:", subscribers.current.size);
+    // console.log("Total subscribers:", subscribers.current.size);
     return () => {
-      console.log("Removing subscriber");
+      // console.log("Removing subscriber");
       subscribers.current.delete(callback);
-      console.log("Total subscribers:", subscribers.current.size);
+      // console.log("Total subscribers:", subscribers.current.size);
     };
   }, []);
   const send = (message: Message) => {

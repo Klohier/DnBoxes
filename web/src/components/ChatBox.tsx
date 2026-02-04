@@ -117,7 +117,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
               >
                 {msg.username}
               </span>
-              <span>{msg.message}</span>
+              <span className="text-white">{msg.message}</span>
             </div>
           );
         })}
@@ -133,7 +133,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
               setNewMessage(e.target.value);
             }}
             onKeyDown={onInputKeyDown}
-            className="flex-1"
+            className="flex-1 text-white"
           />
           <Button
             onClick={handleSendMessage}

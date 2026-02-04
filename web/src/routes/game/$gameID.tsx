@@ -15,11 +15,25 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GamePlayer, Game, Message, TimerStatePayload } from "@/types/websocket";
+import {
+  GamePlayer,
+  Game,
+  Message,
+  TimerStatePayload,
+} from "@/types/websocket";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
-import { Trophy, Users, LogOut, Wifi, WifiOff, Clock, Timer, AlertTriangle } from "lucide-react";
+import {
+  Trophy,
+  Users,
+  LogOut,
+  Wifi,
+  WifiOff,
+  Clock,
+  Timer,
+  AlertTriangle,
+} from "lucide-react";
 
 export const gameDetailQuery = (id: string) => ({
   queryKey: ["game", id],
@@ -129,19 +143,19 @@ function RouteComponent() {
 
   useEffect(() => {
     if (connected && params.gameID) {
-      console.log(
-        "WebSocket connected, refetching game state to subscribe to room",
-      );
+      // console.log(
+      //   "WebSocket connected, refetching game state to subscribe to room",
+      // );
       refetch();
     }
   }, [connected, params.gameID, refetch]);
 
   useEffect(() => {
-    console.log("WebSocket connection status:", {
-      connected,
-      gameID: params.gameID,
-      hasGameState: !!gameState,
-    });
+    // console.log("WebSocket connection status:", {
+    //   connected,
+    //   gameID: params.gameID,
+    //   hasGameState: !!gameState,
+    // });
 
     if (!params.gameID) {
       console.warn("No gameID available");
@@ -153,16 +167,16 @@ function RouteComponent() {
       return;
     }
 
-    console.log("Setting up WebSocket listener for game:", params.gameID);
+    // console.log("Setting up WebSocket listener for game:", params.gameID);
 
     const unsubscribe = subscribe((message: Message) => {
-      console.log("WebSocket message received:", message);
+      // console.log("WebSocket message received:", message);
 
       if (
         message.topic === `game:${params.gameID}` &&
         message.type === "game:state"
       ) {
-        console.log("Game state updated via WebSocket:", message.payload);
+        // console.log("Game state updated via WebSocket:", message.payload);
 
         // Update the game state in React Query cache
         queryClient.setQueryData(["game", params.gameID], message.payload);
@@ -183,7 +197,7 @@ function RouteComponent() {
     });
 
     return () => {
-      console.log("Cleaning up WebSocket listener for game:", params.gameID);
+      // console.log("Cleaning up WebSocket listener for game:", params.gameID);
       unsubscribe();
     };
   }, [subscribe, params.gameID, connected, queryClient, isProcessingMove]);
@@ -200,9 +214,7 @@ function RouteComponent() {
   const getPlayerTime = useCallback(
     (userId: number): number | null => {
       if (!timerState) return null;
-      const playerTimer = timerState.players.find(
-        (p) => p.user_id === userId,
-      );
+      const playerTimer = timerState.players.find((p) => p.user_id === userId);
       return playerTimer?.remaining_ms ?? null;
     },
     [timerState],
@@ -212,9 +224,7 @@ function RouteComponent() {
   const isPlayerDisconnected = useCallback(
     (userId: number): boolean => {
       if (!timerState) return false;
-      const playerTimer = timerState.players.find(
-        (p) => p.user_id === userId,
-      );
+      const playerTimer = timerState.players.find((p) => p.user_id === userId);
       return playerTimer?.disconnected ?? false;
     },
     [timerState],
@@ -264,7 +274,7 @@ function RouteComponent() {
     edge: string,
   ) => {
     if (isProcessingMove) {
-      console.log("Move already in progress, ignoring click");
+      // console.log("Move already in progress, ignoring click");
       return;
     }
 
@@ -294,7 +304,7 @@ function RouteComponent() {
       }
 
       const result = await response.json();
-      console.log("Move successful:", result);
+      // console.log("Move successful:", result);
 
       // // Update local state with the returned game
       // if (result) {
@@ -378,21 +388,25 @@ function RouteComponent() {
                       </p>
                     </div>
                     {/* Active Player Timer */}
-                    {timerState && currentTurnPlayer && (() => {
-                      const timeMs = getPlayerTime(currentTurnPlayer.user_id);
-                      if (timeMs === null) return null;
-                      const isLow = timeMs < 30000;
-                      return (
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-lg font-bold ${
-                          isLow
-                            ? "bg-red-500/20 text-red-400 animate-pulse"
-                            : "bg-gray-700 text-white"
-                        }`}>
-                          <Timer className="h-4 w-4" />
-                          {formatTime(timeMs)}
-                        </div>
-                      );
-                    })()}
+                    {timerState &&
+                      currentTurnPlayer &&
+                      (() => {
+                        const timeMs = getPlayerTime(currentTurnPlayer.user_id);
+                        if (timeMs === null) return null;
+                        const isLow = timeMs < 30000;
+                        return (
+                          <div
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-lg font-bold ${
+                              isLow
+                                ? "bg-red-500/20 text-red-400 animate-pulse"
+                                : "bg-gray-700 text-white"
+                            }`}
+                          >
+                            <Timer className="h-4 w-4" />
+                            {formatTime(timeMs)}
+                          </div>
+                        );
+                      })()}
                   </div>
 
                   {/* Connection Status & Quit */}
@@ -494,12 +508,18 @@ function RouteComponent() {
                               </span>
                               {currentTurnPlayer?.user_id ===
                                 player.user_id && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs text-white"
+                                >
                                   Active
                                 </Badge>
                               )}
                               {isPlayerDisconnected(player.user_id) && (
-                                <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                                <Badge
+                                  variant="destructive"
+                                  className="text-xs flex items-center gap-1"
+                                >
                                   <AlertTriangle className="h-3 w-3" />
                                   DC
                                 </Badge>
@@ -508,18 +528,25 @@ function RouteComponent() {
                             {/* Timer display per player */}
                             {(() => {
                               const timeMs = getPlayerTime(player.user_id);
-                              if (timeMs === null) return (
-                                <p className="text-xs text-gray-400">
-                                  Turn {player.turn_order + 1}
-                                </p>
-                              );
+                              if (timeMs === null)
+                                return (
+                                  <p className="text-xs text-gray-400">
+                                    Turn {player.turn_order + 1}
+                                  </p>
+                                );
                               const isLow = timeMs < 30000;
-                              const isActive = currentTurnPlayer?.user_id === player.user_id;
+                              const isActive =
+                                currentTurnPlayer?.user_id === player.user_id;
                               return (
-                                <p className={`text-xs font-mono ${
-                                  isLow ? "text-red-400 font-semibold" :
-                                  isActive ? "text-green-400" : "text-gray-400"
-                                }`}>
+                                <p
+                                  className={`text-xs font-mono ${
+                                    isLow
+                                      ? "text-red-400 font-semibold"
+                                      : isActive
+                                        ? "text-green-400"
+                                        : "text-gray-400"
+                                  }`}
+                                >
                                   {formatTime(timeMs)}
                                 </p>
                               );
