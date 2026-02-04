@@ -73,11 +73,11 @@ func run() error {
 
 	// Setup Redis
 	rdb := setupRedis(cfg)
-	if err := rdb.FlushDB(context.Background()).Err(); err != nil {
-		slog.Error("Failed to flush Redis DB", "error", err)
-	} else {
-		slog.Info("Redis database flushed successfully")
-	}
+	// if err := rdb.FlushDB(context.Background()).Err(); err != nil {
+	// 	slog.Error("Failed to flush Redis DB", "error", err)
+	// } else {
+	// 	slog.Info("Redis database flushed successfully")
+	// }
 
 	// Create app
 	app := &App{
