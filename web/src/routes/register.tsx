@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { fetchUser } from "@/api/fetchUser";
 
 const fallback = "/" as const;
 
@@ -23,8 +24,18 @@ export const Route = createFileRoute("/register")({
   validateSearch: z.object({
     redirect: z.string().optional().catch(""),
   }),
-  beforeLoad: ({ context, search }) => {
-    if (context.authentication.isAuthenticated) {
+  beforeLoad: async ({ context, search }) => {
+    let user;
+    try {
+      user = await context.queryClient.ensureQueryData({
+        queryKey: ["me"],
+        queryFn: fetchUser,
+      });
+    } catch {
+      user = null;
+    }
+
+    if (user) {
       redirect({ to: search.redirect ?? fallback, throw: true });
     }
   },
