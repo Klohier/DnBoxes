@@ -15,12 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  GamePlayer,
-  Game,
-  Message,
-  TimerStatePayload,
-} from "@/types/websocket";
+import { Game, Message, TimerStatePayload } from "@/types/websocket";
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
@@ -75,7 +70,7 @@ function RouteComponent() {
     initialData: initialGameState,
   });
 
-  console.log("gameState", gameState);
+  // console.log("gameState", gameState);
   const navigate = useNavigate();
   const { send, subscribe, connected } = useWebSocket();
   const [userColors, setUserColors] = useState<Record<number, string>>({});
@@ -102,7 +97,7 @@ function RouteComponent() {
 
   useEffect(() => {
     if (!gameState) return;
-    console.log("Setting boxes from gameState:", gameState.grid);
+    // console.log("Setting boxes from gameState:", gameState.grid);
 
     const colors: string[] = [
       "red",
@@ -306,7 +301,7 @@ function RouteComponent() {
         throw new Error(error.error || "Failed to make move");
       }
 
-      const result = await response.json();
+      // const result = await response.json();
       // console.log("Move successful:", result);
 
       // // Update local state with the returned game

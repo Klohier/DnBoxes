@@ -76,7 +76,7 @@ func (s *UserService) CreateUser(ctx context.Context, username string, password 
 
 	newUser, err := s.userRepo.Create(ctx, username, string(hashedPassword))
 	if err != nil {
-		return nil, errors.New("Failed to Create User" + err.Error())
+		return nil, errors.New("Failed to Create User")
 	}
 	return newUser, nil
 }
@@ -90,7 +90,7 @@ func (s *UserService) CreateGuestUser(ctx context.Context) (*User, error) {
 
 	guest, err := s.userRepo.CreateGuest(ctx, username)
 	if err != nil {
-		return nil, errors.New("failed to create guest user: " + err.Error())
+		return nil, errors.New("failed to create guest user: " )
 	}
 	return guest, nil
 }

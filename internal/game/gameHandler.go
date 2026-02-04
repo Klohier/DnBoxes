@@ -130,7 +130,7 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 
 	game, err := h.gameService.CreateBotGame(c.Request().Context(), playerIDs, req.NumBots, req.BoardSize)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " })
 	}
 
 	if game.GameID != nil {
