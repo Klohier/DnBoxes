@@ -36,6 +36,8 @@ function LobbyPage() {
   const isGameStartingRef = useRef(false);
   // Track whether user already explicitly left (don't double-leave on unmount)
   const hasLeftRef = useRef(false);
+  // Track whether we've already attempted an auto-rejoin this mount
+  const hasAttemptedRejoin = useRef(false);
 
   const { data: lobby, isLoading } = useQuery<Lobby>({
     queryKey: ["lobby", lobbyID],
@@ -123,6 +125,34 @@ function LobbyPage() {
       unsubscribe();
     };
   }, [lobbyID, subscribe, queryClient, navigate]);
+
+  // Auto-rejoin lobby on page load if user is not in the player list (handles browser refresh)
+  useEffect(() => {
+    if (!lobby || !user?.userID || hasAttemptedRejoin.current) return;
+
+    const isInLobby = lobby.players?.some(
+      (p) => p.user_id === user.userID,
+    );
+    if (isInLobby) return;
+
+    hasAttemptedRejoin.current = true;
+
+    fetch(`/api/v1/lobbies/${lobbyID}/join`, {
+      method: "POST",
+    })
+      .then((res) => {
+        if (res.ok || res.status === 409) {
+          // Successfully rejoined or was already in lobby, refetch to get fresh data
+          queryClient.invalidateQueries({ queryKey: ["lobby", lobbyID] });
+        } else if (res.status === 404) {
+          // Lobby no longer exists
+          void navigate({ to: "/" });
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to rejoin lobby:", err);
+      });
+  }, [lobby, user, lobbyID, queryClient, navigate]);
 
   const handleStartGame = async () => {
     if (!lobby || isStarting) return;
