@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     },
     onSuccess: async (userData, credentials) => {
       try {
-        console.log("Registration successful, logging in user...");
+        // console.log("Registration successful, logging in user...");
 
         // Automatically log in the user with the same credentials
         const loginFormData = new URLSearchParams();
@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Refresh user data
         await queryClient.invalidateQueries({ queryKey: ["me"] });
 
-        console.log("Auto-login successful");
+        // console.log("Auto-login successful");
       } catch (error) {
         console.error("Auto-login failed after registration:", error);
 
@@ -171,7 +171,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       loading,
       isAuthenticated,
     }),
-    [user, login, loginAsGuest, logout, loading, isAuthenticated]
+    [user, login, loginAsGuest, logout, loading, isAuthenticated],
   );
 
   return (

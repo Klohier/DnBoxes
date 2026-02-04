@@ -13,6 +13,7 @@ import {
   Sparkles,
   Trophy,
   Heart,
+  BookOpen,
 } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
@@ -43,6 +44,60 @@ function About() {
               strategic game. Play against friends, challenge AI opponents, or
               compete in real-time multiplayer matches.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* How to Play */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white flex items-center gap-2">
+              <BookOpen className="h-6 w-6 text-cyan-400" />
+              How to Play Dots and Boxes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                The Basics
+              </h3>
+              <p className="text-gray-300">
+                Dots & Boxes is played on a grid. Players take turns drawing a
+                line between two adjacent points (horizontal or vertical). When
+                a player completes the fourth side of a box, they claim it and
+                take another turn.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Winning the Game
+              </h3>
+              <p className="text-gray-300">
+                The game ends when all boxes are claimed. The player who has
+                captured the most boxes wins! In case of a tie, the game is a
+                draw.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Strategy Tips
+              </h3>
+              <ul className="text-gray-300 space-y-2 list-disc list-inside">
+                <li>
+                  Early game: Try to avoid giving your opponent easy boxes by
+                  not completing three sides of any box
+                </li>
+                <li>
+                  Mid game: Look for chain opportunities where capturing one box
+                  leads to capturing many
+                </li>
+                <li>
+                  Late game: Control the number of boxes available and force
+                  your opponent into unfavorable positions
+                </li>
+              </ul>
+            </div>
           </CardContent>
         </Card>
 
