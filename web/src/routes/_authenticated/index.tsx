@@ -167,13 +167,13 @@ function Index() {
                 </div>
               </div>
 
-              <div className="bg-gray-800 rounded-lg overflow-hidden flex flex-col">
+              <div className="bg-gray-800 rounded-lg overflow-hidden flex flex-col h-full">
                 <div className="p-6 pb-4 border-b border-gray-700 flex-shrink-0">
                   <h2 className="text-xl font-bold text-white">
                     Available Lobbies
                   </h2>
                 </div>
-                <div className="overflow-y-auto p-6 pt-4 h-full">
+                <div className="overflow-y-auto p-6 pt-4 flex-1">
                   {isLoading ? (
                     <p className="text-gray-400">Loading lobbies...</p>
                   ) : (
