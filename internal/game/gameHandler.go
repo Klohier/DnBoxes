@@ -1,7 +1,6 @@
 package game
 
 import (
-	"context"
 	"dango/internal/events"
 	"fmt"
 	"log/slog"
@@ -12,25 +11,18 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// UserFinder looks up a username by user ID.
-type UserFinder interface {
-	FindUsername(ctx context.Context, userID int) (string, error)
-}
-
 type GameHandler struct {
 	gameService  *GameService
 	timerService *GameTimerService
 	wsSubscriber events.WebSocketSubscriber
-	userFinder   UserFinder
 	logger       *slog.Logger
 }
 
-func NewGameHandler(gameService *GameService, timerService *GameTimerService, wsSubscriber events.WebSocketSubscriber, userFinder UserFinder) *GameHandler {
+func NewGameHandler(gameService *GameService, timerService *GameTimerService, wsSubscriber events.WebSocketSubscriber) *GameHandler {
 	return &GameHandler{
 		gameService:  gameService,
 		timerService: timerService,
 		wsSubscriber: wsSubscriber,
-		userFinder:   userFinder,
 		logger:       slog.Default(),
 	}
 }
@@ -45,18 +37,7 @@ func (h *GameHandler) CreateGame(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 
-	// Look up actual usernames for all players
-	usernames := make(map[int]string)
-	for _, id := range req.PlayerIDs {
-		username, err := h.userFinder.FindUsername(c.Request().Context(), id)
-		if err != nil {
-			slog.Warn("Failed to look up username", "userID", id, "error", err)
-		} else {
-			usernames[id] = username
-		}
-	}
-
-	game, err := h.gameService.CreateGame(c.Request().Context(), req.PlayerIDs, req.BoardSize, usernames)
+	game, err := h.gameService.CreateGame(c.Request().Context(), req.PlayerIDs, req.BoardSize)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
@@ -147,16 +128,7 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 
 	playerIDs := []int{req.HumanPlayerID}
 
-	// Look up actual username for the human player
-	usernames := make(map[int]string)
-	username, err := h.userFinder.FindUsername(c.Request().Context(), req.HumanPlayerID)
-	if err != nil {
-		slog.Warn("Failed to look up username for bot game", "userID", req.HumanPlayerID, "error", err)
-	} else {
-		usernames[req.HumanPlayerID] = username
-	}
-
-	game, err := h.gameService.botService.CreateBotGame(playerIDs, req.NumBots, req.BoardSize, usernames)
+	game, err := h.gameService.CreateBotGame(c.Request().Context(), playerIDs, req.NumBots, req.BoardSize)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
 	}

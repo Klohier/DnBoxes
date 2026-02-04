@@ -47,7 +47,7 @@ func (s *GameService) GetGameEvents(ctx context.Context, gameID int) ([]events.D
 	return s.gameRepo.LoadEvents(ctx, gameID)
 }
 
-func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int, usernames map[int]string) (*Game, error) {
+func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int) (*Game, error) {
 	if boardSize <= 4 || boardSize >= 11 {
 		return nil, errors.New("invalid board size: must be > 4 and < 11, got: " + strconv.Itoa(boardSize))
 	}
@@ -62,6 +62,12 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 			return nil, fmt.Errorf("duplicate player ID: %d", id)
 		}
 		seen[id] = true
+	}
+
+	usernames, err := s.gameRepo.FindUsernamesByIDs(ctx, playerIDs)
+	if err != nil {
+		slog.Warn("Failed to look up usernames, using fallback", "error", err)
+		usernames = make(map[int]string)
 	}
 
 	players := make([]Player, len(playerIDs))
@@ -103,6 +109,16 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 	}
 
 	return game, nil
+}
+
+func (s *GameService) CreateBotGame(ctx context.Context, playerIDs []int, numBots int, boardSize int) (*Game, error) {
+	usernames, err := s.gameRepo.FindUsernamesByIDs(ctx, playerIDs)
+	if err != nil {
+		slog.Warn("Failed to look up usernames for bot game, using fallback", "error", err)
+		usernames = make(map[int]string)
+	}
+
+	return s.botService.CreateBotGame(playerIDs, numBots, boardSize, usernames)
 }
 
 func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col int, edge string) (*Game, error) {
