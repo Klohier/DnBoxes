@@ -173,7 +173,7 @@ function Index() {
                     Available Lobbies
                   </h2>
                 </div>
-                <div className="overflow-y-auto p-6 pt-4 h-[400px]">
+                <div className="overflow-y-auto p-6 pt-4 ">
                   {isLoading ? (
                     <p className="text-gray-400">Loading lobbies...</p>
                   ) : (
@@ -201,12 +201,10 @@ function Index() {
                 {auth.user?.isGuest && !showUpgrade && (
                   <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
                     <p className="text-yellow-200 text-sm mb-2">
-                      Create an account to save your stats and appear on the leaderboard.
+                      Create an account to save your stats and appear on the
+                      leaderboard.
                     </p>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowUpgrade(true)}
-                    >
+                    <Button size="sm" onClick={() => setShowUpgrade(true)}>
                       Upgrade Account
                     </Button>
                   </div>
