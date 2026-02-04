@@ -21,6 +21,7 @@ type GameRepository interface {
 	Create(ctx context.Context, game *Game) error
 	FindAllFromUser(ctx context.Context, userId int) ([]Game, error)
 	FindUserGameHistory(ctx context.Context, userID int) ([]GameHistoryEntry, error)
+	FindUsernamesByIDs(ctx context.Context, userIDs []int) (map[int]string, error)
 
 	// Event store: append new domain events for a game
 	AppendEvents(ctx context.Context, gameID int, domainEvents []events.DomainEvent) error

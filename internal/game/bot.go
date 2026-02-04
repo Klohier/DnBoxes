@@ -28,7 +28,7 @@ func NewBotService(bus events.EventBus) *BotService {
 }
 
 // CreateBotGame creates a new in-memory bot game
-func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int) (*Game, error) {
+func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int, usernames map[int]string) (*Game, error) {
 	if boardSize <= 4 || boardSize >= 20 {
 		return nil, fmt.Errorf("invalid board size: must be >4 and <20")
 	}
@@ -42,12 +42,16 @@ func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int) 
 
 	// Create players (human + bots)
 	players := make([]Player, 0, len(playerIDs)+numBots)
-	
+
 	// Add human players
-	for i, id := range playerIDs {
+	for _, id := range playerIDs {
+		username := usernames[id]
+		if username == "" {
+			username = fmt.Sprintf("Player%d", id)
+		}
 		players = append(players, Player{
 			UserID:      &id,
-			Username:    fmt.Sprintf("Human%d", i+1),
+			Username:    username,
 			TurnOrder:   len(players),
 			IsAnonymous: false,
 			Score:       0,

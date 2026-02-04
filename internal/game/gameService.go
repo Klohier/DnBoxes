@@ -64,11 +64,21 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 		seen[id] = true
 	}
 
+	usernames, err := s.gameRepo.FindUsernamesByIDs(ctx, playerIDs)
+	if err != nil {
+		slog.Warn("Failed to look up usernames, using fallback", "error", err)
+		usernames = make(map[int]string)
+	}
+
 	players := make([]Player, len(playerIDs))
 	for i, id := range playerIDs {
+		username := usernames[id]
+		if username == "" {
+			username = fmt.Sprintf("Player%d", id)
+		}
 		players[i] = Player{
 			UserID:   &id,
-			Username: fmt.Sprintf("Player%d", id),
+			Username: username,
 		}
 	}
 
@@ -99,6 +109,16 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 	}
 
 	return game, nil
+}
+
+func (s *GameService) CreateBotGame(ctx context.Context, playerIDs []int, numBots int, boardSize int) (*Game, error) {
+	usernames, err := s.gameRepo.FindUsernamesByIDs(ctx, playerIDs)
+	if err != nil {
+		slog.Warn("Failed to look up usernames for bot game, using fallback", "error", err)
+		usernames = make(map[int]string)
+	}
+
+	return s.botService.CreateBotGame(playerIDs, numBots, boardSize, usernames)
 }
 
 func (s *GameService) MakeMove(ctx context.Context, gameID, playerID, row, col int, edge string) (*Game, error) {

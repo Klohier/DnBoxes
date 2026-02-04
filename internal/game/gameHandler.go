@@ -32,11 +32,11 @@ func (h *GameHandler) CreateGame(c echo.Context) error {
 		PlayerIDs []int `json:"player_ids"`
 		BoardSize int   `json:"board_size"`
 	}
-	
+
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
-	
+
 	game, err := h.gameService.CreateGame(c.Request().Context(), req.PlayerIDs, req.BoardSize)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -128,7 +128,7 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 
 	playerIDs := []int{req.HumanPlayerID}
 
-	game, err := h.gameService.botService.CreateBotGame(playerIDs, req.NumBots, req.BoardSize)
+	game, err := h.gameService.CreateBotGame(c.Request().Context(), playerIDs, req.NumBots, req.BoardSize)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " + err.Error()})
 	}

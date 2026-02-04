@@ -431,6 +431,31 @@ func (repo *PgGameRepository) FindAllFromUser(ctx context.Context, userId int) (
 	return games, rows.Err()
 }
 
+func (repo *PgGameRepository) FindUsernamesByIDs(ctx context.Context, userIDs []int) (map[int]string, error) {
+	usernames := make(map[int]string, len(userIDs))
+	if len(userIDs) == 0 {
+		return usernames, nil
+	}
+
+	rows, err := repo.db.Query(ctx, `
+		SELECT user_id, username FROM users WHERE user_id = ANY($1)
+	`, userIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query usernames: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("failed to scan username: %w", err)
+		}
+		usernames[id] = name
+	}
+	return usernames, rows.Err()
+}
+
 // deserializePayload converts raw JSON into the correct typed payload struct.
 func deserializePayload(eventType string, raw []byte) (any, error) {
 	switch eventType {
