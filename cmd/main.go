@@ -189,7 +189,18 @@ func (app *App) setupMiddleware(cfg *Config, logger *slog.Logger) {
 	app.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{cfg.ClientOrigin, "https://localhost:4173", "https://192.168.1.42"},
 		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowHeaders:     []string{echo.HeaderContentType, echo.HeaderXCSRFToken},
 		AllowCredentials: true,
+	}))
+
+	// CSRF protection
+	app.echo.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+		TokenLookup:    "header:" + echo.HeaderXCSRFToken + ",form:_csrf",
+		CookieName:     "_csrf",
+		CookiePath:     "/",
+		CookieSecure:   true,
+		CookieSameSite: http.SameSiteNoneMode,
+		CookieHTTPOnly: false,
 	}))
 }
 

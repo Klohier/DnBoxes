@@ -10,6 +10,7 @@ import { Message } from "@/types/websocket";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Crown, Check, X, Wifi, WifiOff, LogOut } from "lucide-react";
+import { getCsrfToken } from "@/lib/csrf";
 import {
   Card,
   CardContent,
@@ -56,6 +57,7 @@ function LobbyPage() {
     fetch(`/api/v1/lobbies/${lobbyID}/leave`, {
       method: "POST",
       keepalive: true,
+      headers: { "X-CSRF-Token": getCsrfToken() || "" },
     });
   }, [lobbyID]);
 
@@ -63,7 +65,9 @@ function LobbyPage() {
     const handleBeforeUnload = () => {
       if (isGameStartingRef.current || hasLeftRef.current) return;
       hasLeftRef.current = true;
-      navigator.sendBeacon(`/api/v1/lobbies/${lobbyID}/leave`);
+      const csrfData = new FormData();
+      csrfData.append("_csrf", getCsrfToken() || "");
+      navigator.sendBeacon(`/api/v1/lobbies/${lobbyID}/leave`, csrfData);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -137,6 +141,7 @@ function LobbyPage() {
 
     fetch(`/api/v1/lobbies/${lobbyID}/join`, {
       method: "POST",
+      headers: { "X-CSRF-Token": getCsrfToken() || "" },
     })
       .then((res) => {
         if (res.ok || res.status === 409) {
@@ -166,6 +171,7 @@ function LobbyPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken() || "",
         },
         body: JSON.stringify({
           player_ids: playerIds,
@@ -182,7 +188,10 @@ function LobbyPage() {
       console.log("Game created successfully:", game);
 
       // Delete the lobby so no one else can join
-      await fetch(`/api/v1/lobbies/${lobbyID}`, { method: "DELETE" });
+      await fetch(`/api/v1/lobbies/${lobbyID}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": getCsrfToken() || "" },
+      });
 
       // Mark as game starting so cleanup doesn't call leave
       isGameStartingRef.current = true;
@@ -215,6 +224,7 @@ function LobbyPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken() || "",
         },
       });
 
@@ -247,6 +257,7 @@ function LobbyPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken() || "",
         },
       });
 
