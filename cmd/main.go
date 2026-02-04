@@ -96,7 +96,10 @@ func run() error {
 	}
 
 	// Start pprof server
+	if os.Getenv("LOG_LEVEL") == "debug" {
+	slog.Info("Debug mode enabled, starting pprof")
 	go startPprofServer()
+}
 
 	// Start server
 	slog.Info("Starting server", "port", cfg.Port)
@@ -294,7 +297,7 @@ func (app *App) setupRoutes(
 	chatHandler *chat.ChatHandler,
 	gameHandler *game.GameHandler,
 	lobbyHandler *lobby.LobbyHandler,
-	sessionHandler *session.SessionHandler,
+	// sessionHandler *session.SessionHandler,
 	statsHandler *stats.StatsHandler,
 	manager *websocket.Manager,
 ) {
@@ -303,7 +306,7 @@ func (app *App) setupRoutes(
 	public.POST("/login", loginHandler.Login, newAuthRateLimiter(12*time.Second, 5))        // ~5 per minute
 	public.POST("/users", userHandler.CreateUser, newAuthRateLimiter(20*time.Second, 3))     // ~3 per minute
 	public.POST("/guest", loginHandler.GuestLogin, newAuthRateLimiter(6*time.Second, 5))     // ~10 per minute
-	public.GET("/metrics", app.handleMetrics)
+	// public.GET("/metrics", app.handleMetrics)
 	
 	// Protected routes
 	api := app.echo.Group("/api/v1")
@@ -318,7 +321,7 @@ func (app *App) setupRoutes(
 	// Users
 	api.GET("/users/:userId", userHandler.FindByID)
 	api.GET("/users/me", userHandler.GetMe)
-	api.GET("/users", userHandler.GetAllUsers)
+	// api.GET("/users", userHandler.GetAllUsers)
 
 	// Lobby
 	api.GET("/lobbies", lobbyHandler.GetAllLobbies)
@@ -356,15 +359,15 @@ func (app *App) setupRoutes(
 	api.GET("/stats/leaderboard", statsHandler.GetLeaderboard)
 
 	// Session
-	api.GET("/sessions", sessionHandler.GetAllSessions)
-	api.POST("/sessions", sessionHandler.CreateSession)
-	api.POST("/sessions/:sessionId/users/:userId", sessionHandler.AddUserToSession)
-	api.DELETE("/sessions/:sessionId/users/:userId", sessionHandler.RemoveUserFromSession)
+	// api.GET("/sessions", sessionHandler.GetAllSessions)
+	// api.POST("/sessions", sessionHandler.CreateSession)
+	// api.POST("/sessions/:sessionId/users/:userId", sessionHandler.AddUserToSession)
+	// api.DELETE("/sessions/:sessionId/users/:userId", sessionHandler.RemoveUserFromSession)
 }
 
 func startPprofServer() {
 	slog.Info("pprof server listening", "port", 6060)
-	if err := http.ListenAndServe("0.0.0.0:6060", nil); err != nil {
+	if err := http.ListenAndServe("127.0.0.1:6060", nil); err != nil {
 		slog.Error("pprof server failed", "error", err)
 	}
 }
