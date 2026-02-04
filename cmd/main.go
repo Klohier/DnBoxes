@@ -26,6 +26,19 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// userFinderAdapter wraps user.UserService to satisfy game.UserFinder.
+type userFinderAdapter struct {
+	svc *user.UserService
+}
+
+func (a *userFinderAdapter) FindUsername(ctx context.Context, userID int) (string, error) {
+	u, err := a.svc.FindByID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	return u.Username, nil
+}
+
 type Config struct {
 	DBName       string
 	DBPass       string
@@ -237,7 +250,8 @@ func (app *App) setupServices(cfg *Config) error {
 
 	// Initialize WebSocket manager
 	manager := websocket.NewManager(eventBus)
-	gameHandler := game.NewGameHandler(gameService, timerService, manager)
+	userFinder := &userFinderAdapter{svc: userService}
+	gameHandler := game.NewGameHandler(gameService, timerService, manager, userFinder)
 	lobbyHandler := lobby.NewLobbyHandler(lobbyService, manager)
 
 	// Start chat persistence worker (subscribes to EventBus independently)

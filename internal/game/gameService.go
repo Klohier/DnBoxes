@@ -47,7 +47,7 @@ func (s *GameService) GetGameEvents(ctx context.Context, gameID int) ([]events.D
 	return s.gameRepo.LoadEvents(ctx, gameID)
 }
 
-func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int) (*Game, error) {
+func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int, usernames map[int]string) (*Game, error) {
 	if boardSize <= 4 || boardSize >= 11 {
 		return nil, errors.New("invalid board size: must be > 4 and < 11, got: " + strconv.Itoa(boardSize))
 	}
@@ -66,9 +66,13 @@ func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize
 
 	players := make([]Player, len(playerIDs))
 	for i, id := range playerIDs {
+		username := usernames[id]
+		if username == "" {
+			username = fmt.Sprintf("Player%d", id)
+		}
 		players[i] = Player{
 			UserID:   &id,
-			Username: fmt.Sprintf("Player%d", id),
+			Username: username,
 		}
 	}
 
