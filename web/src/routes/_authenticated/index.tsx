@@ -173,7 +173,7 @@ function Index() {
                     Available Lobbies
                   </h2>
                 </div>
-                <div className="overflow-y-auto p-6 pt-4 ">
+                <div className="overflow-y-auto p-6 pt-4 h-full">
                   {isLoading ? (
                     <p className="text-gray-400">Loading lobbies...</p>
                   ) : (
