@@ -24,6 +24,7 @@ import {
 import Chatbox from "@/components/ChatBox";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
+import { getCsrfToken } from "@/lib/csrf";
 import {
   Trophy,
   Users,
@@ -258,6 +259,7 @@ function RouteComponent() {
       try {
         await fetch(`/api/v1/games/${gameState.game_id}/forfeit`, {
           method: "POST",
+          headers: { "X-CSRF-Token": getCsrfToken() || "" },
         });
       } catch (error) {
         console.error("Failed to forfeit game:", error);
@@ -289,6 +291,7 @@ function RouteComponent() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken() || "",
         },
         body: JSON.stringify({
           playerId: playerId,

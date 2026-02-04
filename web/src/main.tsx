@@ -2,6 +2,7 @@
 import { StrictMode, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
+import axios from "axios";
 import "./styles/globals.css";
 
 // Import the generated route tree
@@ -12,6 +13,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./AuthContext";
 import { WebSocketProvider } from "./WebSocketContext";
+import { getCsrfToken } from "./lib/csrf";
+
+// Attach CSRF token to all state-changing axios requests
+axios.interceptors.request.use((config) => {
+  const method = config.method?.toLowerCase();
+  if (method && !["get", "head", "options"].includes(method)) {
+    const token = getCsrfToken();
+    if (token) {
+      config.headers["X-CSRF-Token"] = token;
+    }
+  }
+  return config;
+});
 
 const queryClient = new QueryClient();
 
