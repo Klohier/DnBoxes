@@ -5,14 +5,18 @@ import (
 	"dango/internal/events"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/time/rate"
 )
 
 var (
@@ -22,25 +26,29 @@ var (
 	pingInterval = (pongWait * 9) / 10
 )
 
+const maxChatMessageLength = 500
+
 type ConnectionList map[*Connection]bool
 
 // Connection for a single websocket user
 type Connection struct {
-	ws       *websocket.Conn
-	manager  *Manager
-	egress   chan BroadcastEvent
-	userID   int
-	username string
+	ws          *websocket.Conn
+	manager     *Manager
+	egress      chan BroadcastEvent
+	userID      int
+	username    string
+	chatLimiter *rate.Limiter
 }
 
 // NewConnection creates a new WebSocket connection.
 func NewConnection(ws *websocket.Conn, manager *Manager, userID int, username string) *Connection {
 	return &Connection{
-		ws:       ws,
-		manager:  manager,
-		egress:   make(chan BroadcastEvent, 100),
-		userID:   userID,
-		username: username,
+		ws:          ws,
+		manager:     manager,
+		egress:      make(chan BroadcastEvent, 100),
+		userID:      userID,
+		username:    username,
+		chatLimiter: rate.NewLimiter(rate.Every(time.Second), 5), // 1 msg/s sustained, burst of 5
 	}
 }
 
@@ -130,6 +138,48 @@ func (c *Connection) readMessage() {
 		// Publish chat messages to a save topic for persistence.
 		// The ChatService subscribes to "chat:save" independently via the EventBus.
 		if event.Type == events.EventMessage {
+			// Rate limit: drop message if user is sending too fast
+			if !c.chatLimiter.Allow() {
+				slog.Warn("chat rate limit exceeded, dropping message", "userID", c.userID)
+				continue
+			}
+
+			// Parse the chat payload for validation and sanitization
+			var chatPayload struct {
+				UserID    int    `json:"userID"`
+				Username  string `json:"username"`
+				Message   string `json:"message"`
+				Timestamp string `json:"timestamp"`
+			}
+			if err := json.Unmarshal(event.Payload, &chatPayload); err != nil {
+				slog.Warn("invalid chat payload", "userID", c.userID, "error", err)
+				continue
+			}
+
+			// Validate and sanitize the message
+			msg := strings.TrimSpace(chatPayload.Message)
+			msg = strings.Map(func(r rune) rune {
+				if unicode.IsControl(r) {
+					return -1
+				}
+				return r
+			}, msg)
+			if msg == "" || len([]rune(msg)) > maxChatMessageLength {
+				continue
+			}
+			chatPayload.Message = html.EscapeString(msg)
+
+			// Enforce server-side identity from the JWT (don't trust client values)
+			chatPayload.UserID = c.userID
+			chatPayload.Username = c.username
+
+			sanitizedPayload, err := json.Marshal(chatPayload)
+			if err != nil {
+				slog.Error("failed to marshal sanitized chat payload", "error", err)
+				continue
+			}
+			event.Payload = sanitizedPayload
+
 			saveEvent := events.Event{
 				Topic:   topic,
 				Type:    events.EventMessage,

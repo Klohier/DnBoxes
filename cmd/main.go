@@ -345,9 +345,10 @@ func (app *App) setupRoutes(
 	api.GET("/games/:gameId/timer", gameHandler.GetTimerState)
 	api.GET("/games/:gameId/events", gameHandler.GetGameEvents)
 
-	// Chat
-	api.GET("/chat", chatHandler.GetGlobalMessages)
-	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage)
+	// Chat (rate limited to prevent excessive polling)
+	chatRateLimiter := newAuthRateLimiter(2*time.Second, 10) // ~30 per minute, burst 10
+	api.GET("/chat", chatHandler.GetGlobalMessages, chatRateLimiter)
+	api.GET("/games/:gameId/chat", chatHandler.GetAllGameMessage, chatRateLimiter)
 
 	// Stats
 	api.GET("/stats/me", statsHandler.GetMyStats)
