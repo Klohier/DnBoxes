@@ -5,13 +5,17 @@ import (
 	"dango/internal/events"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/redis/go-redis/v9"
 )
+
+const maxMessageLength = 500
 
 type ChatService struct {
 	chatRepo    ChatRepository
@@ -42,9 +46,18 @@ func (s *ChatService) StartPersistenceWorker(eventBus events.EventBus) {
 			return
 		}
 
-		if payload.Message == "" {
+		// Defense-in-depth: sanitize even though the WebSocket layer already does this
+		payload.Message = strings.TrimSpace(payload.Message)
+		payload.Message = strings.Map(func(r rune) rune {
+			if unicode.IsControl(r) {
+				return -1
+			}
+			return r
+		}, payload.Message)
+		if payload.Message == "" || len([]rune(payload.Message)) > maxMessageLength {
 			return
 		}
+		payload.Message = html.EscapeString(payload.Message)
 
 		sentAt, err := time.Parse(time.RFC3339, payload.Timestamp)
 		if err != nil {

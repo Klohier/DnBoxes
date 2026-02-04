@@ -7,6 +7,8 @@ import { Message, ChatMessagePayload } from "@/types/websocket";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/AuthContext";
 
+const MAX_MESSAGE_LENGTH = 500;
+
 interface ChatboxProps {
   topic: string;
   gameID?: number;
@@ -62,7 +64,8 @@ const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
   }, [fetchedMessages ?? []]);
 
   const handleSendMessage = () => {
-    if (newMessage.trim() === "") return;
+    const trimmed = newMessage.trim();
+    if (trimmed === "" || trimmed.length > MAX_MESSAGE_LENGTH) return;
 
     if (!user) {
       console.warn("User not available");
@@ -75,7 +78,7 @@ const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
       payload: {
         userID: user.userID,
         username: user.username,
-        message: newMessage,
+        message: trimmed,
         timestamp: new Date().toISOString(),
       },
     };
@@ -130,9 +133,10 @@ const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
             placeholder="Press Enter to send..."
             value={newMessage}
             onChange={(e) => {
-              setNewMessage(e.target.value);
+              setNewMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
             }}
             onKeyDown={onInputKeyDown}
+            maxLength={MAX_MESSAGE_LENGTH}
             className="flex-1 text-white"
           />
           <Button
@@ -143,6 +147,11 @@ const Chatbox: React.FC<ChatboxProps> = ({ topic, gameID }) => {
             Send
           </Button>
         </div>
+        {newMessage.length > MAX_MESSAGE_LENGTH * 0.8 && (
+          <p className="text-xs text-muted-foreground mt-1 text-right">
+            {newMessage.length}/{MAX_MESSAGE_LENGTH}
+          </p>
+        )}
       </div>
     </div>
   );
