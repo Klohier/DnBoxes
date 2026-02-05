@@ -297,6 +297,8 @@ func (app *App) setupRoutes(
 	public.POST("/users", userHandler.CreateUser, newAuthRateLimiter(20*time.Second, 3))     // ~3 per minute
 	public.POST("/guest", loginHandler.GuestLogin, newAuthRateLimiter(6*time.Second, 5))     // ~10 per minute
 	// public.GET("/metrics", app.handleMetrics)
+
+	public.GET("/stats/leaderboard", statsHandler.GetLeaderboard)
 	
 	// Protected routes
 	api := app.echo.Group("/api/v1")
@@ -346,7 +348,7 @@ func (app *App) setupRoutes(
 	// Stats
 	api.GET("/stats/me", statsHandler.GetMyStats)
 	api.GET("/stats/users/:userId", statsHandler.GetUserStats)
-	api.GET("/stats/leaderboard", statsHandler.GetLeaderboard)
+	
 
 }
 
