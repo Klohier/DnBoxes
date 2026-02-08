@@ -182,14 +182,14 @@ func (app *App) setupMiddleware(cfg *Config, logger *slog.Logger) {
 		},
 	}))
 
-	app.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+app.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
 	XSSProtection:         "1; mode=block",
 	ContentTypeNosniff:    "nosniff",
 	XFrameOptions:         "DENY",
 	HSTSMaxAge:            300, 
 	HSTSExcludeSubdomains: false,
 	HSTSPreloadEnabled:    false,
-	ContentSecurityPolicy: "default-src 'self'; script-src 'self' https://analytics.ahrefs.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://analytics.ahrefs.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'",
+	ContentSecurityPolicy: "default-src 'self'; script-src 'self' https://analytics.ahrefs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://analytics.ahrefs.com https://cloudflareinsights.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'",
 	CSPReportOnly:         false,
 	ReferrerPolicy:        "strict-origin-when-cross-origin",
 }))

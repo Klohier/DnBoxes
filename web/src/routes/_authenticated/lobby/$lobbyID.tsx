@@ -82,24 +82,16 @@ function LobbyPage() {
   useEffect(() => {
     if (!lobbyID) return;
 
-    // console.log("Setting up WebSocket listener for lobby:", lobbyID);
-
     const unsubscribe = subscribe((event: Message) => {
-      console.log("WebSocket event received:", event);
-
       // Only process events for this specific lobby
       if (event.topic !== `lobby:${lobbyID}`) {
-        // console.log("Ignoring event - wrong topic:", event.topic);
         return;
       }
 
       // Handle lobby_updated event
       if (event.type === "lobby_updated") {
-        console.log("Updating lobby with payload:", event.payload);
-
         queryClient.setQueryData<Lobby>(["lobby", lobbyID], (old) => {
           if (!old) {
-            // console.log("No cached lobby data, skipping update");
             return old;
           }
 
@@ -113,19 +105,13 @@ function LobbyPage() {
 
       // Handle game_started event - navigate all players to the game
       if (event.type === "game:new") {
-        console.log(
-          "Game started, navigating to game page:",
-          event.payload.gameID,
-        );
         isGameStartingRef.current = true;
         void navigate({ to: `/game/${event.payload.gameID}` });
       } else {
-        // console.log("Ignoring event - unhandled type:", event.type);
       }
     });
 
     return () => {
-      // console.log("Cleaning up WebSocket listener for lobby:", lobbyID);
       unsubscribe();
     };
   }, [lobbyID, subscribe, queryClient, navigate]);
@@ -185,7 +171,6 @@ function LobbyPage() {
       }
 
       const game = await res.json();
-      console.log("Game created successfully:", game);
 
       // Delete the lobby so no one else can join
       await fetch(`/api/v1/lobbies/${lobbyID}`, {
@@ -208,8 +193,11 @@ function LobbyPage() {
         });
       }
     } catch (error) {
-      console.error("Error creating game:", error);
-      alert(error instanceof Error ? error.message : "Failed to create game");
+      alert(
+        error instanceof Error
+          ? "Failed to create game"
+          : "Failed to create game",
+      );
       setIsStarting(false);
     }
   };
@@ -229,18 +217,12 @@ function LobbyPage() {
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to toggle ready status");
+        throw new Error("Failed to toggle ready status");
       }
 
       // The WebSocket will handle updating the UI via lobby_updated event
     } catch (error) {
-      console.error("Error toggling ready status:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to update ready status",
-      );
+      console.error("Error toggling ready status:");
     } finally {
       setIsTogglingReady(false);
     }
@@ -263,15 +245,14 @@ function LobbyPage() {
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || "Failed to leave lobby");
+        throw new Error("Failed to leave lobby");
       }
 
       // Navigate back to home/lobby list
       void navigate({ to: "/" });
     } catch (error) {
-      console.error("Error leaving lobby:", error);
+      console.error("Error leaving lobby:");
       hasLeftRef.current = false;
-      alert(error instanceof Error ? error.message : "Failed to leave lobby");
     } finally {
       setIsLeaving(false);
     }

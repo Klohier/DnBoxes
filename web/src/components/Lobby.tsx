@@ -15,8 +15,6 @@ export const LobbyList: React.FC<LobbyListProps> = ({ lobbies }) => {
   const joinLobbyMutation = useMutation({
     mutationFn: joinLobby,
     onSuccess: (updatedLobby) => {
-      console.log("Joined lobby:", updatedLobby);
-
       // Update the lobby list with the updated lobby data
       queryClient.setQueryData<Lobby[]>(["lobbies"], (old = []) =>
         old.map((l) =>

@@ -85,7 +85,6 @@ function RouteComponent() {
     initialData: initialGameState,
   });
 
-  // console.log("gameState", gameState);
   const navigate = useNavigate();
   const { send, subscribe, connected } = useWebSocket();
   const [userColors, setUserColors] = useState<Record<number, string>>({});
@@ -112,7 +111,6 @@ function RouteComponent() {
 
   useEffect(() => {
     if (!gameState) return;
-    // console.log("Setting boxes from gameState:", gameState.grid);
 
     const colors: string[] = [
       "red",
@@ -154,20 +152,11 @@ function RouteComponent() {
 
   useEffect(() => {
     if (connected && params.gameID) {
-      // console.log(
-      //   "WebSocket connected, refetching game state to subscribe to room",
-      // );
       refetch();
     }
   }, [connected, params.gameID, refetch]);
 
   useEffect(() => {
-    // console.log("WebSocket connection status:", {
-    //   connected,
-    //   gameID: params.gameID,
-    //   hasGameState: !!gameState,
-    // });
-
     if (!params.gameID) {
       console.warn("No gameID available");
       return;
@@ -178,17 +167,11 @@ function RouteComponent() {
       return;
     }
 
-    // console.log("Setting up WebSocket listener for game:", params.gameID);
-
     const unsubscribe = subscribe((message: Message) => {
-      // console.log("WebSocket message received:", message);
-
       if (
         message.topic === `game:${params.gameID}` &&
         message.type === "game:state"
       ) {
-        // console.log("Game state updated via WebSocket:", message.payload);
-
         // Update the game state in React Query cache
         queryClient.setQueryData(["game", params.gameID], message.payload);
 
@@ -208,7 +191,6 @@ function RouteComponent() {
     });
 
     return () => {
-      // console.log("Cleaning up WebSocket listener for game:", params.gameID);
       unsubscribe();
     };
   }, [subscribe, params.gameID, connected, queryClient, isProcessingMove]);
@@ -286,15 +268,12 @@ function RouteComponent() {
     edge: string,
   ) => {
     if (isProcessingMove) {
-      // console.log("Move already in progress, ignoring click");
       return;
     }
 
     setIsProcessingMove(true);
 
     try {
-      console.log("Making move:", { gameId, playerId, row, col, edge });
-
       playEdgeClick();
 
       const response = await fetch(`/api/v1/games/${gameId}/move`, {
@@ -317,7 +296,6 @@ function RouteComponent() {
       }
 
       // const result = await response.json();
-      // console.log("Move successful:", result);
 
       // // Update local state with the returned game
       // if (result) {

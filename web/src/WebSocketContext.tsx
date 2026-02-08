@@ -54,7 +54,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       const ws = new WebSocket(apiURl);
       socket.current = ws;
       ws.onopen = () => {
-        console.log("WebSocket connected");
         setConnected(true);
         if (reconnectTimeout.current) {
           clearTimeout(reconnectTimeout.current);
@@ -63,14 +62,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         // set only once connected
       };
       ws.onmessage = (event: MessageEvent<string>) => {
-        // console.log("Message received:", event.data);
         const message = JSON.parse(event.data) as Message;
         subscribers.current.forEach((cb) => {
           cb(message);
         });
       };
       ws.onclose = () => {
-        console.log("WebSocket disconnected");
         setConnected(false);
         socket.current = null;
         subscribers.current.clear();
@@ -99,13 +96,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   }, [isAuthenticated]);
 
   const subscribe = useCallback((callback: (message: Message) => void) => {
-    // console.log("Adding subscriber");
     subscribers.current.add(callback);
-    // console.log("Total subscribers:", subscribers.current.size);
+
     return () => {
-      // console.log("Removing subscriber");
       subscribers.current.delete(callback);
-      // console.log("Total subscribers:", subscribers.current.size);
     };
   }, []);
   const send = (message: Message) => {
