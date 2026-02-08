@@ -1,15 +1,40 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeaderboard, LeaderboardEntry } from "@/api/fetchStats";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/leaderboard")({
   component: LeaderboardPage,
+  head: () => ({
+    meta: [
+      {
+        title: "Leaderboard - Top Dots & Boxes Players",
+      },
+      {
+        name: "description",
+        content:
+          "See the top-ranked Dots & Boxes players. Check standings and compete for the #1 spot.",
+      },
+      {
+        property: "og:title",
+        content: "Dots & Boxes Leaderboard",
+      },
+      {
+        property: "og:description",
+        content: "See the top-ranked players and compete for the #1 spot.",
+      },
+      {
+        property: "og:url",
+        content: "https://dotsandboxesonline.com/leaderboard",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://dotsandboxesonline.com/leaderboard",
+      },
+    ],
+  }),
 });
 
 function RankBadge({ rank }: { rank: number }) {
@@ -31,9 +56,7 @@ function RankBadge({ rank }: { rank: number }) {
         3rd
       </span>
     );
-  return (
-    <span className="text-sm text-gray-500 w-8 text-center">{rank}</span>
-  );
+  return <span className="text-sm text-gray-500 w-8 text-center">{rank}</span>;
 }
 
 function LeaderboardTable({

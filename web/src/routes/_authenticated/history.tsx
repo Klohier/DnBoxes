@@ -2,17 +2,28 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchGameHistory, GameHistoryEntry } from "@/api/fetchGames";
 import { useAuth } from "@/AuthContext";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/history")({
   component: HistoryPage,
+  head: () => ({
+    meta: [
+      {
+        title: "Game History - Dots & Boxes",
+      },
+      {
+        name: "description",
+        content:
+          "View your complete Dots & Boxes game history. Review past matches, scores, and track your wins and losses.",
+      },
+      {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
+    ],
+  }),
 });
 
 function formatDate(dateStr: string): string {
@@ -35,9 +46,7 @@ function GameCard({
 }) {
   const isWinner = game.winner_id === currentUserID;
   const isDraw = game.winner_id === null;
-  const winnerPlayer = game.players.find(
-    (p) => p.user_id === game.winner_id,
-  );
+  const winnerPlayer = game.players.find((p) => p.user_id === game.winner_id);
 
   let resultLabel: string;
   let resultColor: string;
@@ -64,7 +73,9 @@ function GameCard({
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs text-gray-400">
-          <span>{game.board_size}x{game.board_size} board</span>
+          <span>
+            {game.board_size}x{game.board_size} board
+          </span>
           <span>{formatDate(game.created_at)}</span>
         </div>
       </CardHeader>
@@ -109,10 +120,7 @@ function GameCard({
             Winner: {winnerPlayer.username}
           </p>
         )}
-        <Link
-          to="/replay/$gameID"
-          params={{ gameID: String(game.game_id) }}
-        >
+        <Link to="/replay/$gameID" params={{ gameID: String(game.game_id) }}>
           <Button
             variant="outline"
             size="sm"
@@ -143,9 +151,7 @@ function HistoryPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-white">Game History</h1>
-          <p className="text-gray-400 mt-1">
-            Your past games and scores
-          </p>
+          <p className="text-gray-400 mt-1">Your past games and scores</p>
         </div>
 
         {isLoading ? (

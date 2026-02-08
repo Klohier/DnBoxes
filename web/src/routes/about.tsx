@@ -18,6 +18,116 @@ import {
 
 export const Route = createFileRoute("/about")({
   component: About,
+  head: () => ({
+    meta: [
+      {
+        title: "About Dots & Boxes - How to Play & Game Rules",
+      },
+      {
+        name: "description",
+        content:
+          "Learn how to play Dots & Boxes online. Discover game rules, strategy tips, and features. Play the classic pencil-and-paper game with friends or AI opponents.",
+      },
+      {
+        name: "keywords",
+        content:
+          "dots and boxes rules, how to play dots and boxes, dots and boxes strategy, dots and boxes tips, game rules, online multiplayer",
+      },
+      // Open Graph
+      {
+        property: "og:title",
+        content: "About Dots & Boxes - How to Play & Game Rules",
+      },
+      {
+        property: "og:description",
+        content:
+          "Learn how to play Dots & Boxes online. Discover game rules, winning strategies, and multiplayer features.",
+      },
+      {
+        property: "og:type",
+        content: "website",
+      },
+      {
+        property: "og:url",
+        content: "https://dotsandboxesonline.com/about",
+      },
+
+      // Twitter Card
+      {
+        name: "twitter:card",
+        content: "summary_large_image",
+      },
+      {
+        name: "twitter:title",
+        content: "About Dots & Boxes - How to Play",
+      },
+      {
+        name: "twitter:description",
+        content: "Learn the rules and strategies of this classic game.",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://dotsandboxesonline.com/about",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "HowTo",
+          name: "How to Play Dots & Boxes",
+          description:
+            "Learn how to play the classic Dots & Boxes game online with friends or AI opponents.",
+          step: [
+            {
+              "@type": "HowToStep",
+              name: "Draw a Line",
+              text: "Take turns connecting two adjacent points with a horizontal or vertical line.",
+            },
+            {
+              "@type": "HowToStep",
+              name: "Complete a Box",
+              text: "Close the fourth side of a box to claim it and earn another turn.",
+            },
+            {
+              "@type": "HowToStep",
+              name: "Win the Game",
+              text: "The player who captures the most boxes when the grid is full wins.",
+            },
+          ],
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "How do you play Dots and Boxes?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Players take turns drawing a line between two adjacent points (horizontal or vertical). When a player completes the fourth side of a box, they claim it and take another turn. The game ends when all boxes are claimed, and the player with the most boxes wins.",
+              },
+            },
+
+            {
+              "@type": "Question",
+              name: "What is a good strategy for Dots and Boxes?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "In early game, avoid giving your opponent easy boxes. In mid game, look for chain opportunities. In late game, control the number of available boxes and force your opponent into unfavorable positions.",
+              },
+            },
+          ],
+        }),
+      },
+    ],
+  }),
 });
 
 function About() {

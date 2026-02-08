@@ -8,6 +8,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { HeadContent } from "@tanstack/react-router";
 
 interface RouterContext {
   authentication: AuthContextType;
@@ -93,6 +94,7 @@ function Root() {
       </header>
 
       <main className="flex-1">
+        <HeadContent />
         <Outlet />
       </main>
 

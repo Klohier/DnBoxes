@@ -15,6 +15,79 @@ import {
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      {
+        title: "Dots & Boxes - Play the Classic Game Online",
+      },
+      {
+        name: "description",
+        content:
+          "Play Dots & Boxes online! Challenge friends, battle AI opponents, or climb the leaderboard in this classic pencil-and-paper game reimagined for the web.",
+      },
+      {
+        name: "keywords",
+        content:
+          "dots and boxes, online game, multiplayer game, strategy game, board game, classic game",
+      },
+      // Open Graph
+      {
+        property: "og:title",
+        content: "Dots & Boxes - Play the Classic Game Online",
+      },
+      {
+        property: "og:description",
+        content:
+          "Challenge friends, battle bots, or climb the leaderboard in this classic pencil-and-paper game.",
+      },
+      {
+        property: "og:type",
+        content: "website",
+      },
+      {
+        property: "og:url",
+        content: "https://dotsandboxesonline.com/",
+      },
+
+      {
+        property: "og:site_name",
+        content: "Dots & Boxes Online",
+      },
+      // Twitter Card
+      {
+        name: "twitter:card",
+        content: "summary_large_image",
+      },
+      {
+        name: "twitter:title",
+        content: "Dots & Boxes - Play the Classic Game Online",
+      },
+      {
+        name: "twitter:description",
+        content: "Challenge friends, battle bots, or climb the leaderboard.",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://dotsandboxesonline.com/",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          name: "Dots & Boxes Online",
+          description: "Play the classic Dots & Boxes game online",
+          url: "https://dotsandboxesonline.com",
+          applicationCategory: "Game",
+          operatingSystem: "Web Browser",
+        }),
+      },
+    ],
+  }),
 });
 
 // --- Demo grid that replays a short game using the real Grid component ---
@@ -54,7 +127,7 @@ function getSharedEdge(
   row: number,
   col: number,
   edge: EdgeName,
-  size: number
+  size: number,
 ): { row: number; col: number; edge: EdgeName } | null {
   switch (edge) {
     case "top_edge":
@@ -102,8 +175,8 @@ const DEMO_MOVES: Move[] = [
   { row: 2, col: 0, edge: "bottom_edge", player: 1 },
   { row: 0, col: 0, edge: "right_edge", player: 0 },
   { row: 1, col: 2, edge: "top_edge", player: 1 },
-  { row: 0, col: 0, edge: "bottom_edge", player: 0 }, // completes (0,0)!
-  { row: 0, col: 1, edge: "top_edge", player: 0 },    // extra turn
+  { row: 0, col: 0, edge: "bottom_edge", player: 0 },
+  { row: 0, col: 1, edge: "top_edge", player: 0 },
   { row: 2, col: 2, edge: "right_edge", player: 1 },
   { row: 1, col: 0, edge: "left_edge", player: 0 },
   { row: 2, col: 1, edge: "bottom_edge", player: 1 },
@@ -130,7 +203,7 @@ function DemoGrid() {
         setBoxes((prev) => applyMove(prev, DEMO_MOVES[moveIndex]));
         setMoveIndex((i) => i + 1);
       },
-      moveIndex === 0 ? 600 : 800
+      moveIndex === 0 ? 600 : 800,
     );
 
     return () => clearTimeout(timeout);
@@ -165,32 +238,28 @@ const features = [
   {
     icon: Zap,
     title: "Bot Practice",
-    description:
-      "Sharpen your strategy against AI opponents at your own pace.",
+    description: "Sharpen your strategy against AI opponents at your own pace.",
     color: "text-yellow-400",
     bg: "bg-yellow-400/10",
   },
   {
     icon: MessageSquare,
     title: "Live Chat",
-    description:
-      "Talk with opponents during matches or in the global lobby.",
+    description: "Talk with opponents during matches or in the global lobby.",
     color: "text-green-400",
     bg: "bg-green-400/10",
   },
   {
     icon: Trophy,
     title: "Leaderboard",
-    description:
-      "Climb the ranks and see how you stack up against the best.",
+    description: "Climb the ranks and see how you stack up against the best.",
     color: "text-purple-400",
     bg: "bg-purple-400/10",
   },
   {
     icon: Sparkles,
     title: "Custom Games",
-    description:
-      "Choose board sizes and player counts for your ideal match.",
+    description: "Choose board sizes and player counts for your ideal match.",
     color: "text-cyan-400",
     bg: "bg-cyan-400/10",
   },
@@ -206,8 +275,8 @@ function Index() {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-gray-900 to-gray-900" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-linear-to-b from-blue-900/20 via-gray-900 to-gray-900" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-blue-500/5 rounded-full blur-3xl" />
 
         <div className="relative max-w-5xl mx-auto px-4 pt-16 pb-20 md:pt-24 md:pb-28">
           <div className="flex flex-col md:flex-row items-center gap-10 md:gap-16">
@@ -215,7 +284,7 @@ function Index() {
             <div className="flex-1 text-center md:text-left space-y-6">
               <h1 className="text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-tight">
                 Dots &{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-300">
                   Boxes
                 </span>
               </h1>
@@ -260,7 +329,7 @@ function Index() {
             </div>
 
             {/* Live demo of the actual game grid */}
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <DemoGrid />
             </div>
           </div>
@@ -300,7 +369,7 @@ function Index() {
               {
                 step: "1",
                 title: "Draw a Line",
-                desc: "Take turns connecting two adjacent dots with a horizontal or vertical line.",
+                desc: "Take turns connecting two adjacent points with a horizontal or vertical line.",
               },
               {
                 step: "2",

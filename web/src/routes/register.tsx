@@ -40,6 +40,28 @@ export const Route = createFileRoute("/register")({
     }
   },
   component: Register,
+  head: () => ({
+    meta: [
+      {
+        title: "Create Account - Dots & Boxes Online",
+      },
+      {
+        name: "description",
+        content:
+          "Create a free Dots & Boxes account. Play multiplayer games, track your stats, and climb the leaderboard.",
+      },
+      {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://dotsandboxesonline.com/register",
+      },
+    ],
+  }),
 });
 
 function Register() {

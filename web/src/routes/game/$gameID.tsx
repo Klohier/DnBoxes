@@ -54,6 +54,21 @@ export const Route = createFileRoute("/game/$gameID")({
       gameState: gameState,
     };
   },
+  head: ({ params }) => ({
+    meta: [
+      {
+        title: `Game ${params.gameID} - Dots & Boxes`,
+      },
+      {
+        name: "description",
+        content: "Watch or join this Dots & Boxes game in progress.",
+      },
+      {
+        name: "robots",
+        content: "noindex, follow",
+      },
+    ],
+  }),
 });
 
 function RouteComponent() {

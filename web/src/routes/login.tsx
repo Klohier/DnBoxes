@@ -41,6 +41,28 @@ export const Route = createFileRoute("/login")({
     }
   },
   component: Login,
+  head: () => ({
+    meta: [
+      {
+        title: "Sign In - Dots & Boxes Online",
+      },
+      {
+        name: "description",
+        content:
+          "Sign in to your Dots & Boxes account to play multiplayer games and track your stats.",
+      },
+      {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://dotsandboxesonline.com/login",
+      },
+    ],
+  }),
 });
 
 function Login() {

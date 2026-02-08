@@ -17,6 +17,36 @@ import axios from "axios";
 
 export const Route = createFileRoute("/_authenticated/play")({
   component: Play,
+  head: () => ({
+    meta: [
+      {
+        title: "Play Now - Dots & Boxes Online",
+      },
+      {
+        name: "description",
+        content:
+          "Start playing Dots & Boxes now. Join multiplayer matches or practice against AI opponents.",
+      },
+      {
+        property: "og:title",
+        content: "Play Dots & Boxes",
+      },
+      {
+        property: "og:description",
+        content: "Join a game now - multiplayer matches available!",
+      },
+      {
+        property: "og:url",
+        content: "https://dotsandboxesonline.com/play",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://dotsandboxesonline.com/play",
+      },
+    ],
+  }),
 });
 
 interface Game {
