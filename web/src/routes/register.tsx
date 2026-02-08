@@ -17,8 +17,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { fetchUser } from "@/api/fetchUser";
+import { Button } from "@/components/ui/button";
 
-const fallback = "/" as const;
+const fallback = "/play" as const;
 
 export const Route = createFileRoute("/register")({
   validateSearch: z.object({
@@ -65,7 +66,7 @@ export const Route = createFileRoute("/register")({
 });
 
 function Register() {
-  const { register } = useAuth();
+  const { register, loginAsGuest } = useAuth();
   const search = Route.useSearch();
   const router = useRouter();
   const isLoading = useRouterState({ select: (s) => s.isLoading });
@@ -73,6 +74,12 @@ function Register() {
 
   async function onSubmit(values: LoginCredentials) {
     await register(values);
+    await router.invalidate();
+    await navigate({ to: search.redirect ?? fallback });
+  }
+
+  async function onGuestLogin() {
+    await loginAsGuest();
     await router.invalidate();
     await navigate({ to: search.redirect ?? fallback });
   }
@@ -96,6 +103,23 @@ function Register() {
               buttonText="Sign Up"
               formType="register"
             />
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-gray-800 px-2 text-gray-400">or</span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 cursor-pointer"
+              onClick={onGuestLogin}
+              disabled={isLoading}
+            >
+              Play as Guest
+            </Button>
           </CardContent>
         </Card>
 
