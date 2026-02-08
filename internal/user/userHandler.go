@@ -81,7 +81,7 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 
 	user, err := h.userService.FindByID(ctx, id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve User: "+err.Error())
+		return echo.NewHTTPError(http.StatusNotFound, "Failed to Retrieve User")
 	}
 
 	UserResponse := NewUserResponse(user)
@@ -114,7 +114,7 @@ func (h *UserHandler) GetMe(c echo.Context) error {
     // Fetch the user
     user, err := h.userService.FindByID(ctx, userID)
     if err != nil {
-        return echo.NewHTTPError(http.StatusNotFound, "failed to retrieve user: "+err.Error())
+        return echo.NewHTTPError(http.StatusNotFound, "failed to retrieve user")
     }
 
     userResponse := NewUserResponse(user)
@@ -174,7 +174,7 @@ func (h *UserHandler) GetAllUsers(c echo.Context) error {
 
 	users, err := h.userService.userRepo.FindAll(ctx)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to Retrieve Users: "+err.Error())
+		return echo.NewHTTPError(http.StatusNotFound, "Failed to Retrieve Users")
 	}
 
 	UserResponses := NewUserResponses(users)
