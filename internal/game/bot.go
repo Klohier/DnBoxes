@@ -13,7 +13,7 @@ import (
 // BotService handles bot-specific game logic
 type BotService struct {
 	mu       sync.RWMutex
-	botGames map[int]*Game  // Changed from *GameState to *Game
+	botGames map[int]*Game  
 	nextID   int
 	bus      events.EventBus
 }
@@ -143,11 +143,7 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 			"edge", move.Edge,
 			"boxesCompleted", len(result.CompletedBoxes))
 
-		// If bot didn't complete a box, turn passes to next player
-		// if len(result.CompletedBoxes) == 0 {
-		// 	slog.Info("Bot didn't complete box, turn ending", "gameID", gameID)
-		// 	break
-		// }
+	
 
 		b.publishGameState(ctx, gameID, game)
 

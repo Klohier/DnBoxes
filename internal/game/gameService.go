@@ -48,8 +48,8 @@ func (s *GameService) GetGameEvents(ctx context.Context, gameID int) ([]events.D
 }
 
 func (s *GameService) CreateGame(ctx context.Context, playerIDs []int, boardSize int) (*Game, error) {
-	if boardSize <= 4 || boardSize >= 11 {
-		return nil, errors.New("invalid board size: must be > 4 and < 11, got: " + strconv.Itoa(boardSize))
+	if boardSize < 3 || boardSize > 20 {
+		return nil, errors.New("invalid board size: must be > 3 and < 21, got: " + strconv.Itoa(boardSize))
 	}
 
 	if len(playerIDs) < 2 || len(playerIDs) > 4 {
