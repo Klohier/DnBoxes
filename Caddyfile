@@ -1,24 +1,19 @@
 :80 {
     encode gzip
-    # Reverse proxy API
-    reverse_proxy /api/v1/* backend1:8484
-
-    # Reverse proxy WebSocket
-    reverse_proxy /ws/* backend1:8484
-
-
-    reverse_proxy /debug/pprof/* backend1:6060 {
-        flush_interval -1  # Optional: disables buffering for streaming responses
-    }
-
-
-    # Reverse proxy frontend
-    reverse_proxy frontend:80
-
+    
+ 
     header {
-        # Required for secure cookies to work properly
+        Content-Security-Policy "default-src 'self'; script-src 'self' https://analytics.ahrefs.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://analytics.ahrefs.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"  
         X-Forwarded-Proto {scheme}
         X-Real-IP {remote_host}
         X-Forwarded-For {remote_host}
     }
+    
+    reverse_proxy /api/v1/* backend1:8484
+    reverse_proxy /ws/* backend1:8484
+    reverse_proxy frontend:80
 }
