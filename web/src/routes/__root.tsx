@@ -36,10 +36,10 @@ function Root() {
             {/* Navigation Links */}
             <nav className="hidden sm:flex gap-4">
               <Link
-                to="/"
+                to="/play"
                 className="text-gray-300 hover:text-white transition-colors [&.active]:text-white [&.active]:font-semibold"
               >
-                Home
+                Play
               </Link>
               <Link
                 to="/leaderboard"

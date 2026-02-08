@@ -15,8 +15,8 @@ import { useAuth } from "@/AuthContext";
 import { toast } from "sonner";
 import axios from "axios";
 
-export const Route = createFileRoute("/_authenticated/")({
-  component: Index,
+export const Route = createFileRoute("/_authenticated/play")({
+  component: Play,
 });
 
 interface Game {
@@ -28,7 +28,7 @@ interface CreateBotGameData {
   num_bots: number;
 }
 
-function Index() {
+function Play() {
   const navigate = useNavigate();
   const auth = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
