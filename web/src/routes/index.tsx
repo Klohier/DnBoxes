@@ -318,7 +318,7 @@ function Index() {
                       <Button
                         size="lg"
                         variant="outline"
-                        className="w-full sm:w-auto border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white text-lg px-8 py-3 h-auto cursor-pointer"
+                        className="w-full bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
                       >
                         Sign In
                       </Button>
