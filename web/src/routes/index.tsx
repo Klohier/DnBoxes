@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@/AuthContext";
 import { Button } from "@/components/ui/button";
+import Grid from "@/components/Grid";
+import { Box as BoxType } from "@/types/websocket";
+import { useState, useEffect, useCallback } from "react";
 import {
   Users,
   Zap,
@@ -14,136 +17,186 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-function DotsGrid() {
-  const dots: { x: number; y: number }[] = [];
-  const cols = 4;
-  const rows = 4;
-  const spacing = 60;
-  const offsetX = 30;
-  const offsetY = 30;
+// --- Demo grid that replays a short game using the real Grid component ---
 
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      dots.push({ x: offsetX + c * spacing, y: offsetY + r * spacing });
+const DEMO_BOARD_SIZE = 3;
+const DEMO_COLORS: Record<number, string> = { 1: "#60a5fa", 2: "#f472b6" };
+const DEMO_TURN_MAP: Record<number, number> = { 0: 1, 1: 2 };
+
+type EdgeName = "top_edge" | "right_edge" | "bottom_edge" | "left_edge";
+
+interface Move {
+  row: number;
+  col: number;
+  edge: EdgeName;
+  player: number; // turn_order: 0 or 1
+}
+
+function createEmptyGrid(size: number): BoxType[] {
+  const boxes: BoxType[] = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      boxes.push({
+        row: r,
+        col: c,
+        top_edge: false,
+        right_edge: false,
+        bottom_edge: false,
+        left_edge: false,
+        owner_turn: null,
+      });
+    }
+  }
+  return boxes;
+}
+
+function getSharedEdge(
+  row: number,
+  col: number,
+  edge: EdgeName,
+  size: number
+): { row: number; col: number; edge: EdgeName } | null {
+  switch (edge) {
+    case "top_edge":
+      return row > 0 ? { row: row - 1, col, edge: "bottom_edge" } : null;
+    case "bottom_edge":
+      return row < size - 1 ? { row: row + 1, col, edge: "top_edge" } : null;
+    case "left_edge":
+      return col > 0 ? { row, col: col - 1, edge: "right_edge" } : null;
+    case "right_edge":
+      return col < size - 1 ? { row, col: col + 1, edge: "left_edge" } : null;
+  }
+}
+
+function isBoxComplete(box: BoxType): boolean {
+  return box.top_edge && box.right_edge && box.bottom_edge && box.left_edge;
+}
+
+function applyMove(boxes: BoxType[], move: Move): BoxType[] {
+  const newBoxes = boxes.map((b) => ({ ...b }));
+  const size = DEMO_BOARD_SIZE;
+
+  const idx = move.row * size + move.col;
+  newBoxes[idx][move.edge] = true;
+
+  const shared = getSharedEdge(move.row, move.col, move.edge, size);
+  if (shared) {
+    const sharedIdx = shared.row * size + shared.col;
+    newBoxes[sharedIdx][shared.edge] = true;
+  }
+
+  for (const box of newBoxes) {
+    if (box.owner_turn === null && isBoxComplete(box)) {
+      box.owner_turn = move.player;
     }
   }
 
-  const lines = [
-    // Some horizontal lines
-    { x1: 30, y1: 30, x2: 90, y2: 30, color: "#60a5fa", delay: "0s" },
-    { x1: 90, y1: 30, x2: 150, y2: 30, color: "#60a5fa", delay: "0.3s" },
-    { x1: 30, y1: 90, x2: 90, y2: 90, color: "#f472b6", delay: "0.6s" },
-    { x1: 150, y1: 90, x2: 210, y2: 90, color: "#60a5fa", delay: "0.9s" },
-    { x1: 90, y1: 150, x2: 150, y2: 150, color: "#f472b6", delay: "1.2s" },
-    { x1: 150, y1: 150, x2: 210, y2: 150, color: "#f472b6", delay: "1.5s" },
-    { x1: 30, y1: 210, x2: 90, y2: 210, color: "#60a5fa", delay: "1.8s" },
-    // Some vertical lines
-    { x1: 30, y1: 30, x2: 30, y2: 90, color: "#f472b6", delay: "0.4s" },
-    { x1: 90, y1: 30, x2: 90, y2: 90, color: "#60a5fa", delay: "0.7s" },
-    { x1: 210, y1: 30, x2: 210, y2: 90, color: "#f472b6", delay: "1.0s" },
-    { x1: 150, y1: 90, x2: 150, y2: 150, color: "#60a5fa", delay: "1.3s" },
-    { x1: 210, y1: 90, x2: 210, y2: 150, color: "#60a5fa", delay: "1.6s" },
-    { x1: 30, y1: 150, x2: 30, y2: 210, color: "#f472b6", delay: "1.9s" },
-  ];
+  return newBoxes;
+}
 
-  // Completed box fill
-  const completedBoxes = [
-    {
-      x: 31,
-      y: 31,
-      color: "rgba(96, 165, 250, 0.15)",
-      delay: "1.1s",
-    },
-  ];
+// A short scripted game — move 7 completes box (0,0) with the real boxPop animation
+const DEMO_MOVES: Move[] = [
+  { row: 0, col: 0, edge: "top_edge", player: 0 },
+  { row: 1, col: 1, edge: "right_edge", player: 1 },
+  { row: 0, col: 0, edge: "left_edge", player: 0 },
+  { row: 2, col: 0, edge: "bottom_edge", player: 1 },
+  { row: 0, col: 0, edge: "right_edge", player: 0 },
+  { row: 1, col: 2, edge: "top_edge", player: 1 },
+  { row: 0, col: 0, edge: "bottom_edge", player: 0 }, // completes (0,0)!
+  { row: 0, col: 1, edge: "top_edge", player: 0 },    // extra turn
+  { row: 2, col: 2, edge: "right_edge", player: 1 },
+  { row: 1, col: 0, edge: "left_edge", player: 0 },
+  { row: 2, col: 1, edge: "bottom_edge", player: 1 },
+  { row: 1, col: 0, edge: "bottom_edge", player: 0 },
+];
+
+function DemoGrid() {
+  const [boxes, setBoxes] = useState(() => createEmptyGrid(DEMO_BOARD_SIZE));
+  const [moveIndex, setMoveIndex] = useState(0);
+
+  const reset = useCallback(() => {
+    setBoxes(createEmptyGrid(DEMO_BOARD_SIZE));
+    setMoveIndex(0);
+  }, []);
+
+  useEffect(() => {
+    if (moveIndex >= DEMO_MOVES.length) {
+      const timeout = setTimeout(reset, 3000);
+      return () => clearTimeout(timeout);
+    }
+
+    const timeout = setTimeout(
+      () => {
+        setBoxes((prev) => applyMove(prev, DEMO_MOVES[moveIndex]));
+        setMoveIndex((i) => i + 1);
+      },
+      moveIndex === 0 ? 600 : 800
+    );
+
+    return () => clearTimeout(timeout);
+  }, [moveIndex, reset]);
 
   return (
-    <svg
-      viewBox="0 0 240 240"
-      className="w-56 h-56 md:w-72 md:h-72"
-      aria-hidden="true"
-    >
-      {/* Completed box backgrounds */}
-      {completedBoxes.map((box, i) => (
-        <rect
-          key={`box-${i}`}
-          x={box.x}
-          y={box.y}
-          width={58}
-          height={58}
-          fill={box.color}
-          className="animate-fade-in"
-          style={{ animationDelay: box.delay }}
-        />
-      ))}
-
-      {/* Lines */}
-      {lines.map((line, i) => (
-        <line
-          key={`line-${i}`}
-          x1={line.x1}
-          y1={line.y1}
-          x2={line.x2}
-          y2={line.y2}
-          stroke={line.color}
-          strokeWidth={3}
-          strokeLinecap="round"
-          className="animate-draw-line"
-          style={{ animationDelay: line.delay }}
-        />
-      ))}
-
-      {/* Dots */}
-      {dots.map((dot, i) => (
-        <circle
-          key={`dot-${i}`}
-          cx={dot.x}
-          cy={dot.y}
-          r={5}
-          className="fill-white animate-pulse-dot"
-          style={{ animationDelay: `${i * 0.1}s` }}
-        />
-      ))}
-    </svg>
+    <div className="w-56 h-56 md:w-72 md:h-72 pointer-events-none">
+      <Grid
+        gameID={0}
+        boxes={boxes}
+        userColors={DEMO_COLORS}
+        boardSize={DEMO_BOARD_SIZE}
+        userID={0}
+        handleClick={() => {}}
+        turnToUserIdMap={DEMO_TURN_MAP}
+      />
+    </div>
   );
 }
+
+// --- Feature cards ---
 
 const features = [
   {
     icon: Users,
     title: "Multiplayer",
-    description: "Play with friends or match with players worldwide in real time.",
+    description:
+      "Play with friends or match with players worldwide in real time.",
     color: "text-blue-400",
     bg: "bg-blue-400/10",
   },
   {
     icon: Zap,
     title: "Bot Practice",
-    description: "Sharpen your strategy against AI opponents at your own pace.",
+    description:
+      "Sharpen your strategy against AI opponents at your own pace.",
     color: "text-yellow-400",
     bg: "bg-yellow-400/10",
   },
   {
     icon: MessageSquare,
     title: "Live Chat",
-    description: "Talk with opponents during matches or in the global lobby.",
+    description:
+      "Talk with opponents during matches or in the global lobby.",
     color: "text-green-400",
     bg: "bg-green-400/10",
   },
   {
     icon: Trophy,
     title: "Leaderboard",
-    description: "Climb the ranks and see how you stack up against the best.",
+    description:
+      "Climb the ranks and see how you stack up against the best.",
     color: "text-purple-400",
     bg: "bg-purple-400/10",
   },
   {
     icon: Sparkles,
     title: "Custom Games",
-    description: "Choose board sizes and player counts for your ideal match.",
+    description:
+      "Choose board sizes and player counts for your ideal match.",
     color: "text-cyan-400",
     bg: "bg-cyan-400/10",
   },
 ];
+
+// --- Page ---
 
 function Index() {
   const auth = useAuth();
@@ -206,9 +259,9 @@ function Index() {
               </div>
             </div>
 
-            {/* Animated dots grid illustration */}
+            {/* Live demo of the actual game grid */}
             <div className="flex-shrink-0">
-              <DotsGrid />
+              <DemoGrid />
             </div>
           </div>
         </div>
@@ -276,9 +329,7 @@ function Index() {
 
       {/* Bottom CTA */}
       <section className="max-w-5xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">
-          Ready to play?
-        </h2>
+        <h2 className="text-3xl font-bold text-white mb-4">Ready to play?</h2>
         <p className="text-gray-400 mb-8 max-w-md mx-auto">
           Jump into a game in seconds. No download required.
         </p>
