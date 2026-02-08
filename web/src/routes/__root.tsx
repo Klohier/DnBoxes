@@ -24,6 +24,7 @@ function Root() {
 
   return (
     <>
+      <HeadContent />
       <header className="bg-gray-800 border-b border-gray-700 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between min-w-0">
           <div className="flex items-center gap-6 min-w-0">
@@ -94,7 +95,6 @@ function Root() {
       </header>
 
       <main className="flex-1">
-        <HeadContent />
         <Outlet />
       </main>
 

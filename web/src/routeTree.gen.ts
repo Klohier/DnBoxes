@@ -15,7 +15,6 @@ import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as GameIndexRouteImport } from './routes/game/index'
 import { Route as GameGameIDRouteImport } from './routes/game/$gameID'
 import { Route as AuthenticatedPlayRouteImport } from './routes/_authenticated/play'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
@@ -49,11 +48,6 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GameIndexRoute = GameIndexRouteImport.update({
-  id: '/game/',
-  path: '/game/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GameGameIDRoute = GameGameIDRouteImport.update({
@@ -93,7 +87,6 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthenticatedHistoryRoute
   '/play': typeof AuthenticatedPlayRoute
   '/game/$gameID': typeof GameGameIDRoute
-  '/game/': typeof GameIndexRoute
   '/lobby/$lobbyID': typeof AuthenticatedLobbyLobbyIDRoute
   '/replay/$gameID': typeof AuthenticatedReplayGameIDRoute
 }
@@ -106,7 +99,6 @@ export interface FileRoutesByTo {
   '/history': typeof AuthenticatedHistoryRoute
   '/play': typeof AuthenticatedPlayRoute
   '/game/$gameID': typeof GameGameIDRoute
-  '/game': typeof GameIndexRoute
   '/lobby/$lobbyID': typeof AuthenticatedLobbyLobbyIDRoute
   '/replay/$gameID': typeof AuthenticatedReplayGameIDRoute
 }
@@ -121,7 +113,6 @@ export interface FileRoutesById {
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/play': typeof AuthenticatedPlayRoute
   '/game/$gameID': typeof GameGameIDRoute
-  '/game/': typeof GameIndexRoute
   '/_authenticated/lobby/$lobbyID': typeof AuthenticatedLobbyLobbyIDRoute
   '/_authenticated/replay/$gameID': typeof AuthenticatedReplayGameIDRoute
 }
@@ -136,7 +127,6 @@ export interface FileRouteTypes {
     | '/history'
     | '/play'
     | '/game/$gameID'
-    | '/game/'
     | '/lobby/$lobbyID'
     | '/replay/$gameID'
   fileRoutesByTo: FileRoutesByTo
@@ -149,7 +139,6 @@ export interface FileRouteTypes {
     | '/history'
     | '/play'
     | '/game/$gameID'
-    | '/game'
     | '/lobby/$lobbyID'
     | '/replay/$gameID'
   id:
@@ -163,7 +152,6 @@ export interface FileRouteTypes {
     | '/_authenticated/history'
     | '/_authenticated/play'
     | '/game/$gameID'
-    | '/game/'
     | '/_authenticated/lobby/$lobbyID'
     | '/_authenticated/replay/$gameID'
   fileRoutesById: FileRoutesById
@@ -176,7 +164,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   GameGameIDRoute: typeof GameGameIDRoute
-  GameIndexRoute: typeof GameIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -221,13 +208,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/game/': {
-      id: '/game/'
-      path: '/game'
-      fullPath: '/game/'
-      preLoaderRoute: typeof GameIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/game/$gameID': {
@@ -294,7 +274,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   GameGameIDRoute: GameGameIDRoute,
-  GameIndexRoute: GameIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
