@@ -182,13 +182,25 @@ func (app *App) setupMiddleware(cfg *Config, logger *slog.Logger) {
 		},
 	}))
 
-	// CORS
-	app.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{cfg.ClientOrigin, "https://localhost:4173", "https://192.168.1.42"},
-		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
-		AllowHeaders:     []string{echo.HeaderContentType, echo.HeaderXCSRFToken},
-		AllowCredentials: true,
-	}))
+	app.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+	XSSProtection:         "1; mode=block",
+	ContentTypeNosniff:    "nosniff",
+	XFrameOptions:         "DENY",
+	HSTSMaxAge:            300, 
+	HSTSExcludeSubdomains: false,
+	HSTSPreloadEnabled:    false,
+	ContentSecurityPolicy: "default-src 'self'; script-src 'self' https://analytics.ahrefs.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://analytics.ahrefs.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'",
+	CSPReportOnly:         false,
+	ReferrerPolicy:        "strict-origin-when-cross-origin",
+}))
+app.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+	AllowOrigins:     []string{cfg.ClientOrigin},
+	AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
+	AllowHeaders:     []string{echo.HeaderContentType, echo.HeaderXCSRFToken, echo.HeaderAuthorization},
+	ExposeHeaders:    []string{echo.HeaderXCSRFToken},
+	AllowCredentials: true,
+	MaxAge:           3600,
+}))
 
 	// CSRF protection
 	app.echo.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
@@ -317,7 +329,7 @@ func (app *App) setupRoutes(
 
 	// Lobby
 	api.GET("/lobbies", lobbyHandler.GetAllLobbies)
-	api.POST("/lobbies", lobbyHandler.CreateLobby)
+	api.POST("/lobbies", lobbyHandler.CreateLobby, newAuthRateLimiter(100*time.Millisecond, 10))
 	api.POST("/lobbies/:lobbyId/join", lobbyHandler.JoinLobby)
 	api.GET("/lobbies/:lobbyId", lobbyHandler.GetLobby)
 	api.POST("/lobbies/:lobbyId/ready", lobbyHandler.ToggleReady)
@@ -334,9 +346,9 @@ func (app *App) setupRoutes(
 	api.POST("/games", gameHandler.CreateGame)
 	api.GET("/games/history", gameHandler.GetGameHistory)
 	api.GET("/games/:gameId/state", gameHandler.GetGameState)
-	api.POST("/games/:gameId/move", gameHandler.MakeMove)
-	api.POST("/games/:gameId/forfeit", gameHandler.ForfeitGame)
-	api.POST("/games/create-bot-game", gameHandler.CreateBotGame)
+	api.POST("/games/:gameId/move", gameHandler.MakeMove, newAuthRateLimiter(100*time.Millisecond, 10))
+	api.POST("/games/:gameId/forfeit", gameHandler.ForfeitGame, newAuthRateLimiter(100*time.Millisecond, 10))
+	api.POST("/games/create-bot-game", gameHandler.CreateBotGame, newAuthRateLimiter(100*time.Millisecond, 10))
 	api.GET("/games/:gameId/timer", gameHandler.GetTimerState)
 	api.GET("/games/:gameId/events", gameHandler.GetGameEvents)
 
