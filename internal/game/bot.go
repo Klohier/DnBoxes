@@ -29,8 +29,8 @@ func NewBotService(bus events.EventBus) *BotService {
 
 // CreateBotGame creates a new in-memory bot game
 func (b *BotService) CreateBotGame(playerIDs []int, numBots int, boardSize int, usernames map[int]string) (*Game, error) {
-	if boardSize <= 4 || boardSize >= 20 {
-		return nil, fmt.Errorf("invalid board size: must be >4 and <20")
+	if boardSize < 3 || boardSize > 20 {
+		return nil, fmt.Errorf("invalid board size: must be between 3 and 20, got: %d", boardSize)
 	}
 
 	if len(playerIDs) == 0 {
