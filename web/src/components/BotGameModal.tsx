@@ -27,7 +27,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { s } from "node_modules/vite/dist/node/chunks/moduleRunnerTransport";
 
 const botGameSchema = z.object({
   board_size: z.number().min(3).max(7),
