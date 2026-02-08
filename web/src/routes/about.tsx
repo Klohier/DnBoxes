@@ -186,12 +186,12 @@ function About() {
           <CardHeader>
             <CardTitle className="text-2xl text-white flex items-center gap-2">
               <Trophy className="h-6 w-6 text-yellow-500" />
-              Our Mission
+              The Mission
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-gray-300">
-              Our mission is to keep the spirit of Dots & Boxes alive in the
+              The mission is to keep the spirit of Dots & Boxes alive in the
               digital age. Whether you're a first-time player or a seasoned
               strategist, you'll find a welcoming community here to play, learn,
               and connect.
