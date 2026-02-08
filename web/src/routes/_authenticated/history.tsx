@@ -124,9 +124,9 @@ function GameCard({
           <Button
             variant="outline"
             size="sm"
-            className="w-full mt-3 border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+            className="w-full mt-3 border-gray-500 bg-gray-800/50 text-white hover:bg-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors cursor-pointer"
           >
-            <Play className="h-4 w-4 mr-2" />
+            <Play className="h-4 w-4 mr-2" aria-hidden="true" />
             Watch Replay
           </Button>
         </Link>
