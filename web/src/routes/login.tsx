@@ -115,7 +115,7 @@ function Login() {
 
             <Button
               variant="outline"
-              className="w-full bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+              className="w-full bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 cursor-pointer"
               onClick={onGuestLogin}
               disabled={isLoading}
             >
