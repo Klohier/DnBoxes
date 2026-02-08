@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { fetchUser } from "@/api/fetchUser";
 
-const fallback = "/" as const;
+const fallback = "/play" as const;
 
 export const Route = createFileRoute("/login")({
   validateSearch: z.object({
@@ -115,7 +115,7 @@ function Login() {
 
             <Button
               variant="outline"
-              className="w-full border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+              className="w-full border-gray-600 text-gray-100 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
               onClick={onGuestLogin}
               disabled={isLoading}
             >
