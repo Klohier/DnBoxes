@@ -28,4 +28,4 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             -o "ProxyCommand=cloudflared access ssh --hostname %h --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
             ${{ secrets.HOMELAB_USER }}@${{ secrets.HOMELAB_HOST }} \
-            "cd /repo/DnBoxes && git pull origin main && docker compose up -d --build"
+            "cd /opt/DnBoxes && git pull origin main && docker compose up -d --build"
