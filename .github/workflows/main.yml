@@ -8,17 +8,24 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via Cloudflare Tunnel
-        uses: and-fm/cloudflared-ssh-action@v3
-        with:
-          host: ${{ secrets.HOMELAB_HOST }}
-          username: ${{ secrets.HOMELAB_USER }}
-          private_key_filename: deploy_key
-          private_key_value: ${{ secrets.HOMELAB_SSH_KEY }}
-          port: 22
-          service_token_id: ${{ secrets.CF_CLIENT_ID }}
-          service_token_secret: ${{ secrets.CF_CLIENT_SECRET }}
-          commands: |
-            cd /repo/DnBoxes &&
-            git pull origin main &&
-            docker compose up -d --build
+      - name: Install cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOMELAB_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.HOMELAB_HOST_KEY }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          CF_CLIENT_ID: ${{ secrets.CF_CLIENT_ID }}
+          CF_CLIENT_SECRET: ${{ secrets.CF_CLIENT_SECRET }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o "ProxyCommand=cloudflared access ssh --hostname %h --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
+            ${{ secrets.HOMELAB_USER }}@${{ secrets.HOMELAB_HOST }} \
+            "cd /repo/DnBoxes && git pull origin main && docker compose up -d --build"
