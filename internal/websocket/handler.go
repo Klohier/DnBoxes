@@ -22,16 +22,16 @@ type subscribeRequest struct {
 
 // Manager holds connections and Events possible
 type Manager struct {
-	connections     ConnectionList
-	rooms           map[string]ConnectionList
-	userConns       map[int]*Connection
-	subscribedBus   map[string]bool // topics with active EventBus goroutines
-	register        chan *Connection
-	unregister      chan *Connection
-	broadcast       chan BroadcastEvent
-	eventBus        events.EventBus
-	subscribe       chan subscribeRequest
-	mu              sync.RWMutex
+	connections   ConnectionList
+	rooms         map[string]ConnectionList
+	userConns     map[int]*Connection
+	subscribedBus map[string]bool // topics with active EventBus goroutines
+	register      chan *Connection
+	unregister    chan *Connection
+	broadcast     chan BroadcastEvent
+	eventBus      events.EventBus
+	subscribe     chan subscribeRequest
+	mu            sync.RWMutex
 }
 
 func NewManager(eventBus events.EventBus) *Manager {

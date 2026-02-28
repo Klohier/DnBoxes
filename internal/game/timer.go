@@ -39,7 +39,7 @@ type GameTimer struct {
 	playerUserIDs    map[int]int           // turnOrder -> userID
 	userIDToTurn     map[int]int           // userID -> turnOrder
 	activeTurn       int
-	turnStartedAt   time.Time
+	turnStartedAt    time.Time
 	disconnected     map[int]bool        // userID -> is disconnected
 	disconnectTimers map[int]*time.Timer // userID -> 30s grace timer
 	stopped          bool
@@ -83,7 +83,7 @@ func (s *GameTimerService) StartTimer(gameID int, players []Player, startingTurn
 		playerUserIDs:    make(map[int]int),
 		userIDToTurn:     make(map[int]int),
 		activeTurn:       startingTurn,
-		turnStartedAt:   time.Now(),
+		turnStartedAt:    time.Now(),
 		disconnected:     make(map[int]bool),
 		disconnectTimers: make(map[int]*time.Timer),
 		stopChan:         make(chan struct{}),

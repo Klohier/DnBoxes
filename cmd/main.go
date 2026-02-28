@@ -28,24 +28,24 @@ import (
 )
 
 type Config struct {
-	DBName       string
-	DBPass       string
-	DBUser       string
-	DBType       string
-	DBHost       string
-	DBPort       string
-	Port         string
+	DBName        string
+	DBPass        string
+	DBUser        string
+	DBType        string
+	DBHost        string
+	DBPort        string
+	Port          string
 	RedisPassword string
-	RedisAddr    string
-	ClientOrigin string
-	TokenKey     []byte
+	RedisAddr     string
+	ClientOrigin  string
+	TokenKey      []byte
 }
 
 type App struct {
-	echo   *echo.Echo
-	db     *pgxpool.Pool
-	redis  *redis.Client
-	logger *slog.Logger
+	echo    *echo.Echo
+	db      *pgxpool.Pool
+	redis   *redis.Client
+	logger  *slog.Logger
 	metrics *metrics.MetricsCollector
 }
 
@@ -91,9 +91,9 @@ func run() error {
 
 	// Start pprof server
 	if os.Getenv("LOG_LEVEL") == "debug" {
-	slog.Info("Debug mode enabled, starting pprof")
-	go startPprofServer()
-}
+		slog.Info("Debug mode enabled, starting pprof")
+		go startPprofServer()
+	}
 
 	// Start server
 	slog.Info("Starting server", "port", cfg.Port)
@@ -107,17 +107,17 @@ func loadConfig() *Config {
 	}
 
 	return &Config{
-		DBName:       os.Getenv("POSTGRES_DB"),
-		DBPass:       os.Getenv("DATABASEPASSWORD"),
-		DBUser:       os.Getenv("DATABASEUSER"),
-		DBType:       os.Getenv("DATABASETYPE"),
-		DBHost:       os.Getenv("DATABASEHOST"),
-		DBPort:       os.Getenv("DATABASEPORT"),
-		Port:         os.Getenv("PORT"),
+		DBName:        os.Getenv("POSTGRES_DB"),
+		DBPass:        os.Getenv("DATABASEPASSWORD"),
+		DBUser:        os.Getenv("DATABASEUSER"),
+		DBType:        os.Getenv("DATABASETYPE"),
+		DBHost:        os.Getenv("DATABASEHOST"),
+		DBPort:        os.Getenv("DATABASEPORT"),
+		Port:          os.Getenv("PORT"),
 		RedisPassword: os.Getenv("REDIS_PASSWORD"),
-		RedisAddr: os.Getenv("REDIS_ADDR"),
-		ClientOrigin: clientOrigin,
-		TokenKey:     []byte(os.Getenv("TOKEN_KEY")),
+		RedisAddr:     os.Getenv("REDIS_ADDR"),
+		ClientOrigin:  clientOrigin,
+		TokenKey:      []byte(os.Getenv("TOKEN_KEY")),
 	}
 }
 
@@ -182,25 +182,25 @@ func (app *App) setupMiddleware(cfg *Config, logger *slog.Logger) {
 		},
 	}))
 
-app.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
-	XSSProtection:         "1; mode=block",
-	ContentTypeNosniff:    "nosniff",
-	XFrameOptions:         "DENY",
-	HSTSMaxAge:            300, 
-	HSTSExcludeSubdomains: false,
-	HSTSPreloadEnabled:    false,
-	ContentSecurityPolicy: "default-src 'self'; script-src 'self' https://analytics.ahrefs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://analytics.ahrefs.com https://cloudflareinsights.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'",
-	CSPReportOnly:         false,
-	ReferrerPolicy:        "strict-origin-when-cross-origin",
-}))
-app.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-	AllowOrigins:     []string{cfg.ClientOrigin},
-	AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
-	AllowHeaders:     []string{echo.HeaderContentType, echo.HeaderXCSRFToken, echo.HeaderAuthorization},
-	ExposeHeaders:    []string{echo.HeaderXCSRFToken},
-	AllowCredentials: true,
-	MaxAge:           3600,
-}))
+	app.echo.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+		XSSProtection:         "1; mode=block",
+		ContentTypeNosniff:    "nosniff",
+		XFrameOptions:         "DENY",
+		HSTSMaxAge:            300,
+		HSTSExcludeSubdomains: false,
+		HSTSPreloadEnabled:    false,
+		ContentSecurityPolicy: "default-src 'self'; script-src 'self' https://analytics.ahrefs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://analytics.ahrefs.com https://cloudflareinsights.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'",
+		CSPReportOnly:         false,
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+	}))
+	app.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     []string{cfg.ClientOrigin},
+		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
+		AllowHeaders:     []string{echo.HeaderContentType, echo.HeaderXCSRFToken, echo.HeaderAuthorization},
+		ExposeHeaders:    []string{echo.HeaderXCSRFToken},
+		AllowCredentials: true,
+		MaxAge:           3600,
+	}))
 
 	// CSRF protection
 	app.echo.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
@@ -216,8 +216,6 @@ app.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 func (app *App) setupServices(cfg *Config) error {
 	// Initialize event bus
 	eventBus := infra.NewRedisEventBus(app.redis)
-
-
 
 	app.metrics = metrics.NewMetricsCollector(context.Background(), eventBus)
 	// Initialize repositories
@@ -305,13 +303,13 @@ func (app *App) setupRoutes(
 ) {
 	// Public routes with rate limiting
 	public := app.echo.Group("/api/v1")
-	public.POST("/login", loginHandler.Login, newAuthRateLimiter(12*time.Second, 5))        // ~5 per minute
-	public.POST("/users", userHandler.CreateUser, newAuthRateLimiter(20*time.Second, 3))     // ~3 per minute
-	public.POST("/guest", loginHandler.GuestLogin, newAuthRateLimiter(6*time.Second, 5))     // ~10 per minute
+	public.POST("/login", loginHandler.Login, newAuthRateLimiter(12*time.Second, 5))     // ~5 per minute
+	public.POST("/users", userHandler.CreateUser, newAuthRateLimiter(20*time.Second, 3)) // ~3 per minute
+	public.POST("/guest", loginHandler.GuestLogin, newAuthRateLimiter(6*time.Second, 5)) // ~10 per minute
 	// public.GET("/metrics", app.handleMetrics)
 
 	public.GET("/stats/leaderboard", statsHandler.GetLeaderboard)
-	
+
 	// Protected routes
 	api := app.echo.Group("/api/v1")
 	api.Use(echojwt.WithConfig(echojwt.Config{
@@ -360,7 +358,6 @@ func (app *App) setupRoutes(
 	// Stats
 	api.GET("/stats/me", statsHandler.GetMyStats)
 	api.GET("/stats/users/:userId", statsHandler.GetUserStats)
-	
 
 }
 

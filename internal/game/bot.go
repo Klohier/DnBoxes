@@ -13,7 +13,7 @@ import (
 // BotService handles bot-specific game logic
 type BotService struct {
 	mu       sync.RWMutex
-	botGames map[int]*Game  
+	botGames map[int]*Game
 	nextID   int
 	bus      events.EventBus
 }
@@ -23,7 +23,7 @@ func NewBotService(bus events.EventBus) *BotService {
 	return &BotService{
 		botGames: make(map[int]*Game),
 		nextID:   10000,
-			bus:      bus,
+		bus:      bus,
 	}
 }
 
@@ -118,10 +118,10 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 		// Generate bot move
 		move := game.GenerateBotMove(currentPlayer.TurnOrder)
 		if move == nil {
-			slog.Warn("Bot has no valid moves, skipping", 
-				"gameID", gameID, 
+			slog.Warn("Bot has no valid moves, skipping",
+				"gameID", gameID,
 				"botID", *currentPlayer.UserID)
-			
+
 			game.CurrentTurn = (game.CurrentTurn + 1) % len(game.Players)
 			continue
 		}
@@ -129,8 +129,8 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 		// Apply bot move
 		result, err := game.ApplyMove(*move)
 		if err != nil {
-				slog.Error("Bot move failed", 
-				"gameID", gameID, 
+			slog.Error("Bot move failed",
+				"gameID", gameID,
 				"botID", *currentPlayer.UserID,
 				"error", err)
 		}
@@ -143,16 +143,13 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 			"edge", move.Edge,
 			"boxesCompleted", len(result.CompletedBoxes))
 
-	
-
 		b.publishGameState(ctx, gameID, game)
 
-
-			if len(result.CompletedBoxes) > 0 {
-			slog.Info("Bot completed boxes, checking if it gets another turn", 
+		if len(result.CompletedBoxes) > 0 {
+			slog.Info("Bot completed boxes, checking if it gets another turn",
 				"gameID", gameID,
 				"boxCount", len(result.CompletedBoxes))
-				time.Sleep(600 * time.Millisecond)
+			time.Sleep(600 * time.Millisecond)
 		}
 
 		slog.Info("Bot completed boxes, taking another turn", "gameID", gameID, "boxCount", len(result.CompletedBoxes))
@@ -163,22 +160,20 @@ func (b *BotService) PlayBotTurn(ctx context.Context, gameID int) error {
 	if err != nil {
 		return err
 	}
-	
-	b.publishGameState(ctx, gameID, game)
 
+	b.publishGameState(ctx, gameID, game)
 
 	if game.IsGameOver() {
 		b.publishGameCompleted(ctx, gameID, game.WinnerID)
 		slog.Info("Bot game completed", "gameID", gameID, "winner", game.WinnerID)
 	}
 
-
 	return nil
 }
 
 func (b *BotService) publishGameState(ctx context.Context, gameID int, game *Game) {
 	topic := fmt.Sprintf("game:%d", gameID)
-	
+
 	payloadBytes, err := json.Marshal(game)
 	if err != nil {
 		slog.Error("Failed to marshal game state", "gameID", gameID, "error", err)
@@ -213,12 +208,12 @@ func (b *BotService) publishGameCompleted(ctx context.Context, gameID int, winne
 func (b *BotService) GetBotGameState(gameID int) (*Game, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	
+
 	game, ok := b.botGames[gameID]
 	if !ok {
 		return nil, fmt.Errorf("bot game %d not found", gameID)
 	}
-	
+
 	return game, nil
 }
 

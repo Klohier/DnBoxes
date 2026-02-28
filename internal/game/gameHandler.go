@@ -41,7 +41,7 @@ func (h *GameHandler) CreateGame(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-	
+
 	// Subscribe players to game room
 	if game.GameID != nil {
 		topic := fmt.Sprintf("game:%d", *game.GameID)
@@ -49,7 +49,7 @@ func (h *GameHandler) CreateGame(c echo.Context) error {
 			h.wsSubscriber.SubscribeUser(playerID, topic)
 		}
 	}
-	
+
 	return c.JSON(http.StatusOK, game)
 }
 
@@ -58,7 +58,7 @@ func (h *GameHandler) GetGameState(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
 	}
-	
+
 	// Subscribe user to game
 	if userToken := c.Get("user"); userToken != nil {
 		if claims := userToken.(*jwt.Token).Claims.(jwt.MapClaims); claims != nil {
@@ -69,12 +69,12 @@ func (h *GameHandler) GetGameState(c echo.Context) error {
 			}
 		}
 	}
-	
+
 	game, err := h.gameService.GetGame(c.Request().Context(), gameID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Game not found"})
 	}
-	
+
 	return c.JSON(http.StatusOK, game)
 }
 
@@ -83,23 +83,23 @@ func (h *GameHandler) MakeMove(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid game ID"})
 	}
-	
+
 	var req struct {
 		PlayerID int    `json:"playerId"`
 		Row      int    `json:"row"`
 		Col      int    `json:"col"`
 		Edge     string `json:"edge"`
 	}
-	
+
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
-	
+
 	game, err := h.gameService.MakeMove(c.Request().Context(), gameID, req.PlayerID, req.Row, req.Col, req.Edge)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-	
+
 	return c.JSON(http.StatusOK, game)
 }
 
@@ -130,7 +130,7 @@ func (h *GameHandler) CreateBotGame(c echo.Context) error {
 
 	game, err := h.gameService.CreateBotGame(c.Request().Context(), playerIDs, req.NumBots, req.BoardSize)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: " })
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create bot game: "})
 	}
 
 	if game.GameID != nil {

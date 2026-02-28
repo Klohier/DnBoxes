@@ -8,7 +8,7 @@ import (
 func mockGame(boardSize int) *Game {
 	userID1 := 1
 	userID2 := 2
-	
+
 	players := []Player{
 		{UserID: &userID1, Username: "Alice", TurnOrder: 0, Score: 0},
 		{UserID: &userID2, Username: "Bob", TurnOrder: 1, Score: 0},
@@ -290,7 +290,7 @@ func TestCompletingMultipleBoxesInOneMove(t *testing.T) {
 
 func mockGameWithPlayers(boardSize int, numPlayers int) *Game {
 	players := []Player{}
-	
+
 	for i := 0; i < numPlayers; i++ {
 		userID := i + 1
 		players = append(players, Player{

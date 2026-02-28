@@ -58,10 +58,8 @@ func (repo *PgGameRepository) FindByID(ctx context.Context, gameID int) (*Game, 
 		return LoadFromEvents(domainEvents), nil
 	}
 
-	
 	return nil, err
 }
-
 
 // Create inserts the game projection (games + game_details) and persists the
 // initial domain events from the aggregate.

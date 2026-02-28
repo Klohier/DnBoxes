@@ -59,7 +59,7 @@ func (repo *PgUserRepository) Create(ctx context.Context, username string, passw
 	query := `INSERT INTO users (username, password) VALUES ($1, $2) RETURNING user_id, username`
 	err := repo.db.QueryRow(ctx, query, username, password).Scan(&user.UserID, &user.Username)
 	if err != nil {
-		return nil, errors.New("Failed to Create User" )
+		return nil, errors.New("Failed to Create User")
 	}
 
 	return &user, nil
@@ -71,7 +71,7 @@ func (repo *PgUserRepository) CreateGuest(ctx context.Context, username string) 
 	query := `INSERT INTO users (username, is_guest) VALUES ($1, true) RETURNING user_id, username, is_guest`
 	err := repo.db.QueryRow(ctx, query, username).Scan(&user.UserID, &user.Username, &user.IsGuest)
 	if err != nil {
-		return nil, errors.New("failed to create guest user: " )
+		return nil, errors.New("failed to create guest user: ")
 	}
 	return &user, nil
 }
@@ -125,7 +125,7 @@ func (repo *PgUserRepository) UpdateGameID(ctx context.Context, userID int, game
 
 	user, err := repo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("failed to get updated user after updating gameID: " )
+		return nil, errors.New("failed to get updated user after updating gameID: ")
 	}
 
 	return user, nil

@@ -10,21 +10,20 @@ import (
 	"github.com/google/uuid"
 )
 
-
 type LobbyService struct {
 	lobbyRepo LobbyRepository
-	bus 	  events.EventBus
+	bus       events.EventBus
 }
 
 type PlayerJoinedPayload struct {
-    LobbyID string       `json:"lobby_id"`
-    Player  LobbyPlayer `json:"player"`
+	LobbyID string      `json:"lobby_id"`
+	Player  LobbyPlayer `json:"player"`
 }
 
 type LobbyUpdatedPayload struct {
 	LobbyID string        `json:"lobby_id"`
 	Players []LobbyPlayer `json:"players"`
-	Status  string        `json:"status"` 
+	Status  string        `json:"status"`
 }
 
 func NewLobbyService(lobbyRepo LobbyRepository, bus events.EventBus) *LobbyService {
@@ -37,30 +36,29 @@ func (s *LobbyService) CreateLobby(ctx context.Context, hostID int64, username s
 		LobbyID:     lobbyID,
 		HostID:      hostID,
 		Name:        name,
-        BoardSize:   boardSize,
+		BoardSize:   boardSize,
 		PlayerLimit: limit,
 		IsPrivate:   isPrivate,
 		CreatedAt:   time.Now(),
-        Players:     []LobbyPlayer{},
+		Players:     []LobbyPlayer{},
 	}
 
 	// Add host as first player
-	   if err := lobby.AddPlayer(hostID, username); err != nil {
-        return nil, err
-    }
+	if err := lobby.AddPlayer(hostID, username); err != nil {
+		return nil, err
+	}
 
 	if err := s.lobbyRepo.CreateLobby(ctx, lobby); err != nil {
 		return nil, err
 	}
 
+	payloadBytes, err := json.Marshal(lobby)
+	if err != nil {
+		return nil, err
+	}
 
-payloadBytes, err := json.Marshal(lobby)
-if err != nil {
-    return nil, err
-}
-
-// When websockets  readsd from "global:lobbies", they will get this event from event bus and emit to topic subscribers
-    s.bus.Publish(ctx, "global:lobbies", events.Event{Topic: "global:lobbies", Type: "lobby_created", Payload: payloadBytes})
+	// When websockets  readsd from "global:lobbies", they will get this event from event bus and emit to topic subscribers
+	s.bus.Publish(ctx, "global:lobbies", events.Event{Topic: "global:lobbies", Type: "lobby_created", Payload: payloadBytes})
 
 	return lobby, nil
 }
@@ -72,35 +70,35 @@ func (s *LobbyService) JoinLobby(ctx context.Context, lobbyID string, userID int
 		return err
 	}
 	if lobby == nil {
-        return ErrLobbyNotFound
-    }
+		return ErrLobbyNotFound
+	}
 
 	if err := lobby.AddPlayer(userID, username); err != nil {
-        return err
-    }
+		return err
+	}
 
-	 if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
-        return err
-    }
+	if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
+		return err
+	}
 
-    payload := LobbyUpdatedPayload{
+	payload := LobbyUpdatedPayload{
 		LobbyID: lobby.LobbyID,
 		Players: lobby.Players,
 		Status:  "waiting",
 	}
 
-    payloadBytes, err := json.Marshal(payload)
-if err != nil {
-    return err
-}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
 
-    s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{Topic:   "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+	s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{Topic: "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
 
-    s.bus.Publish(ctx, "global:lobbies", events.Event{
-    Topic:   "lobby:" + lobbyID,
-    Type:    "lobby_updated",
-    Payload: payloadBytes,
-})
+	s.bus.Publish(ctx, "global:lobbies", events.Event{
+		Topic:   "lobby:" + lobbyID,
+		Type:    "lobby_updated",
+		Payload: payloadBytes,
+	})
 
 	return nil
 }
@@ -170,66 +168,66 @@ func (s *LobbyService) DeleteLobby(ctx context.Context, lobbyID string) error {
 
 func (s *LobbyService) SetPlayerReady(ctx context.Context, lobbyID string, userID int64, ready bool) error {
 
-	 lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
-    if err != nil {
-        return err
-    }
-    if lobby == nil {
-        return ErrLobbyNotFound
-    }
+	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+	if err != nil {
+		return err
+	}
+	if lobby == nil {
+		return ErrLobbyNotFound
+	}
 
-    lobby.SetReady(userID, ready)
+	lobby.SetReady(userID, ready)
 
-    if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
-        return err
-    }
+	if err := s.lobbyRepo.Save(ctx, lobby); err != nil {
+		return err
+	}
 
-    payload := LobbyUpdatedPayload{
+	payload := LobbyUpdatedPayload{
 		LobbyID: lobby.LobbyID,
 		Players: lobby.Players,
 		Status:  "waiting",
 	}
 
-    payloadBytes, err := json.Marshal(payload)
-if err != nil {
-    return err
-}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
 
-    s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{ Topic:   "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
+	s.bus.Publish(ctx, "lobby:"+lobbyID, events.Event{Topic: "lobby:" + lobbyID, Type: "lobby_updated", Payload: payloadBytes})
 
-    s.bus.Publish(ctx, "global:lobbies", events.Event{
-    Topic:   "lobby:" + lobbyID,
-    Type:    "lobby_updated",
-    Payload: payloadBytes,
-})
+	s.bus.Publish(ctx, "global:lobbies", events.Event{
+		Topic:   "lobby:" + lobbyID,
+		Type:    "lobby_updated",
+		Payload: payloadBytes,
+	})
 
 	return nil
 }
 
 func (s *LobbyService) GetLobbyPlayers(ctx context.Context, lobbyID string) ([]LobbyPlayer, error) {
 	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
-    if err != nil {
-        return nil, err
-    }
-    if lobby == nil {
-        return nil, ErrLobbyNotFound
-    }
-    return lobby.Players, nil
+	if err != nil {
+		return nil, err
+	}
+	if lobby == nil {
+		return nil, ErrLobbyNotFound
+	}
+	return lobby.Players, nil
 }
 
 func (s *LobbyService) GetAllLobbies(ctx context.Context) ([]*Lobby, error) {
-    lobbies, err := s.lobbyRepo.GetAllLobbies(ctx)
-    if err != nil {
-        return nil, err
-    }
+	lobbies, err := s.lobbyRepo.GetAllLobbies(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-    return lobbies, nil
+	return lobbies, nil
 }
 
 func (s *LobbyService) GetLobby(ctx context.Context, lobbyID string) (*Lobby, error) {
-    lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)    
-    if err != nil {
-        return nil, err
-    }
-    return lobby, nil
+	lobby, err := s.lobbyRepo.GetLobby(ctx, lobbyID)
+	if err != nil {
+		return nil, err
+	}
+	return lobby, nil
 }

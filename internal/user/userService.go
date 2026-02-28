@@ -90,7 +90,7 @@ func (s *UserService) CreateGuestUser(ctx context.Context) (*User, error) {
 
 	guest, err := s.userRepo.CreateGuest(ctx, username)
 	if err != nil {
-		return nil, errors.New("failed to create guest user: " )
+		return nil, errors.New("failed to create guest user: ")
 	}
 	return guest, nil
 }

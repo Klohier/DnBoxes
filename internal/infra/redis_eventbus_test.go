@@ -15,13 +15,13 @@ import (
 func TestRedisEventBus(t *testing.T) {
 	ctx := context.Background()
 
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379" ,DB:   1,})
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 1})
 	bus := infra.NewRedisEventBus(rdb)
 
 	received := make(chan events.Event, 1)
 
 	err := bus.Subscribe(ctx, "test_topic", func(evt events.Event) {
-t.Logf("handler received event: Type=%s Payload=%s", evt.Type, string(evt.Payload))
+		t.Logf("handler received event: Type=%s Payload=%s", evt.Type, string(evt.Payload))
 		received <- evt
 	})
 	if err != nil {
@@ -29,7 +29,7 @@ t.Logf("handler received event: Type=%s Payload=%s", evt.Type, string(evt.Payloa
 	}
 
 	testEvent := events.Event{
-		Type: "USER_JOINED",
+		Type:    "USER_JOINED",
 		Payload: json.RawMessage(`{"user_id": 124}`),
 	}
 
@@ -39,7 +39,7 @@ t.Logf("handler received event: Type=%s Payload=%s", evt.Type, string(evt.Payloa
 
 	select {
 	case evt := <-received:
-		t.Logf("test received event: Type=%s Payload=%s",  evt.Type, string(evt.Payload))
+		t.Logf("test received event: Type=%s Payload=%s", evt.Type, string(evt.Payload))
 		if evt.Type != testEvent.Type {
 			t.Fatalf("expected event name %s, got %s", testEvent.Type, evt.Type)
 		}
@@ -47,4 +47,3 @@ t.Logf("handler received event: Type=%s Payload=%s", evt.Type, string(evt.Payloa
 		t.Fatalf("did not receive event")
 	}
 }
-

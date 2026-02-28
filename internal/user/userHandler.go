@@ -92,34 +92,33 @@ func (h *UserHandler) FindByID(c echo.Context) error {
 
 func (h *UserHandler) GetMe(c echo.Context) error {
 	ctx := c.Request().Context()
- // Get the JWT token object injected by echo-jwt middleware
-    userToken, ok := c.Get("user").(*jwt.Token)
-    if !ok {
-        return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
-    }
+	// Get the JWT token object injected by echo-jwt middleware
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "unauthenticated")
+	}
 
-    // Extract claims
-    claims, ok := userToken.Claims.(jwt.MapClaims)
-    if !ok || !userToken.Valid {
-        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
-    }
+	// Extract claims
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok || !userToken.Valid {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid token claims")
+	}
 
-    // Get user ID from claims
-    userIDFloat, ok := claims["sub"].(float64)
-    if !ok {
-        return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
-    }
-    userID := int(userIDFloat)
+	// Get user ID from claims
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid token subject")
+	}
+	userID := int(userIDFloat)
 
-    // Fetch the user
-    user, err := h.userService.FindByID(ctx, userID)
-    if err != nil {
-        return echo.NewHTTPError(http.StatusNotFound, "failed to retrieve user")
-    }
+	// Fetch the user
+	user, err := h.userService.FindByID(ctx, userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "failed to retrieve user")
+	}
 
-    userResponse := NewUserResponse(user)
-    return c.JSON(http.StatusOK, userResponse)
-
+	userResponse := NewUserResponse(user)
+	return c.JSON(http.StatusOK, userResponse)
 
 }
 
@@ -180,4 +179,3 @@ func (h *UserHandler) GetAllUsers(c echo.Context) error {
 	UserResponses := NewUserResponses(users)
 	return c.JSON(http.StatusOK, UserResponses)
 }
-
