@@ -283,10 +283,7 @@ function Index() {
             {/* Text content */}
             <div className="flex-1 text-center md:text-left space-y-6">
               <h1 className="text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-tight">
-                Dots &{" "}
-                <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 to-cyan-300">
-                  Boxes
-                </span>
+                Dots & Boxes
               </h1>
               <p className="text-xl text-gray-300 max-w-lg">
                 The classic pencil-and-paper game, reimagined for the web.
