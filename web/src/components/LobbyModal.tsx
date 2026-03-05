@@ -97,11 +97,6 @@ export function LobbyModal({ open, onClose, onSubmit }: LobbyModalProps) {
             )}
           </div>
 
-          {/* Private Toggle */}
-          <div className="flex items-center justify-between">
-            <Label htmlFor="is_private">Private Lobby</Label>
-          </div>
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
