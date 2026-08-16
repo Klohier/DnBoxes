@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     },
   });
 
-  const guestMutation = useMutation<User, Error>({
+  const guestMutation = useMutation<User>({
     mutationFn: guestLogin,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["me"] });
