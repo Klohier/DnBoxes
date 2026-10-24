@@ -62,7 +62,7 @@
     "eslint-plugin-storybook": "^10.2.5",
     "globals": "^17.3.0",
     "playwright": "^1.54.1",
-    "storybook": "^10.2.5",
+    "storybook": "^10.6.2",
     "tailwindcss": "^4.1.11",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5.8.3",
