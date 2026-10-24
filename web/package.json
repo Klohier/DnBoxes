@@ -42,7 +42,7 @@
     "@storybook/addon-a11y": "^10.2.5",
     "@storybook/addon-docs": "^10.2.5",
     "@storybook/addon-onboarding": "^10.2.5",
-    "@storybook/addon-vitest": "^10.2.5",
+    "@storybook/addon-vitest": "^10.6.2",
     "@storybook/react-vite": "^10.2.5",
     "@tanstack/eslint-plugin-query": "^5.81.2",
     "@tanstack/eslint-plugin-router": "^1.129.7",
